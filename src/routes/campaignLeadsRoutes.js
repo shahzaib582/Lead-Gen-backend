@@ -3,6 +3,7 @@ const { body, param, query } = require('express-validator');
 const rateLimit = require('express-rate-limit');
 const campaignLeadsController  = require('../controllers/campaignLeadsController');
 const mailTemplateController   = require('../controllers/mailTemplateController');
+const campaignMailerController = require('../controllers/campaignMailerController');
 const { authenticate }         = require('../middleware/authenticate');
 
 // mergeParams: true is REQUIRED so :id from the parent campaigns router is accessible
@@ -137,6 +138,30 @@ router.post(
       .isUUID().withMessage('campaign_lead_id must be a valid UUID.'),
   ],
   mailTemplateController.generateTemplates,
+);
+
+// POST   /campaigns/:id/leads/send-emails
+// Send AI-generated emails to all pending leads that already have a mail_template.
+// Features:
+//   • Random delay (10s–60s, env-configurable) between each send
+//   • Hard cap of 500 emails per UTC calendar day across all campaigns
+//   • Mirrors send status back to leads_data (outreachStatus, emailSent, emailSentDate)
+//
+// Body params (all optional):
+//   campaign_lead_id  — UUID: restrict send to a single lead
+//   access_token      — Google OAuth2 token (falls back to req.user.googleAccessToken)
+router.post(
+  '/send-emails',
+  [
+    campaignIdParam,
+    body('campaign_lead_id')
+      .optional({ nullable: true })
+      .isUUID().withMessage('campaign_lead_id must be a valid UUID.'),
+    body('access_token')
+      .optional({ nullable: true })
+      .isString().withMessage('access_token must be a string.'),
+  ],
+  campaignMailerController.sendEmails,
 );
 
 // GET    /campaigns/:id/leads

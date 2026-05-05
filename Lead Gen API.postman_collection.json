@@ -1,0 +1,2815 @@
+{
+  "info": {
+    "_postman_id": "af310d07-7c11-484a-ae15-f6179b60bd88",
+    "name": "Lead Gen API",
+    "description": "Complete API collection for the Lead Gen auth + campaigns backend.\n\n**Setup:**\n1. Set the `baseUrl` variable to your server (default: http://localhost:3000)\n2. Run **Sign Up** → check email for OTP → run **Verify OTP**\n3. `accessToken` and `refreshToken` are saved automatically from login/verify responses\n4. All campaign requests use the saved `accessToken` automatically",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "50827256",
+    "_collection_link": "https://go.postman.co/collection/50827256-af310d07-7c11-484a-ae15-f6179b60bd88?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "Verify the server is running."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/health",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "health"
+                  ]
+                },
+                "description": "Verify the server is running."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "Text",
+              "header": [],
+              "cookie": [],
+              "body": "{\"status\":\"ok\"}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Sign Up",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data && res.data.userId) {",
+                  "  pm.collectionVariables.set('userId', res.data.userId);",
+                  "  console.log('userId saved:', res.data.userId);",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"f201122@cfd.nu.edu.pk\",\n  \"password\": \"SecureP@ss1\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/signup",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "signup"
+              ]
+            },
+            "description": "Create a new account. Returns a `userId` — saved automatically to the collection variable. Check your email for the 6-digit OTP."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"f201122@cfd.nu.edu.pk\",\n  \"password\": \"SecureP@ss1\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/auth/signup",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "signup"
+                  ]
+                },
+                "description": "Create a new account. Returns a `userId` — saved automatically to the collection variable. Check your email for the 6-digit OTP."
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "Text",
+              "header": [],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Account created. Check your email for your 6-digit verification code.\",\n  \"data\": { \"userId\": \"uuid-here\" }\n}"
+            },
+            {
+              "name": "422 Validation Error",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"f201122@cfd.nu.edu.pk\",\n  \"password\": \"SecureP@ss1\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/auth/signup",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "signup"
+                  ]
+                },
+                "description": "Create a new account. Returns a `userId` — saved automatically to the collection variable. Check your email for the 6-digit OTP."
+              },
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "_postman_previewlanguage": "Text",
+              "header": [],
+              "cookie": [],
+              "body": "{\n  \"success\": false,\n  \"message\": \"Password must be at least 8 characters.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Verify OTP",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data) {",
+                  "  if (res.data.accessToken) {",
+                  "    pm.collectionVariables.set('accessToken', res.data.accessToken);",
+                  "    console.log('accessToken saved');",
+                  "  }",
+                  "  if (res.data.refreshToken) {",
+                  "    pm.collectionVariables.set('refreshToken', res.data.refreshToken);",
+                  "    console.log('refreshToken saved');",
+                  "  }",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{userId}}\",\n  \"otp\": \"397679\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/verify-otp",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "verify-otp"
+              ]
+            },
+            "description": "Verify the OTP sent to email. Replace `123456` with the real OTP. On success, `accessToken` and `refreshToken` are saved automatically."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"userId\": \"{{userId}}\",\n  \"otp\": \"397679\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/auth/verify-otp",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "verify-otp"
+                  ]
+                },
+                "description": "Verify the OTP sent to email. Replace `123456` with the real OTP. On success, `accessToken` and `refreshToken` are saved automatically."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "Text",
+              "header": [],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Email verified successfully.\",\n  \"data\": {\n    \"accessToken\": \"eyJ...\",\n    \"refreshToken\": \"abc123...\"\n  }\n}"
+            },
+            {
+              "name": "400 Already Verified",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"userId\": \"{{userId}}\",\n  \"otp\": \"397679\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/auth/verify-otp",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "verify-otp"
+                  ]
+                },
+                "description": "Verify the OTP sent to email. Replace `123456` with the real OTP. On success, `accessToken` and `refreshToken` are saved automatically."
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "Text",
+              "header": [],
+              "cookie": [],
+              "body": "{\n  \"success\": false,\n  \"message\": \"Email is already verified.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Resend OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{userId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/resend-otp",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "resend-otp"
+              ]
+            },
+            "description": "Resend a fresh OTP to the user's email. Uses the saved `userId` variable."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"userId\": \"{{userId}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/auth/resend-otp",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "resend-otp"
+                  ]
+                },
+                "description": "Resend a fresh OTP to the user's email. Uses the saved `userId` variable."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "Text",
+              "header": [],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"message\": \"A new verification code has been sent to your email.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data) {",
+                  "  if (res.data.accessToken) {",
+                  "    pm.collectionVariables.set('accessToken', res.data.accessToken);",
+                  "    console.log('accessToken saved');",
+                  "  }",
+                  "  if (res.data.refreshToken) {",
+                  "    pm.collectionVariables.set('refreshToken', res.data.refreshToken);",
+                  "    console.log('refreshToken saved');",
+                  "  }",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"hamzaansari6060@gmail.com\",\n  \"password\": \"SecureP@ss1\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Login with email and password. `accessToken` and `refreshToken` are saved automatically to collection variables."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"hamzaansari6060@gmail.com\",\n  \"password\": \"SecureP@ss1\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/auth/login",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "login"
+                  ]
+                },
+                "description": "Login with email and password. `accessToken` and `refreshToken` are saved automatically to collection variables."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "Text",
+              "header": [],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Login successful.\",\n  \"data\": {\n    \"accessToken\": \"eyJ...\",\n    \"refreshToken\": \"abc123...\",\n    \"user\": {\n      \"id\": \"uuid\",\n      \"email\": \"you@example.com\",\n      \"isVerified\": true,\n      \"createdAt\": \"2025-01-01T00:00:00Z\"\n    }\n  }\n}"
+            },
+            {
+              "name": "401 Wrong Credentials",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"hamzaansari6060@gmail.com\",\n  \"password\": \"SecureP@ss1\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/auth/login",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "login"
+                  ]
+                },
+                "description": "Login with email and password. `accessToken` and `refreshToken` are saved automatically to collection variables."
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "Text",
+              "header": [],
+              "cookie": [],
+              "body": "{\n  \"success\": false,\n  \"message\": \"Invalid email or password.\"\n}"
+            },
+            {
+              "name": "403 Not Verified",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"hamzaansari6060@gmail.com\",\n  \"password\": \"SecureP@ss1\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/auth/login",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "login"
+                  ]
+                },
+                "description": "Login with email and password. `accessToken` and `refreshToken` are saved automatically to collection variables."
+              },
+              "status": "Forbidden",
+              "code": 403,
+              "_postman_previewlanguage": "Text",
+              "header": [],
+              "cookie": [],
+              "body": "{\n  \"success\": false,\n  \"message\": \"Email not verified. Please verify your email before logging in.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Refresh Tokens",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data) {",
+                  "  if (res.data.accessToken) {",
+                  "    pm.collectionVariables.set('accessToken', res.data.accessToken);",
+                  "    console.log('accessToken rotated and saved');",
+                  "  }",
+                  "  if (res.data.refreshToken) {",
+                  "    pm.collectionVariables.set('refreshToken', res.data.refreshToken);",
+                  "    console.log('refreshToken rotated and saved');",
+                  "  }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/refresh",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "refresh"
+              ]
+            },
+            "description": "Exchange a valid refresh token for a new access + refresh token pair (token rotation). The old refresh token is invalidated. Both new tokens are saved automatically."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/auth/refresh",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "refresh"
+                  ]
+                },
+                "description": "Exchange a valid refresh token for a new access + refresh token pair (token rotation). The old refresh token is invalidated. Both new tokens are saved automatically."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "Text",
+              "header": [],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Tokens refreshed successfully.\",\n  \"data\": {\n    \"accessToken\": \"eyJ...\",\n    \"refreshToken\": \"newtoken...\"\n  }\n}"
+            },
+            {
+              "name": "401 Invalid/Expired",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/auth/refresh",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "refresh"
+                  ]
+                },
+                "description": "Exchange a valid refresh token for a new access + refresh token pair (token rotation). The old refresh token is invalidated. Both new tokens are saved automatically."
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "Text",
+              "header": [],
+              "cookie": [],
+              "body": "{\n  \"success\": false,\n  \"message\": \"Refresh token has expired. Please log in again.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Revoke the current refresh token (logout from this device). The access token expires naturally after 15 minutes."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/auth/logout",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "logout"
+                  ]
+                },
+                "description": "Revoke the current refresh token (logout from this device). The access token expires naturally after 15 minutes."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "Text",
+              "header": [],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Logged out successfully.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Logout All Devices",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout-all",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "logout-all"
+              ]
+            },
+            "description": "Revoke ALL refresh tokens for the authenticated user — logs out every device. Requires a valid access token."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/auth/logout-all",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "logout-all"
+                  ]
+                },
+                "description": "Revoke ALL refresh tokens for the authenticated user — logs out every device. Requires a valid access token."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "Text",
+              "header": [],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Logged out from all devices.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Current User (/me)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "me"
+              ]
+            },
+            "description": "Returns the authenticated user's profile. Uses the saved `accessToken`."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/me",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "me"
+                  ]
+                },
+                "description": "Returns the authenticated user's profile. Uses the saved `accessToken`."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "Text",
+              "header": [],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"user\": {\n      \"id\": \"uuid\",\n      \"email\": \"you@example.com\",\n      \"isVerified\": true\n    }\n  }\n}"
+            },
+            {
+              "name": "401 No Token",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/me",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "me"
+                  ]
+                },
+                "description": "Returns the authenticated user's profile. Uses the saved `accessToken`."
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "Text",
+              "header": [],
+              "cookie": [],
+              "body": "{\n  \"success\": false,\n  \"message\": \"No token provided. Authorization required.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Google Login",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/google",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "google"
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Google Login",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": ""
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/auth/google",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "google"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "",
+              "header": [],
+              "cookie": [
+                {
+                  "expires": "Invalid Date",
+                  "domain": "",
+                  "path": ""
+                }
+              ],
+              "body": "{\n    \"success\":true,\n    \"message\":\"Google authentication successful.\",\n    \"data\":{\"accessToken\":\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZjNjMjBiYS00ZDEwLTRlYWUtYTA3Mi00OGNhYTRjMWQ1NjgiLCJlbWFpbCI6ImhhbXphYW5zYXJpNjA2MEBnbWFpbC5jb20iLCJ0eXBlIjoiYWNjZXNzIiwiaWF0IjoxNzc3OTIxNTY0LCJleHAiOjE3Nzc5MjI0NjR9.N5hXcaF5-MV8Z_2PjP-Dj5_ZOhLhFG7_K5KiQ3kHArE\",\n    \"refreshToken\":\"8afb9cbdaaf2eef7de757b3509fa75776d8098f93068625d26b411679008fed6\",\n    \"user\":{\"id\":\"df3c20ba-4d10-4eae-a072-48caa4c1d568\",\n    \"email\":\"hamzaansari6060@gmail.com\",\n    \"name\":\"Muhammad Hamza\",\n    \"avatarUrl\":\"https://lh3.googleusercontent.com/a/ACg8ocKmyrUYWJs9EfQEzFS5iyG4NqFXvFBWSksaJnomejeMo90Bio2m=s96-c\",\n    \"authProvider\":\"google\"\n            }\n    }\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Campaigns",
+      "item": [
+        {
+          "name": "Create Campaign",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data && res.data.campaign) {",
+                  "  pm.collectionVariables.set('campaignId', res.data.campaign.id);",
+                  "  console.log('campaignId saved:', res.data.campaign.id);",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Q3 Outreach\",\n  \"goal\": \"Generate 200 qualified leads\",\n  \"target_zone\": \"North America - SaaS Companies\",\n  \"call_to_action\": \"Book a Free Demo\",\n  \"run_mode\": \"auto\",\n  \"lead_source\": \"both\",\n  \"mail_template\": \"Hi {{firstName}},\\n\\nI wanted to reach out about...\",\n  \"example_training\": \"Professional, concise, value-focused\",\n  \"target_leads\": 200,\n  \"status\": \"draft\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/campaigns",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "campaigns"
+              ]
+            },
+            "description": "Create a new campaign. The `campaignId` is saved automatically for use in other requests.\n\n**run_mode** options: `manual`, `scheduled`, `auto`\n**status** options: `draft`, `active`, `paused`, `completed`"
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Q3 Outreach\",\n  \"goal\": \"Generate 200 qualified leads\",\n  \"target_zone\": \"North America - SaaS Companies\",\n  \"call_to_action\": \"Book a Free Demo\",\n  \"run_mode\": \"auto\",\n  \"lead_source\": \"both\",\n  \"mail_template\": \"Hi {{firstName}},\\n\\nI wanted to reach out about...\",\n  \"example_training\": \"Professional, concise, value-focused\",\n  \"target_leads\": 200,\n  \"status\": \"draft\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/campaigns",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "campaigns"
+                  ]
+                },
+                "description": "Create a new campaign. The `campaignId` is saved automatically for use in other requests.\n\n**run_mode** options: `manual`, `scheduled`, `auto`\n**status** options: `draft`, `active`, `paused`, `completed`"
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "Text",
+              "header": [],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Campaign created successfully.\",\n  \"data\": {\n    \"campaign\": {\n      \"id\": \"uuid\",\n      \"user_id\": \"uuid\",\n      \"name\": \"Q3 SaaS Outreach\",\n      \"goal\": \"Book 30 demos with SaaS founders in Q3\",\n      \"target_zone\": \"North America — Series A startups\",\n      \"call_to_action\": \"Book a Free Demo\",\n      \"run_mode\": \"scheduled\",\n      \"mail_template\": \"Hi {{name}}...\",\n      \"example_training\": \"Be warm and concise...\",\n      \"target_leads\": 200,\n      \"status\": \"draft\",\n      \"created_at\": \"2025-01-01T00:00:00Z\",\n      \"updated_at\": \"2025-01-01T00:00:00Z\"\n    }\n  }\n}"
+            },
+            {
+              "name": "422 Validation Error",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Q3 Outreach\",\n  \"goal\": \"Generate 200 qualified leads\",\n  \"target_zone\": \"North America - SaaS Companies\",\n  \"call_to_action\": \"Book a Free Demo\",\n  \"run_mode\": \"auto\",\n  \"lead_source\": \"both\",\n  \"mail_template\": \"Hi {{firstName}},\\n\\nI wanted to reach out about...\",\n  \"example_training\": \"Professional, concise, value-focused\",\n  \"target_leads\": 200,\n  \"status\": \"draft\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/campaigns",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "campaigns"
+                  ]
+                },
+                "description": "Create a new campaign. The `campaignId` is saved automatically for use in other requests.\n\n**run_mode** options: `manual`, `scheduled`, `auto`\n**status** options: `draft`, `active`, `paused`, `completed`"
+              },
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "_postman_previewlanguage": "Text",
+              "header": [],
+              "cookie": [],
+              "body": "{\n  \"success\": false,\n  \"message\": \"Campaign name is required., Campaign goal is required.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "List Campaigns",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/campaigns?page=1&limit=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "campaigns"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number (default: 1)"
+                },
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "description": "Results per page (max: 100)"
+                },
+                {
+                  "key": "status",
+                  "value": "",
+                  "description": "Filter by status: draft | active | paused | completed",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "List all campaigns for the authenticated user. Supports pagination and status filtering.\n\nOptional query params:\n- `page` — page number (default: 1)\n- `limit` — results per page (default: 20, max: 100)\n- `status` — filter by `draft`, `active`, `paused`, or `completed`"
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/campaigns?page=1&limit=20",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "campaigns"
+                  ],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1",
+                      "description": "Page number (default: 1)"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "20",
+                      "description": "Results per page (max: 100)"
+                    },
+                    {
+                      "key": "status",
+                      "value": "",
+                      "description": "Filter by status: draft | active | paused | completed",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "List all campaigns for the authenticated user. Supports pagination and status filtering.\n\nOptional query params:\n- `page` — page number (default: 1)\n- `limit` — results per page (default: 20, max: 100)\n- `status` — filter by `draft`, `active`, `paused`, or `completed`"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "Text",
+              "header": [],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"campaigns\": [...],\n    \"total\": 5,\n    \"page\": 1,\n    \"limit\": 20\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Filter Campaigns",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/campaigns?status=draft",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "campaigns"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "draft"
+                }
+              ]
+            },
+            "description": "Fetch only campaigns with `status=active`."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Campaign",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/campaigns/{{campaignId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "campaigns",
+                "{{campaignId}}"
+              ]
+            },
+            "description": "Get a single campaign by ID. Uses the saved `campaignId` variable."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/campaigns/{{campaignId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "campaigns",
+                    "{{campaignId}}"
+                  ]
+                },
+                "description": "Get a single campaign by ID. Uses the saved `campaignId` variable."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "Text",
+              "header": [],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"campaign\": { ... }\n  }\n}"
+            },
+            {
+              "name": "404 Not Found",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/campaigns/{{campaignId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "campaigns",
+                    "{{campaignId}}"
+                  ]
+                },
+                "description": "Get a single campaign by ID. Uses the saved `campaignId` variable."
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "Text",
+              "header": [],
+              "cookie": [],
+              "body": "{\n  \"success\": false,\n  \"message\": \"Campaign not found.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update Campaign",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"active\",\n  \"target_leads\": 300,\n  \"call_to_action\": \"Start Your Free Trial\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/campaigns/{{campaignId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "campaigns",
+                "{{campaignId}}"
+              ]
+            },
+            "description": "Partially update a campaign. Only include fields you want to change — all fields are optional.\n\nUpdatable fields: `name`, `goal`, `target_zone`, `call_to_action`, `run_mode`, `mail_template`, `example_training`, `target_leads`, `status`"
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"active\",\n  \"target_leads\": 300,\n  \"call_to_action\": \"Start Your Free Trial\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/campaigns/{{campaignId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "campaigns",
+                    "{{campaignId}}"
+                  ]
+                },
+                "description": "Partially update a campaign. Only include fields you want to change — all fields are optional.\n\nUpdatable fields: `name`, `goal`, `target_zone`, `call_to_action`, `run_mode`, `mail_template`, `example_training`, `target_leads`, `status`"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "Text",
+              "header": [],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Campaign updated successfully.\",\n  \"data\": {\n    \"campaign\": { ... }\n  }\n}"
+            },
+            {
+              "name": "400 No Fields",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"active\",\n  \"target_leads\": 300,\n  \"call_to_action\": \"Start Your Free Trial\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/campaigns/{{campaignId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "campaigns",
+                    "{{campaignId}}"
+                  ]
+                },
+                "description": "Partially update a campaign. Only include fields you want to change — all fields are optional.\n\nUpdatable fields: `name`, `goal`, `target_zone`, `call_to_action`, `run_mode`, `mail_template`, `example_training`, `target_leads`, `status`"
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "Text",
+              "header": [],
+              "cookie": [],
+              "body": "{\n  \"success\": false,\n  \"message\": \"No valid fields provided for update.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Delete Campaign",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/campaigns/{{campaignId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "campaigns",
+                "{{campaignId}}"
+              ]
+            },
+            "description": "Permanently delete a campaign. This action cannot be undone."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/campaigns/{{campaignId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "campaigns",
+                    "{{campaignId}}"
+                  ]
+                },
+                "description": "Permanently delete a campaign. This action cannot be undone."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "Text",
+              "header": [],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Campaign deleted successfully.\"\n}"
+            },
+            {
+              "name": "404 Not Found",
+              "originalRequest": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/campaigns/{{campaignId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "campaigns",
+                    "{{campaignId}}"
+                  ]
+                },
+                "description": "Permanently delete a campaign. This action cannot be undone."
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "Text",
+              "header": [],
+              "cookie": [],
+              "body": "{\n  \"success\": false,\n  \"message\": \"Campaign not found.\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Mails",
+      "item": [
+        {
+          "name": "send mail",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"to\": \"hamzaansari6060@gmail.com\",\n    \"subject\": \"test mail\",\n    \"body\": \"testing\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/emails/send",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "emails",
+                "send"
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"to\": \"safi06947@gmail.com\",\n    \"subject\": \"test mail\",\n    \"body\": \"testing\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/emails/send",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "emails",
+                    "send"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "Text",
+              "header": [],
+              "cookie": [
+                {
+                  "expires": "Invalid Date",
+                  "domain": "",
+                  "path": ""
+                }
+              ],
+              "body": "{\n    \"success\": true,\n    \"message\": \"Email sent successfully.\",\n    \"data\": {\n        \"messageId\": \"<5b0773c4-239d-2540-48d5-bb9f184b50df@yourdomain.com>\",\n        \"to\": \"safi06947@gmail.com\",\n        \"subject\": \"test mail\",\n        \"accessTokenUsed\": true\n    }\n}"
+            },
+            {
+              "name": "401 No Token",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/emails/send",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "emails",
+                    "send"
+                  ]
+                }
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "Text",
+              "header": [],
+              "cookie": [
+                {
+                  "expires": "Invalid Date",
+                  "domain": "",
+                  "path": ""
+                }
+              ],
+              "body": "{\n    \"success\": false,\n    \"message\": \"No token provided. Authorization required.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Send Email to Multiple Recipients Copy",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"to\": [\"hamzaansari6060@gmail.com\", \"safi0647@gmail.com\"],\n  \"subject\": \"Campaign Update\",\n  \"body\": \"Plain text body here.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/emails/send",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "emails",
+                "send"
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Send Email to Multiple Recipients Copy",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"to\": [\"alice@example.com\", \"bob@example.com\"],\n  \"subject\": \"Campaign Update\",\n  \"body\": \"Plain text body here.\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/emails/send",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "emails",
+                    "send"
+                  ]
+                }
+              },
+              "_postman_previewlanguage": "",
+              "header": [],
+              "cookie": [
+                {
+                  "expires": "Invalid Date",
+                  "domain": "",
+                  "path": ""
+                }
+              ],
+              "body": "{\n    \"success\": true,\n    \"message\": \"Email sent successfully.\",\n    \"data\": {\n        \"messageId\": \"19df74aa7db039ee\",\n        \"to\": [\n            \"hamzaansari6060@gmail.com\",\n            \"safi0647@gmail.com\"\n        ],\n        \"subject\": \"Campaign Update\",\n        \"accessTokenUsed\": true\n    }\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Leads",
+      "item": [
+        {
+          "name": "List Leads",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data && res.data.leads && res.data.leads.length > 0) {",
+                  "  pm.collectionVariables.set(\"leadId\", res.data.leads[0].id);",
+                  "  console.log(\"leadId saved:\", res.data.leads[0].id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/leads?page=1&limit=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "leads"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "emailStatus",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "country",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "state",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "city",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "industry",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "seniority",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "department",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "company",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "outreachStatus",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "fitTag",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "sortBy",
+                  "value": "created_at",
+                  "disabled": true
+                },
+                {
+                  "key": "sortOrder",
+                  "value": "desc",
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Search Leads",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/leads?search=john&page=1&limit=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "leads"
+              ],
+              "query": [
+                {
+                  "key": "search",
+                  "value": "john"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Filter Leads by Country + Industry",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/leads?country=United States&industry=SaaS&page=1&limit=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "leads"
+              ],
+              "query": [
+                {
+                  "key": "country",
+                  "value": "United States"
+                },
+                {
+                  "key": "industry",
+                  "value": "SaaS"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Filter Leads by Outreach Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/leads?outreachStatus=pending&page=1&limit=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "leads"
+              ],
+              "query": [
+                {
+                  "key": "outreachStatus",
+                  "value": "pending"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Lead by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/leads/{{leadId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "leads",
+                "{{leadId}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Campaign Leads",
+      "item": [
+        {
+          "name": "Add Lead to Campaign",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const r = pm.response.json();",
+                  "if (r.success && r.data && r.data.lead) {",
+                  "  pm.collectionVariables.set(\"campaignLeadId\", r.data.lead.id);",
+                  "  console.log(\"campaignLeadId saved:\", r.data.lead.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lead_data_id\": \"lead_abc123\",\n  \"mail_template\": \"Hi John,\\n\\nPersonalised message for this lead...\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/campaigns/{{campaignId}}/leads",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "campaigns",
+                "{{campaignId}}",
+                "leads"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Bulk Add Leads to Campaign",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"leads\": [\n    { \"lead_data_id\": \"lead_001\", \"mail_template\": \"Hi Alice, ...\" },\n    { \"lead_data_id\": \"lead_002\", \"mail_template\": \"Hi Bob, ...\" },\n    { \"lead_data_id\": \"lead_003\" }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/campaigns/{{campaignId}}/leads/bulk",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "campaigns",
+                "{{campaignId}}",
+                "leads",
+                "bulk"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Assign Random Leads to Campaign",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const r = pm.response.json();",
+                  "if (r.success) {",
+                  "  console.log('Assigned:', r.data.totalInserted, 'lead(s)');",
+                  "  console.log('Requested:', r.data.totalRequested);",
+                  "  console.log('Available:', r.data.totalAvailable);",
+                  "  console.log('Duplicates skipped:', r.data.totalDuplicates);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/campaigns/{{campaignId}}/leads/assign-random",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "campaigns",
+                "{{campaignId}}",
+                "leads",
+                "assign-random"
+              ]
+            },
+            "description": "Automatically picks `target_leads` random rows from the `leads_data` table (skipping any leads already assigned to this campaign) and inserts them into `campaign_leads` with status `pending`.\n\nNo request body required — the count is read from the campaign's `target_leads` field.\n\n**Returns:**\n- `totalRequested` — the campaign's `target_leads` value\n- `totalAvailable` — how many unassigned leads were found in `leads_data`\n- `totalInserted` — leads successfully inserted\n- `totalDuplicates` — leads skipped (already existed in the campaign)\n- `inserted` — array of the newly created `campaign_leads` rows\n\n**Error cases:**\n- `400` — campaign `target_leads` is 0 or not set\n- `404` — campaign not found, or no available leads remain in `leads_data`"
+          },
+          "response": [
+            {
+              "name": "201 Created — Leads Assigned",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/campaigns/{{campaignId}}/leads/assign-random",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "campaigns",
+                    "{{campaignId}}",
+                    "leads",
+                    "assign-random"
+                  ]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"message\": \"50 lead(s) randomly assigned. 0 duplicate(s) skipped.\",\n  \"data\": {\n    \"totalRequested\": 50,\n    \"totalAvailable\": 50,\n    \"totalInserted\": 50,\n    \"totalDuplicates\": 0,\n    \"duplicates\": [],\n    \"inserted\": [\n      {\n        \"id\": \"uuid-campaign-lead-1\",\n        \"user_id\": \"uuid-user\",\n        \"campaign_id\": \"uuid-campaign\",\n        \"lead_data_id\": \"1042\",\n        \"mail_template\": null,\n        \"status\": \"pending\",\n        \"sent_at\": null,\n        \"error_message\": null,\n        \"created_at\": \"2026-05-05T10:00:00Z\"\n      }\n    ]\n  }\n}"
+            },
+            {
+              "name": "400 target_leads Not Set",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/campaigns/{{campaignId}}/leads/assign-random",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "campaigns",
+                    "{{campaignId}}",
+                    "leads",
+                    "assign-random"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": false,\n  \"message\": \"Campaign target_leads must be greater than 0.\"\n}"
+            },
+            {
+              "name": "404 No Available Leads",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/campaigns/{{campaignId}}/leads/assign-random",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "campaigns",
+                    "{{campaignId}}",
+                    "leads",
+                    "assign-random"
+                  ]
+                }
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": false,\n  \"message\": \"No available leads found in leads_data to assign.\"\n}"
+            },
+            {
+              "name": "401 Unauthorized",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/campaigns/{{campaignId}}/leads/assign-random",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "campaigns",
+                    "{{campaignId}}",
+                    "leads",
+                    "assign-random"
+                  ]
+                }
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": false,\n  \"message\": \"No token provided. Authorization required.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Generate Mail Templates (AI)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const r = pm.response.json();",
+                  "if (r.success) {",
+                  "  console.log('Processed:', r.data.processed);",
+                  "  console.log('Failed:', r.data.failed);",
+                  "  console.log('Total:', r.data.total);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"campaign_lead_id\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/campaigns/{{campaignId}}/leads/generate-templates",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "campaigns",
+                "{{campaignId}}",
+                "leads",
+                "generate-templates"
+              ]
+            },
+            "description": "Generates a personalised `mail_template` for every `pending` lead in the campaign using Claude AI.\n\nFor each lead the service:\n1. Fetches the full `leads_data` row\n2. Looks up `linkedinscrapping` by `leads_data.linkedin` URL\n3. Looks up `webscrapping` by `leads_data.domain`\n4. Sends all enrichment data + the campaign's `mail_template` skeleton + `example_training` style guide to Claude\n5. Saves the personalised result back to `campaign_leads.mail_template`\n\n**Optional body param:**\n- `campaign_lead_id` — UUID of a single campaign lead to process instead of all pending leads. Set to `null` (or omit) to process all.\n\n**Requires:** `ANTHROPIC_API_KEY` in your `.env`."
+          },
+          "response": [
+            {
+              "name": "200 OK — Templates Generated",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"campaign_lead_id\": null\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/campaigns/{{campaignId}}/leads/generate-templates",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "campaigns",
+                    "{{campaignId}}",
+                    "leads",
+                    "generate-templates"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"message\": \"3 template(s) generated. 0 failed.\",\n  \"data\": {\n    \"processed\": 3,\n    \"failed\": 0,\n    \"total\": 3,\n    \"results\": [\n      {\n        \"campaignLeadId\": \"uuid-campaign-lead-1\",\n        \"lead_data_id\": \"1042\",\n        \"leadName\": \"John Smith\",\n        \"status\": \"generated\",\n        \"templatePreview\": \"Subject: Quick question about Acme Corp's growth plans\\n\\nHi John,\\n\\nI noticed your recent move into the APAC market\\u2026\"\n      },\n      {\n        \"campaignLeadId\": \"uuid-campaign-lead-2\",\n        \"lead_data_id\": \"1087\",\n        \"leadName\": \"Sara Lee\",\n        \"status\": \"generated\",\n        \"templatePreview\": \"Subject: Helping TechCo scale outbound\\n\\nHi Sara,\\n\\nYour LinkedIn post about hiring 20 SDRs caught my eye\\u2026\"\n      }\n    ]\n  }\n}"
+            },
+            {
+              "name": "200 OK — Single Lead",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"campaign_lead_id\": \"{{campaignLeadId}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/campaigns/{{campaignId}}/leads/generate-templates",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "campaigns",
+                    "{{campaignId}}",
+                    "leads",
+                    "generate-templates"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"message\": \"1 template(s) generated. 0 failed.\",\n  \"data\": {\n    \"processed\": 1,\n    \"failed\": 0,\n    \"total\": 1,\n    \"results\": [\n      {\n        \"campaignLeadId\": \"uuid-campaign-lead-1\",\n        \"lead_data_id\": \"1042\",\n        \"leadName\": \"John Smith\",\n        \"status\": \"generated\",\n        \"templatePreview\": \"Subject: Quick question about Acme Corp's growth plans\\n\\nHi John,\\n\\nI noticed your recent move into the APAC market\\u2026\"\n      }\n    ]\n  }\n}"
+            },
+            {
+              "name": "404 No Pending Leads",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"campaign_lead_id\": null\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/campaigns/{{campaignId}}/leads/generate-templates",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "campaigns",
+                    "{{campaignId}}",
+                    "leads",
+                    "generate-templates"
+                  ]
+                }
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": false,\n  \"message\": \"No pending leads found to generate templates for.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Send Emails to Campaign Leads (AI Template)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const r = pm.response.json();",
+                  "if (r.success) {",
+                  "  console.log('Sent:', r.data.sent);",
+                  "  console.log('Failed:', r.data.failed);",
+                  "  console.log('Skipped:', r.data.skipped);",
+                  "  console.log('Daily limit reached:', r.data.dailyLimitReached);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"campaign_lead_id\": null,\n  \"access_token\": \"{{googleAccessToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/campaigns/{{campaignId}}/leads/send-emails",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "campaigns",
+                "{{campaignId}}",
+                "leads",
+                "send-emails"
+              ]
+            },
+            "description": "Sends the AI-generated `mail_template` to every `pending` campaign lead that has one.\n\n**Features:**\n- Random delay (10s–60s) between each send to avoid spam filters\n- Hard cap of 500 emails per UTC calendar day across all campaigns\n- Mirrors send status back to `leads_data` (outreachStatus, emailSent, emailSentDate)\n\n**Body params (all optional):**\n- `campaign_lead_id` — UUID: restrict send to a single lead (set `null` for all pending leads)\n- `access_token` — Google OAuth2 token; falls back to token stored on the authenticated user\n\n**Requires:** Google OAuth2 token with Gmail send scope.\n\n**Workflow:** Run `generate-templates` first, then call this endpoint."
+          },
+          "response": [
+            {
+              "name": "200 OK — Emails Sent",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"campaign_lead_id\": null,\n  \"access_token\": \"{{googleAccessToken}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/campaigns/{{campaignId}}/leads/send-emails",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "campaigns",
+                    "{{campaignId}}",
+                    "leads",
+                    "send-emails"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"message\": \"3 email(s) sent, 0 failed, 0 skipped.\",\n  \"data\": {\n    \"sent\": 3,\n    \"failed\": 0,\n    \"skipped\": 0,\n    \"total\": 3,\n    \"dailyLimitReached\": false,\n    \"alreadySentToday\": 3,\n    \"totalSentToday\": 3,\n    \"dailyLimit\": 500,\n    \"results\": [\n      {\n        \"campaignLeadId\": \"uuid-campaign-lead-1\",\n        \"status\": \"sent\",\n        \"to\": \"john.smith@acmecorp.com\",\n        \"subject\": \"Quick question about Acme Corp's growth plans\",\n        \"messageId\": \"18f3a2b1c4d5e6f7\"\n      },\n      {\n        \"campaignLeadId\": \"uuid-campaign-lead-2\",\n        \"status\": \"sent\",\n        \"to\": \"sara.lee@techco.com\",\n        \"subject\": \"Helping TechCo scale outbound\",\n        \"messageId\": \"18f3a2b1c4d5e6f8\"\n      }\n    ]\n  }\n}"
+            },
+            {
+              "name": "200 OK — Daily Limit Reached",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"campaign_lead_id\": null,\n  \"access_token\": \"{{googleAccessToken}}\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/campaigns/{{campaignId}}/leads/send-emails",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "campaigns",
+                    "{{campaignId}}",
+                    "leads",
+                    "send-emails"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Daily limit of 500 emails already reached. No emails sent today.\",\n  \"data\": {\n    \"sent\": 0,\n    \"failed\": 0,\n    \"skipped\": 0,\n    \"dailyLimitReached\": true,\n    \"alreadySentToday\": 500,\n    \"dailyLimit\": 500\n  }\n}"
+            },
+            {
+              "name": "400 No Google Token",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"campaign_lead_id\": null\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/campaigns/{{campaignId}}/leads/send-emails",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "campaigns",
+                    "{{campaignId}}",
+                    "leads",
+                    "send-emails"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": false,\n  \"message\": \"A valid Google OAuth access token is required to send emails.\"\n}"
+            },
+            {
+              "name": "404 No Pending Leads with Templates",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"campaign_lead_id\": null,\n  \"access_token\": \"{{googleAccessToken}}\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/campaigns/{{campaignId}}/leads/send-emails",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "campaigns",
+                    "{{campaignId}}",
+                    "leads",
+                    "send-emails"
+                  ]
+                }
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": false,\n  \"message\": \"No pending leads with generated templates found. Run generate-templates first.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "List Campaign Leads",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/campaigns/{{campaignId}}/leads?page=1&limit=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "campaigns",
+                "{{campaignId}}",
+                "leads"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "status",
+                  "value": "",
+                  "description": "pending | sent | failed | skipped",
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Campaign Lead",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"sent\",\n  \"sent_at\": \"2026-05-05T10:00:00Z\",\n  \"mail_template\": \"Revised personalised template\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/campaigns/{{campaignId}}/leads/{{campaignLeadId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "campaigns",
+                "{{campaignId}}",
+                "leads",
+                "{{campaignLeadId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Remove Lead from Campaign",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/campaigns/{{campaignId}}/leads/{{campaignLeadId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "campaigns",
+                "{{campaignId}}",
+                "leads",
+                "{{campaignLeadId}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "campaignId",
+      "value": ""
+    },
+    {
+      "key": "userId",
+      "value": ""
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "refreshToken",
+      "value": ""
+    },
+    {
+      "key": "leadId",
+      "value": ""
+    },
+    {
+      "key": "campaignLeadId",
+      "value": ""
+    }
+  ]
+}
