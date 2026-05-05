@@ -1,0 +1,13 @@
+# Node modules
+node_modules/
+
+# Environment files
+.env
+.env.*
+
+# Google client secret file
+client_secret_255718389183-pubsj3j4meeoporin3ru4dmodu497v5g.apps.googleusercontent.com.json
+
+# Optional: logs
+logs/
+*.log
