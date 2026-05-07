@@ -1,6 +1,10 @@
 require('dotenv').config();
 
-// Validate required env vars before starting
+// 1. Import both workers properly
+const mailTemplateWorker = require('./workers/mailTemplateWorker');
+const campaignMailWorker = require('./workers/campaignMailWorker');
+
+// Validate required env vars
 const REQUIRED_ENV = [
   'SUPABASE_URL',
   'SUPABASE_SERVICE_ROLE_KEY',
@@ -19,25 +23,33 @@ if (missing.length) {
 
 const app    = require('./app');
 const logger = require('./utils/logger');
-const campaignMailWorker = require('./workers/campaignMailWorker');
 
 const PORT = Number(process.env.PORT) || 3000;
 
 const server = app.listen(PORT, () => {
   logger.info(`Server running on port ${PORT} [${process.env.NODE_ENV || 'development'}]`);
 
-  // Start background workers
+  // 2. Start BOTH background workers
+  mailTemplateWorker.start();
   campaignMailWorker.start();
 });
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
-  logger.info('SIGTERM received — shutting down gracefully');
-  server.close(() => {
-    logger.info('Server closed');
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT')); // Handle Ctrl+C
+
+async function shutdown(signal) {
+  logger.info(`${signal} received — shutting down gracefully`);
+  
+  server.close(async () => {
+    // 3. Close worker connections to Redis cleanly
+    await mailTemplateWorker.worker.close();
+    await campaignMailWorker.worker.close();
+    
+    logger.info('Server and workers closed');
     process.exit(0);
   });
-});
+}
 
 process.on('unhandledRejection', (reason) => {
   logger.error('Unhandled Promise Rejection', { reason });

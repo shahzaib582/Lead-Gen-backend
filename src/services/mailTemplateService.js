@@ -191,6 +191,7 @@ async function generateEmailForLead({ lead, linkedin, web, campaign }) {
  * @returns {{ processed: number, failed: number, results: object[] }}
  */
 async function generateMailTemplates(userId, campaignId, campaignLeadId = null) {
+  
   // 1. Fetch campaign (with ownership check)
   const { data: campaign, error: campError } = await supabase
     .from('campaigns')
