@@ -1,11 +1,11 @@
 {
   "info": {
-    "_postman_id": "af310d07-7c11-484a-ae15-f6179b60bd88",
+    "_postman_id": "9d959336-db63-4afc-a958-defcb196df34",
     "name": "Lead Gen API",
-    "description": "Complete API collection for the Lead Gen auth + campaigns backend.\n\n**Setup:**\n1. Set the `baseUrl` variable to your server (default: http://localhost:3000)\n2. Run **Sign Up** \u2192 check email for OTP \u2192 run **Verify OTP**\n3. `accessToken` and `refreshToken` are saved automatically from login/verify responses\n4. All campaign requests use the saved `accessToken` automatically",
+    "description": "Complete API collection for the Lead Gen auth + campaigns backend.\n\n**Setup:**\n1. Set the `baseUrl` variable to your server (default: http://localhost:3000)\n2. Run **Sign Up** → check email for OTP → run **Verify OTP**\n3. `accessToken` and `refreshToken` are saved automatically from login/verify responses\n4. All campaign requests use the saved `accessToken` automatically",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_exporter_id": "50827256",
-    "_collection_link": "https://go.postman.co/collection/50827256-af310d07-7c11-484a-ae15-f6179b60bd88?source=collection_link"
+    "_collection_link": "https://go.postman.co/collection/50827256-9d959336-db63-4afc-a958-defcb196df34?source=collection_link"
   },
   "item": [
     {
@@ -104,7 +104,7 @@
                 "signup"
               ]
             },
-            "description": "Create a new account. Returns a `userId` \u2014 saved automatically to the collection variable. Check your email for the 6-digit OTP."
+            "description": "Create a new account. Returns a `userId` — saved automatically to the collection variable. Check your email for the 6-digit OTP."
           },
           "response": [
             {
@@ -136,7 +136,7 @@
                     "signup"
                   ]
                 },
-                "description": "Create a new account. Returns a `userId` \u2014 saved automatically to the collection variable. Check your email for the 6-digit OTP."
+                "description": "Create a new account. Returns a `userId` — saved automatically to the collection variable. Check your email for the 6-digit OTP."
               },
               "status": "Created",
               "code": 201,
@@ -174,7 +174,7 @@
                     "signup"
                   ]
                 },
-                "description": "Create a new account. Returns a `userId` \u2014 saved automatically to the collection variable. Check your email for the 6-digit OTP."
+                "description": "Create a new account. Returns a `userId` — saved automatically to the collection variable. Check your email for the 6-digit OTP."
               },
               "status": "Unprocessable Entity",
               "code": 422,
@@ -791,7 +791,7 @@
                 "logout-all"
               ]
             },
-            "description": "Revoke ALL refresh tokens for the authenticated user \u2014 logs out every device. Requires a valid access token."
+            "description": "Revoke ALL refresh tokens for the authenticated user — logs out every device. Requires a valid access token."
           },
           "response": [
             {
@@ -814,7 +814,7 @@
                     "logout-all"
                   ]
                 },
-                "description": "Revoke ALL refresh tokens for the authenticated user \u2014 logs out every device. Requires a valid access token."
+                "description": "Revoke ALL refresh tokens for the authenticated user — logs out every device. Requires a valid access token."
               },
               "status": "OK",
               "code": 200,
@@ -944,10 +944,6 @@
                     "value": "application/json"
                   }
                 ],
-                "body": {
-                  "mode": "raw",
-                  "raw": ""
-                },
                 "url": {
                   "raw": "{{baseUrl}}/auth/google",
                   "host": [
@@ -961,7 +957,7 @@
               },
               "status": "OK",
               "code": 200,
-              "_postman_previewlanguage": "",
+              "_postman_previewlanguage": "Text",
               "header": [],
               "cookie": [
                 {
@@ -1012,7 +1008,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Q3 Outreach\",\n  \"goal\": \"Generate 200 qualified leads\",\n  \"target_zone\": \"North America - SaaS Companies\",\n  \"call_to_action\": \"Book a Free Demo\",\n  \"run_mode\": \"auto\",\n  \"lead_source\": \"both\",\n  \"mail_template\": \"Hi {{firstName}},\\n\\nI wanted to reach out about...\",\n  \"example_training\": \"Professional, concise, value-focused\",\n  \"target_leads\": 200,\n  \"status\": \"draft\"\n}",
+              "raw": "{\n  \"name\": \"Q3 Outreach\",\n  \"goal\": \"Generate 200 qualified leads\",\n  \"target_zone\": \"North America - SaaS Companies\",\n  \"call_to_action\": \"Book a Free Demo\",\n  \"run_mode\": \"auto\",\n  \"lead_source\": \"both\",\n  \"mail_template\": \"Hi {{firstName}},\\n\\nI wanted to reach out about...\",\n  \"example_training\": \"Professional, concise, value-focused\",\n  \"target_leads\": 2,\n  \"status\": \"draft\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1070,7 +1066,7 @@
               "_postman_previewlanguage": "Text",
               "header": [],
               "cookie": [],
-              "body": "{\n  \"success\": true,\n  \"message\": \"Campaign created successfully.\",\n  \"data\": {\n    \"campaign\": {\n      \"id\": \"uuid\",\n      \"user_id\": \"uuid\",\n      \"name\": \"Q3 SaaS Outreach\",\n      \"goal\": \"Book 30 demos with SaaS founders in Q3\",\n      \"target_zone\": \"North America \u2014 Series A startups\",\n      \"call_to_action\": \"Book a Free Demo\",\n      \"run_mode\": \"scheduled\",\n      \"mail_template\": \"Hi {{name}}...\",\n      \"example_training\": \"Be warm and concise...\",\n      \"target_leads\": 200,\n      \"status\": \"draft\",\n      \"created_at\": \"2025-01-01T00:00:00Z\",\n      \"updated_at\": \"2025-01-01T00:00:00Z\"\n    }\n  }\n}"
+              "body": "{\n  \"success\": true,\n  \"message\": \"Campaign created successfully.\",\n  \"data\": {\n    \"campaign\": {\n      \"id\": \"uuid\",\n      \"user_id\": \"uuid\",\n      \"name\": \"Q3 SaaS Outreach\",\n      \"goal\": \"Book 30 demos with SaaS founders in Q3\",\n      \"target_zone\": \"North America — Series A startups\",\n      \"call_to_action\": \"Book a Free Demo\",\n      \"run_mode\": \"scheduled\",\n      \"mail_template\": \"Hi {{name}}...\",\n      \"example_training\": \"Be warm and concise...\",\n      \"target_leads\": 200,\n      \"status\": \"draft\",\n      \"created_at\": \"2025-01-01T00:00:00Z\",\n      \"updated_at\": \"2025-01-01T00:00:00Z\"\n    }\n  }\n}"
             },
             {
               "name": "422 Validation Error",
@@ -1152,7 +1148,7 @@
                 }
               ]
             },
-            "description": "List all campaigns for the authenticated user. Supports pagination and status filtering.\n\nOptional query params:\n- `page` \u2014 page number (default: 1)\n- `limit` \u2014 results per page (default: 20, max: 100)\n- `status` \u2014 filter by `draft`, `active`, `paused`, or `completed`"
+            "description": "List all campaigns for the authenticated user. Supports pagination and status filtering.\n\nOptional query params:\n- `page` — page number (default: 1)\n- `limit` — results per page (default: 20, max: 100)\n- `status` — filter by `draft`, `active`, `paused`, or `completed`"
           },
           "response": [
             {
@@ -1192,7 +1188,7 @@
                     }
                   ]
                 },
-                "description": "List all campaigns for the authenticated user. Supports pagination and status filtering.\n\nOptional query params:\n- `page` \u2014 page number (default: 1)\n- `limit` \u2014 results per page (default: 20, max: 100)\n- `status` \u2014 filter by `draft`, `active`, `paused`, or `completed`"
+                "description": "List all campaigns for the authenticated user. Supports pagination and status filtering.\n\nOptional query params:\n- `page` — page number (default: 1)\n- `limit` — results per page (default: 20, max: 100)\n- `status` — filter by `draft`, `active`, `paused`, or `completed`"
               },
               "status": "OK",
               "code": 200,
@@ -1348,7 +1344,7 @@
                 "{{campaignId}}"
               ]
             },
-            "description": "Partially update a campaign. Only include fields you want to change \u2014 all fields are optional.\n\nUpdatable fields: `name`, `goal`, `target_zone`, `call_to_action`, `run_mode`, `mail_template`, `example_training`, `target_leads`, `status`"
+            "description": "Partially update a campaign. Only include fields you want to change — all fields are optional.\n\nUpdatable fields: `name`, `goal`, `target_zone`, `call_to_action`, `run_mode`, `mail_template`, `example_training`, `target_leads`, `status`"
           },
           "response": [
             {
@@ -1384,7 +1380,7 @@
                     "{{campaignId}}"
                   ]
                 },
-                "description": "Partially update a campaign. Only include fields you want to change \u2014 all fields are optional.\n\nUpdatable fields: `name`, `goal`, `target_zone`, `call_to_action`, `run_mode`, `mail_template`, `example_training`, `target_leads`, `status`"
+                "description": "Partially update a campaign. Only include fields you want to change — all fields are optional.\n\nUpdatable fields: `name`, `goal`, `target_zone`, `call_to_action`, `run_mode`, `mail_template`, `example_training`, `target_leads`, `status`"
               },
               "status": "OK",
               "code": 200,
@@ -1426,7 +1422,7 @@
                     "{{campaignId}}"
                   ]
                 },
-                "description": "Partially update a campaign. Only include fields you want to change \u2014 all fields are optional.\n\nUpdatable fields: `name`, `goal`, `target_zone`, `call_to_action`, `run_mode`, `mail_template`, `example_training`, `target_leads`, `status`"
+                "description": "Partially update a campaign. Only include fields you want to change — all fields are optional.\n\nUpdatable fields: `name`, `goal`, `target_zone`, `call_to_action`, `run_mode`, `mail_template`, `example_training`, `target_leads`, `status`"
               },
               "status": "Bad Request",
               "code": 400,
@@ -1701,7 +1697,7 @@
                   ]
                 }
               },
-              "_postman_previewlanguage": "",
+              "_postman_previewlanguage": "Text",
               "header": [],
               "cookie": [
                 {
@@ -2090,11 +2086,11 @@
                 "assign-random"
               ]
             },
-            "description": "Automatically picks `target_leads` random rows from the `leads_data` table (skipping any leads already assigned to this campaign) and inserts them into `campaign_leads` with status `pending`.\n\nNo request body required \u2014 the count is read from the campaign's `target_leads` field.\n\n**Returns:**\n- `totalRequested` \u2014 the campaign's `target_leads` value\n- `totalAvailable` \u2014 how many unassigned leads were found in `leads_data`\n- `totalInserted` \u2014 leads successfully inserted\n- `totalDuplicates` \u2014 leads skipped (already existed in the campaign)\n- `inserted` \u2014 array of the newly created `campaign_leads` rows\n\n**Error cases:**\n- `400` \u2014 campaign `target_leads` is 0 or not set\n- `404` \u2014 campaign not found, or no available leads remain in `leads_data`"
+            "description": "Automatically picks `target_leads` random rows from the `leads_data` table (skipping any leads already assigned to this campaign) and inserts them into `campaign_leads` with status `pending`.\n\nNo request body required — the count is read from the campaign's `target_leads` field.\n\n**Returns:**\n- `totalRequested` — the campaign's `target_leads` value\n- `totalAvailable` — how many unassigned leads were found in `leads_data`\n- `totalInserted` — leads successfully inserted\n- `totalDuplicates` — leads skipped (already existed in the campaign)\n- `inserted` — array of the newly created `campaign_leads` rows\n\n**Error cases:**\n- `400` — campaign `target_leads` is 0 or not set\n- `404` — campaign not found, or no available leads remain in `leads_data`"
           },
           "response": [
             {
-              "name": "201 Created \u2014 Leads Assigned",
+              "name": "201 Created — Leads Assigned",
               "originalRequest": {
                 "method": "POST",
                 "header": [
@@ -2281,11 +2277,11 @@
                 "generate-templates"
               ]
             },
-            "description": "Generates a personalised `mail_template` for every `pending` lead in the campaign using Claude AI.\n\nFor each lead the service:\n1. Fetches the full `leads_data` row\n2. Looks up `linkedinscrapping` by `leads_data.linkedin` URL\n3. Looks up `webscrapping` by `leads_data.domain`\n4. Sends all enrichment data + the campaign's `mail_template` skeleton + `example_training` style guide to Claude\n5. Saves the personalised result back to `campaign_leads.mail_template`\n\n**Optional body param:**\n- `campaign_lead_id` \u2014 UUID of a single campaign lead to process instead of all pending leads. Set to `null` (or omit) to process all.\n\n**Requires:** `ANTHROPIC_API_KEY` in your `.env`."
+            "description": "Generates a personalised `mail_template` for every `pending` lead in the campaign using Claude AI.\n\nFor each lead the service:\n1. Fetches the full `leads_data` row\n2. Looks up `linkedinscrapping` by `leads_data.linkedin` URL\n3. Looks up `webscrapping` by `leads_data.domain`\n4. Sends all enrichment data + the campaign's `mail_template` skeleton + `example_training` style guide to Claude\n5. Saves the personalised result back to `campaign_leads.mail_template`\n\n**Optional body param:**\n- `campaign_lead_id` — UUID of a single campaign lead to process instead of all pending leads. Set to `null` (or omit) to process all.\n\n**Requires:** `ANTHROPIC_API_KEY` in your `.env`."
           },
           "response": [
             {
-              "name": "200 OK \u2014 Templates Generated",
+              "name": "200 OK — Templates Generated",
               "originalRequest": {
                 "method": "POST",
                 "header": [
@@ -2333,7 +2329,7 @@
               "body": "{\n  \"success\": true,\n  \"message\": \"3 template(s) generated. 0 failed.\",\n  \"data\": {\n    \"processed\": 3,\n    \"failed\": 0,\n    \"total\": 3,\n    \"results\": [\n      {\n        \"campaignLeadId\": \"uuid-campaign-lead-1\",\n        \"lead_data_id\": \"1042\",\n        \"leadName\": \"John Smith\",\n        \"status\": \"generated\",\n        \"templatePreview\": \"Subject: Quick question about Acme Corp's growth plans\\n\\nHi John,\\n\\nI noticed your recent move into the APAC market\\u2026\"\n      },\n      {\n        \"campaignLeadId\": \"uuid-campaign-lead-2\",\n        \"lead_data_id\": \"1087\",\n        \"leadName\": \"Sara Lee\",\n        \"status\": \"generated\",\n        \"templatePreview\": \"Subject: Helping TechCo scale outbound\\n\\nHi Sara,\\n\\nYour LinkedIn post about hiring 20 SDRs caught my eye\\u2026\"\n      }\n    ]\n  }\n}"
             },
             {
-              "name": "200 OK \u2014 Single Lead",
+              "name": "200 OK — Single Lead",
               "originalRequest": {
                 "method": "POST",
                 "header": [
@@ -2484,11 +2480,11 @@
                 "send-emails"
               ]
             },
-            "description": "Sends the AI-generated `mail_template` to every `pending` campaign lead that has one.\n\n**Auto Token Refresh:**\nThe service now refreshes the Google OAuth access token automatically before every individual send. This prevents mid-loop 401 errors on large campaigns where the 10s\u201360s inter-send delays can span the token's 1-hour TTL.\n\n**Features:**\n- Auto-refreshes Google OAuth token before each email send\n- Random delay (10s\u201360s) between each send to avoid spam filters\n- Hard cap of 500 emails per UTC calendar day across all campaigns\n- Mirrors send status back to `leads_data` (outreachStatus, emailSent, emailSentDate)\n\n**Body params (all optional):**\n- `campaign_lead_id` \u2014 UUID: restrict send to a single lead (null = all pending)\n- `access_token` \u2014 Google OAuth2 token; omit to use the token stored in DB (auto-refreshed)\n- `auto_refresh_token` \u2014 boolean (default: true); set false to disable mid-loop refresh\n\n**Requires:** Google OAuth2 token with Gmail send scope.\n\n**Workflow:** Run `generate-templates` first, then call this endpoint."
+            "description": "Sends the AI-generated `mail_template` to every `pending` campaign lead that has one.\n\n**Auto Token Refresh:**\nThe service now refreshes the Google OAuth access token automatically before every individual send. This prevents mid-loop 401 errors on large campaigns where the 10s–60s inter-send delays can span the token's 1-hour TTL.\n\n**Features:**\n- Auto-refreshes Google OAuth token before each email send\n- Random delay (10s–60s) between each send to avoid spam filters\n- Hard cap of 500 emails per UTC calendar day across all campaigns\n- Mirrors send status back to `leads_data` (outreachStatus, emailSent, emailSentDate)\n\n**Body params (all optional):**\n- `campaign_lead_id` — UUID: restrict send to a single lead (null = all pending)\n- `access_token` — Google OAuth2 token; omit to use the token stored in DB (auto-refreshed)\n- `auto_refresh_token` — boolean (default: true); set false to disable mid-loop refresh\n\n**Requires:** Google OAuth2 token with Gmail send scope.\n\n**Workflow:** Run `generate-templates` first, then call this endpoint."
           },
           "response": [
             {
-              "name": "200 OK \u2014 Emails Sent",
+              "name": "200 OK — Emails Sent",
               "originalRequest": {
                 "method": "POST",
                 "header": [
@@ -2536,7 +2532,7 @@
               "body": "{\n  \"success\": true,\n  \"message\": \"3 email(s) sent, 0 failed, 0 skipped.\",\n  \"data\": {\n    \"sent\": 3,\n    \"failed\": 0,\n    \"skipped\": 0,\n    \"total\": 3,\n    \"dailyLimitReached\": false,\n    \"alreadySentToday\": 3,\n    \"totalSentToday\": 3,\n    \"dailyLimit\": 500,\n    \"results\": [\n      {\n        \"campaignLeadId\": \"uuid-campaign-lead-1\",\n        \"status\": \"sent\",\n        \"to\": \"john.smith@acmecorp.com\",\n        \"subject\": \"Quick question about Acme Corp's growth plans\",\n        \"messageId\": \"18f3a2b1c4d5e6f7\"\n      },\n      {\n        \"campaignLeadId\": \"uuid-campaign-lead-2\",\n        \"status\": \"sent\",\n        \"to\": \"sara.lee@techco.com\",\n        \"subject\": \"Helping TechCo scale outbound\",\n        \"messageId\": \"18f3a2b1c4d5e6f8\"\n      }\n    ],\n    \"tokensRefreshed\": 0\n  }\n}"
             },
             {
-              "name": "200 OK \u2014 With Token Auto-Refreshed",
+              "name": "200 OK — With Token Auto-Refreshed",
               "originalRequest": {
                 "method": "POST",
                 "header": [
@@ -2570,7 +2566,7 @@
                     "send-emails"
                   ]
                 },
-                "description": "Sends the AI-generated `mail_template` to every `pending` campaign lead that has one.\n\n**Auto Token Refresh:**\nThe service now refreshes the Google OAuth access token automatically before every individual send. This prevents mid-loop 401 errors on large campaigns where the 10s\u201360s inter-send delays can span the token's 1-hour TTL.\n\n**Features:**\n- Auto-refreshes Google OAuth token before each email send\n- Random delay (10s\u201360s) between each send to avoid spam filters\n- Hard cap of 500 emails per UTC calendar day across all campaigns\n- Mirrors send status back to `leads_data` (outreachStatus, emailSent, emailSentDate)\n\n**Body params (all optional):**\n- `campaign_lead_id` \u2014 UUID: restrict send to a single lead (null = all pending)\n- `access_token` \u2014 Google OAuth2 token; omit to use the token stored in DB (auto-refreshed)\n- `auto_refresh_token` \u2014 boolean (default: true); set false to disable mid-loop refresh\n\n**Requires:** Google OAuth2 token with Gmail send scope.\n\n**Workflow:** Run `generate-templates` first, then call this endpoint."
+                "description": "Sends the AI-generated `mail_template` to every `pending` campaign lead that has one.\n\n**Auto Token Refresh:**\nThe service now refreshes the Google OAuth access token automatically before every individual send. This prevents mid-loop 401 errors on large campaigns where the 10s–60s inter-send delays can span the token's 1-hour TTL.\n\n**Features:**\n- Auto-refreshes Google OAuth token before each email send\n- Random delay (10s–60s) between each send to avoid spam filters\n- Hard cap of 500 emails per UTC calendar day across all campaigns\n- Mirrors send status back to `leads_data` (outreachStatus, emailSent, emailSentDate)\n\n**Body params (all optional):**\n- `campaign_lead_id` — UUID: restrict send to a single lead (null = all pending)\n- `access_token` — Google OAuth2 token; omit to use the token stored in DB (auto-refreshed)\n- `auto_refresh_token` — boolean (default: true); set false to disable mid-loop refresh\n\n**Requires:** Google OAuth2 token with Gmail send scope.\n\n**Workflow:** Run `generate-templates` first, then call this endpoint."
               },
               "status": "OK",
               "code": 200,
@@ -2585,7 +2581,7 @@
               "body": "{\n  \"success\": true,\n  \"message\": \"5 email(s) sent, 0 failed, 0 skipped.\",\n  \"data\": {\n    \"sent\": 5,\n    \"failed\": 0,\n    \"skipped\": 0,\n    \"tokensRefreshed\": 1,\n    \"total\": 5,\n    \"dailyLimitReached\": false,\n    \"alreadySentToday\": 5,\n    \"totalSentToday\": 5,\n    \"dailyLimit\": 500,\n    \"results\": [\n      {\n        \"campaignLeadId\": \"uuid-lead-1\",\n        \"status\": \"sent\",\n        \"to\": \"john.smith@acmecorp.com\",\n        \"subject\": \"Quick question about Acme Corp's growth plans\",\n        \"messageId\": \"18f3a2b1c4d5e6f7\"\n      },\n      {\n        \"campaignLeadId\": \"uuid-lead-2\",\n        \"status\": \"sent\",\n        \"to\": \"sara.lee@techco.com\",\n        \"subject\": \"Helping TechCo scale outbound\",\n        \"messageId\": \"18f3a2b1c4d5e6f8\"\n      }\n    ]\n  }\n}"
             },
             {
-              "name": "200 OK \u2014 Daily Limit Reached",
+              "name": "200 OK — Daily Limit Reached",
               "originalRequest": {
                 "method": "POST",
                 "header": [

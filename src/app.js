@@ -10,6 +10,15 @@ const errorHandler   = require('./middleware/errorHandler');
 
 const app = express();
 
+const cors = require('cors');
+
+
+
+app.use(cors({
+  origin: 'http://localhost:8080',
+  credentials: true
+}));
+
 // ─── Security & parsing ───────────────────────────────────────────────────────
 
 app.use(express.json({ limit: '10kb' }));
