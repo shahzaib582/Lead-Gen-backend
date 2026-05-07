@@ -7,9 +7,6 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/**
- * Fetch a single leads_data row by its bigint id.
- */
 async function fetchLeadData(leadDataId) {
   const { data, error } = await supabase
     .from('leads_data')
@@ -21,10 +18,6 @@ async function fetchLeadData(leadDataId) {
   return data;
 }
 
-/**
- * Fetch the matching linkedinscrapping row using leads_data.linkedin URL.
- * Returns null if the lead has no linkedin or no matching row exists.
- */
 async function fetchLinkedinData(linkedinUrl) {
   if (!linkedinUrl) return null;
 
@@ -41,10 +34,6 @@ async function fetchLinkedinData(linkedinUrl) {
   return data || null;
 }
 
-/**
- * Fetch the matching webscrapping row using leads_data.domain.
- * Returns null if the lead has no domain or no matching row exists.
- */
 async function fetchWebData(domain) {
   if (!domain) return null;
 
@@ -61,27 +50,15 @@ async function fetchWebData(domain) {
   return data || null;
 }
 
-/**
- * Build the prompt from all available context.
- */
 function buildPrompt({ lead, linkedin, web, campaignTemplate, campaignGoal, callToAction, exampleTraining }) {
   const sections = [];
 
-  // ── Campaign context ──────────────────────────────────────────────────────
-  sections.push(`## Campaign Context
-Goal: ${campaignGoal || 'Not specified'}
-Call to Action: ${callToAction || 'Not specified'}
-${exampleTraining ? `Writing Style / Training Examples:\n${exampleTraining}` : ''}`);
+  sections.push(`## Campaign Context\nGoal: ${campaignGoal || 'Not specified'}\nCall to Action: ${callToAction || 'Not specified'}\n${exampleTraining ? `Writing Style / Training Examples:\n${exampleTraining}` : ''}`);
 
-  // ── User's template (the skeleton to personalise) ─────────────────────────
   if (campaignTemplate) {
-    sections.push(`## Email Template to Personalise
-Use this as the structural base — fill in every personalisation placeholder using the data below:
-
-${campaignTemplate}`);
+    sections.push(`## Email Template to Personalise\nUse this as the structural base — fill in every personalisation placeholder using the data below:\n\n${campaignTemplate}`);
   }
 
-  // ── Lead (leads_data) ─────────────────────────────────────────────────────
   const leadFields = [
     lead.fullName    && `Full Name: ${lead.fullName}`,
     lead.firstName   && `First Name: ${lead.firstName}`,
@@ -107,7 +84,6 @@ ${campaignTemplate}`);
     sections.push(`## Lead Information\n${leadFields.join('\n')}`);
   }
 
-  // ── LinkedIn profile ──────────────────────────────────────────────────────
   if (linkedin) {
     const liFields = [
       linkedin.headline          && `Headline: ${linkedin.headline}`,
@@ -118,10 +94,9 @@ ${campaignTemplate}`);
       linkedin.current_company   && `Current Company: ${linkedin.current_company}`,
     ].filter(Boolean);
 
-    // Flatten experience array to plain text if present
     if (Array.isArray(linkedin.experience) && linkedin.experience.length) {
       const expText = linkedin.experience
-        .slice(0, 3) // top 3 roles only — avoid prompt bloat
+        .slice(0, 3)
         .map((e) => `  • ${e.title || ''} at ${e.company || ''} (${e.duration || ''})`)
         .join('\n');
       liFields.push(`Recent Experience:\n${expText}`);
@@ -132,32 +107,15 @@ ${campaignTemplate}`);
     }
   }
 
-  // ── Website / company intelligence ───────────────────────────────────────
   if (web && web.llmresponse) {
     sections.push(`## Company Website Intelligence\n${web.llmresponse}`);
   }
 
-  // ── Final instruction ─────────────────────────────────────────────────────
-  sections.push(`## Your Task
-Write a personalised, human-sounding cold email for this specific lead.
-
-Rules:
-- Use ONLY the information provided above — do not invent facts.
-- Replace every placeholder in the template (e.g. {{firstName}}, {{company}}) with the real values.
-- Weave in 1–2 specific details from the LinkedIn profile or company intelligence to show genuine research.
-- Keep it concise (under 200 words for the body).
-- End with a clear, single call to action: "${callToAction || 'Reply to this email'}".
-- Output ONLY the final email text (subject line first, then body). No explanation, no markdown fencing.
-- Subject line format:  Subject: <your subject here>
-- Then a blank line, then the email body.`);
+  sections.push(`## Your Task\nWrite a personalised, human-sounding cold email for this specific lead.\n\nRules:\n- Use ONLY the information provided above — do not invent facts.\n- Replace every placeholder in the template (e.g. {{firstName}}, {{company}}) with the real values.\n- Weave in 1–2 specific details from the LinkedIn profile or company intelligence to show genuine research.\n- Keep it concise (under 200 words for the body).\n- End with a clear, single call to action: "${callToAction || 'Reply to this email'}".\n- Output ONLY the final email text (subject line first, then body). No explanation, no markdown fencing.\n- Subject line format:  Subject: <your subject here>\n- Then a blank line, then the email body.`);
 
   return sections.join('\n\n');
 }
 
-/**
- * Call OpenAI to generate a personalised email for one lead.
- * Returns the generated email string.
- */
 async function generateEmailForLead({ lead, linkedin, web, campaign }) {
   const prompt = buildPrompt({
     lead,
@@ -180,18 +138,8 @@ async function generateEmailForLead({ lead, linkedin, web, campaign }) {
 
 // ─── Main exported function ───────────────────────────────────────────────────
 
-/**
- * Generate personalised mail templates for all `pending` campaign leads
- * (or a specific one if campaignLeadId is provided), then save them back
- * to campaign_leads.mail_template in Supabase.
- *
- * @param {string} userId
- * @param {string} campaignId
- * @param {string|null} campaignLeadId  — if provided, only process that one lead
- * @returns {{ processed: number, failed: number, results: object[] }}
- */
 async function generateMailTemplates(userId, campaignId, campaignLeadId = null) {
-  
+
   // 1. Fetch campaign (with ownership check)
   const { data: campaign, error: campError } = await supabase
     .from('campaigns')
@@ -203,6 +151,7 @@ async function generateMailTemplates(userId, campaignId, campaignLeadId = null) 
   if (campError || !campaign) throw new AppError('Campaign not found.', 404);
 
   // 2. Fetch the campaign_leads to process
+  // FIX: only fetch 'pending' leads (not template_generated/sent/failed)
   let clQuery = supabase
     .from('campaign_leads')
     .select('id, lead_data_id')
@@ -228,22 +177,19 @@ async function generateMailTemplates(userId, campaignId, campaignLeadId = null) 
 
   for (const cl of campaignLeads) {
     try {
-      // Fetch leads_data row
       const lead = await fetchLeadData(cl.lead_data_id);
       if (!lead) {
         throw new Error(`leads_data row not found for id ${cl.lead_data_id}`);
       }
 
-      // Fetch enrichment in parallel
       const [linkedin, web] = await Promise.all([
         fetchLinkedinData(lead.linkedin),
         fetchWebData(lead.domain),
       ]);
 
-      // Generate personalised email via OpenAI
       const generatedTemplate = await generateEmailForLead({ lead, linkedin, web, campaign });
 
-      // Save back to campaign_leads.mail_template
+      // Save template
       const { error: updateError } = await supabase
         .from('campaign_leads')
         .update({ mail_template: generatedTemplate })
@@ -251,11 +197,24 @@ async function generateMailTemplates(userId, campaignId, campaignLeadId = null) 
 
       if (updateError) throw new Error(`Supabase update failed: ${updateError.message}`);
 
+      // FIX: Update status to 'template_generated' so this lead is not re-processed
+      const { error: statusError } = await supabase
+        .from('campaign_leads')
+        .update({ status: 'template_generated' })
+        .eq('id', cl.id);
+
+      if (statusError) {
+        logger.warn('Failed to update status to template_generated', {
+          campaignLeadId: cl.id,
+          error: statusError.message,
+        });
+      }
+
       results.push({
         campaignLeadId: cl.id,
         lead_data_id:   cl.lead_data_id,
         leadName:       lead.fullName || lead.email || cl.lead_data_id,
-        status:         'generated',
+        status:         'template_generated',
         templatePreview: generatedTemplate.slice(0, 120) + (generatedTemplate.length > 120 ? '…' : ''),
       });
 

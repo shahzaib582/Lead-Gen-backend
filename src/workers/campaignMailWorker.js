@@ -28,7 +28,7 @@ const worker = new Worker(
       const accessToken = await googleAuthService.getValidGoogleAccessToken(userId);
 
       // 3. Send email
-      await sendCampaignEmails( userId, campaignId, accessToken, campaignLeadId );
+      await sendCampaignEmails(userId, campaignId, accessToken, campaignLeadId);
 
       // 4. Update status to 'sent'
       const { error: updateError } = await supabase
@@ -45,26 +45,23 @@ const worker = new Worker(
       return { success: true, leadId: campaignLeadId };
 
     } catch (err) {
-      // Logic for handling the failure INSIDE the worker
-      logger.error('[CampaignMailWorker] Execution Error', { 
-        campaignLeadId, 
-        error: err.message 
+      logger.error('[CampaignMailWorker] Execution Error', {
+        campaignLeadId,
+        error: err.message,
       });
 
-      // Mark as failed in DB so the UI knows it stopped
       await supabase
         .from('campaign_leads')
         .update({ status: 'failed' })
         .eq('id', campaignLeadId);
 
-      // Re-throw so BullMQ knows the job failed (and can retry if configured)
-      throw err; 
+      throw err;
     }
   },
   {
     connection,
     concurrency: 2,
-    // lockDuration: 30000, // Optional: increase if emails take a long time to send
+    lockDuration: 60000, // FIX: uncommented — prevents stalled job retries during slow Gmail sends + token refresh
   }
 );
 
@@ -74,11 +71,10 @@ worker.on('error', (err) => {
 });
 
 function start() {
-  // If you have a cron job or initialization logic, put it here
   console.log('Campaign Mail Worker is active and listening for jobs...');
 }
 
 module.exports = {
   worker,
-  start
+  start,
 };

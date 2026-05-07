@@ -8,31 +8,16 @@ const logger              = require('../utils/logger');
 
 const DAILY_SEND_LIMIT = 500;
 
-/**
- * Random delay between MIN and MAX milliseconds.
- * Mimics human sending behaviour to avoid spam filters.
- * Range: 10s – 60s (adjustable via env)
- */
-const DELAY_MIN_MS = Number(process.env.MAIL_DELAY_MIN_MS) || 10_000;  // 10 seconds
-const DELAY_MAX_MS = Number(process.env.MAIL_DELAY_MAX_MS) || 60_000;  // 60 seconds
+const DELAY_MIN_MS = Number(process.env.MAIL_DELAY_MIN_MS) || 10_000;
+const DELAY_MAX_MS = Number(process.env.MAIL_DELAY_MAX_MS) || 60_000;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/**
- * Sleep for a random duration between DELAY_MIN_MS and DELAY_MAX_MS.
- * Returns the actual milliseconds waited (useful for logging).
- */
 function randomDelay() {
   const ms = Math.floor(Math.random() * (DELAY_MAX_MS - DELAY_MIN_MS + 1)) + DELAY_MIN_MS;
   return new Promise((resolve) => setTimeout(() => resolve(ms), ms));
 }
 
-/**
- * Count how many emails have already been sent today (UTC day boundary)
- * for this user across ALL campaigns.
- *
- * We rely on campaign_leads.sent_at which is set when status → 'sent'.
- */
 async function getTodaySentCount(userId) {
   const todayStart = new Date();
   todayStart.setUTCHours(0, 0, 0, 0);
@@ -46,43 +31,18 @@ async function getTodaySentCount(userId) {
 
   if (error) {
     logger.warn('Failed to fetch today sent count', { userId, error: error.message });
-    return 0; // Fail open — don't block sending if the count query fails
+    return 0;
   }
 
   return count || 0;
 }
 
-/**
- * Ensure the Google OAuth access token is still valid before each send.
- *
- * Google access tokens expire after ~1 hour. During a long send loop with
- * random delays (10s–60s per email × many leads), the token handed in at the
- * start of the job can silently expire mid-loop.
- *
- * Strategy:
- *   - If userId is provided (background worker / auto-send path):
- *       → call getValidGoogleAccessToken(userId) which checks token_expires_at
- *         from the DB and refreshes automatically if within the 1-min buffer.
- *         This is the safest path — it never uses a stale token.
- *   - If userId is null (API path where caller passed an explicit token):
- *       → keep using the provided token as-is. The caller is responsible for
- *         its freshness (API consumers typically provide a fresh token per request).
- *
- * Returns { token, refreshed } so the caller can log a refresh event.
- *
- * @param {string|null} userId       — DB user id; null on the manual API path
- * @param {string}      currentToken — the token currently in use
- * @returns {Promise<{ token: string, refreshed: boolean }>}
- */
 async function ensureFreshToken(userId, currentToken) {
   if (!userId) {
-    // Manual API path — trust the caller-supplied token
     return { token: currentToken, refreshed: false };
   }
 
   try {
-    // getValidGoogleAccessToken checks token_expires_at and auto-refreshes
-    // if the token is expired or will expire within the next 60 seconds.
     const freshToken = await googleAuthService.getValidGoogleAccessToken(userId);
     const refreshed  = freshToken !== currentToken;
 
@@ -92,9 +52,6 @@ async function ensureFreshToken(userId, currentToken) {
 
     return { token: freshToken, refreshed };
   } catch (err) {
-    // Refresh failed (e.g. refresh token revoked). Log and fall back to the
-    // existing token so we don't abort the entire campaign run — the individual
-    // send will surface a 401 if it truly is expired.
     logger.warn('[TokenRefresh] Failed to refresh access token — using existing token', {
       userId,
       error: err.message,
@@ -103,9 +60,6 @@ async function ensureFreshToken(userId, currentToken) {
   }
 }
 
-/**
- * Fetch the lead's email address from leads_data by lead_data_id.
- */
 async function getLeadEmail(leadDataId) {
   const { data, error } = await supabase
     .from('leads_data')
@@ -117,22 +71,11 @@ async function getLeadEmail(leadDataId) {
   return data;
 }
 
-/**
- * Parse subject + body from a generated mail_template string.
- *
- * Expected format produced by mailTemplateService / OpenAI:
- *   Subject: <subject line here>
- *
- *   <email body …>
- *
- * Returns { subject, body }.
- * Falls back to a generic subject if the line is missing.
- */
 function parseTemplate(template) {
   if (!template) return { subject: 'Hello', body: '' };
 
-  const lines  = template.split('\n');
-  let subject  = null;
+  const lines   = template.split('\n');
+  let subject   = null;
   let bodyStart = 0;
 
   for (let i = 0; i < lines.length; i++) {
@@ -144,7 +87,6 @@ function parseTemplate(template) {
     }
   }
 
-  // Skip blank lines right after subject
   while (bodyStart < lines.length && lines[bodyStart].trim() === '') {
     bodyStart++;
   }
@@ -159,27 +101,6 @@ function parseTemplate(template) {
 
 // ─── Main exported function ───────────────────────────────────────────────────
 
-/**
- * Send emails to all pending campaign leads that already have a mail_template.
- *
- * Flow:
- *  1. Verify campaign ownership.
- *  2. Check today's sent count — stop if already at 500.
- *  3. Fetch pending leads WITH a mail_template (generated).
- *  4. For each lead (up to the remaining daily budget):
- *     a. Parse subject + body from mail_template.
- *     b. Fetch lead email from leads_data.
- *     c. Send via Gmail API (sendCustomEmail).
- *     d. Update campaign_leads → status:'sent', sent_at: now.
- *     e. Wait a random delay before the next send.
- *  5. Return a summary { sent, failed, skipped, dailyLimitReached }.
- *
- * @param {string} userId
- * @param {string} campaignId
- * @param {string} accessToken   — Google OAuth2 access token for the sending user
- * @param {string|null} campaignLeadId — optional: target a single lead
- * @param {boolean} [autoRefreshToken=true] — refresh token automatically before each send
- */
 async function sendCampaignEmails(userId, campaignId, accessToken, campaignLeadId = null, autoRefreshToken = true) {
   // 1. Ownership check
   const { data: campaign, error: campError } = await supabase
@@ -192,10 +113,7 @@ async function sendCampaignEmails(userId, campaignId, accessToken, campaignLeadI
   if (campError || !campaign) throw new AppError('Campaign not found.', 404);
 
   if (!accessToken) {
-    throw new AppError(
-      'A valid Google OAuth access token is required to send emails.',
-      400,
-    );
+    throw new AppError('A valid Google OAuth access token is required to send emails.', 400);
   }
 
   // 2. Daily limit check
@@ -204,32 +122,26 @@ async function sendCampaignEmails(userId, campaignId, accessToken, campaignLeadI
 
   if (remaining <= 0) {
     logger.info('Daily send limit reached — no emails sent', {
-      userId,
-      campaignId,
-      alreadySentToday,
-      limit: DAILY_SEND_LIMIT,
+      userId, campaignId, alreadySentToday, limit: DAILY_SEND_LIMIT,
     });
     return {
-      sent:              0,
-      failed:            0,
-      skipped:           0,
-      dailyLimitReached: true,
-      alreadySentToday,
-      dailyLimit:        DAILY_SEND_LIMIT,
+      sent: 0, failed: 0, skipped: 0,
+      dailyLimitReached: true, alreadySentToday, dailyLimit: DAILY_SEND_LIMIT,
     };
   }
 
-  // 3. Fetch pending leads that have a generated template
+  // 3. FIX: Fetch leads with template that are NOT yet sent or skipped.
+  //    This includes 'pending', 'template_generated', AND 'failed' (for retries).
   let clQuery = supabase
     .from('campaign_leads')
     .select('id, lead_data_id, mail_template')
     .eq('campaign_id', campaignId)
     .eq('user_id', userId)
-    .eq('status', 'pending')
     .not('mail_template', 'is', null)
     .neq('mail_template', '')
+    .in('status', ['pending', 'template_generated', 'failed'])  // FIX: correct Supabase syntax + retry failed
     .order('created_at', { ascending: true })
-    .limit(remaining); // Never fetch more than we're allowed to send today
+    .limit(remaining);
 
   if (campaignLeadId) {
     clQuery = clQuery.eq('id', campaignLeadId);
@@ -240,7 +152,7 @@ async function sendCampaignEmails(userId, campaignId, accessToken, campaignLeadI
   if (leadsError) throw new AppError('Failed to fetch campaign leads.', 500);
   if (!leads || leads.length === 0) {
     throw new AppError(
-      'No pending leads with generated templates found. Run generate-templates first.',
+      'No leads with generated templates found. Run generate-templates first.',
       404,
     );
   }
@@ -253,29 +165,21 @@ async function sendCampaignEmails(userId, campaignId, accessToken, campaignLeadI
   const results = [];
 
   logger.info('Starting campaign email send', {
-    campaignId,
-    userId,
-    totalToSend:       leads.length,
-    alreadySentToday,
-    remainingBudget:   remaining,
+    campaignId, userId,
+    totalToSend: leads.length, alreadySentToday, remainingBudget: remaining,
   });
 
-  // Track the active token — it may be refreshed mid-loop
   let activeToken = accessToken;
 
   for (let i = 0; i < leads.length; i++) {
     const cl = leads[i];
 
-    // ── Refresh token before every send (catches expiry mid-loop) ─────────
+    // ── Refresh token before every send ───────────────────────────────────
     if (autoRefreshToken) {
       const { token, refreshed } = await ensureFreshToken(userId, activeToken);
       if (refreshed) {
         tokensRefreshed++;
-        logger.info('Access token auto-refreshed before send', {
-          campaignId,
-          userId,
-          sendIndex: i,
-        });
+        logger.info('Access token auto-refreshed before send', { campaignId, userId, sendIndex: i });
       }
       activeToken = token;
     }
@@ -288,11 +192,9 @@ async function sendCampaignEmails(userId, campaignId, accessToken, campaignLeadI
 
     if (!leadInfo || !leadInfo.email) {
       logger.warn('Skipping lead — no email address found', {
-        campaignLeadId: cl.id,
-        lead_data_id:   cl.lead_data_id,
+        campaignLeadId: cl.id, lead_data_id: cl.lead_data_id,
       });
 
-      // Mark as skipped so we don't retry endlessly
       await supabase
         .from('campaign_leads')
         .update({ status: 'skipped', error_message: 'No email address found in leads_data.' })
@@ -309,7 +211,7 @@ async function sendCampaignEmails(userId, campaignId, accessToken, campaignLeadI
         leadInfo.email,
         subject,
         body,
-        null,          // html — plain text only; set to body if you have HTML
+        null,
         activeToken,
       );
 
@@ -318,10 +220,9 @@ async function sendCampaignEmails(userId, campaignId, accessToken, campaignLeadI
 
       await supabase
         .from('campaign_leads')
-        .update({ status: 'sent', sent_at: sentAt })
+        .update({ status: 'sent', sent_at: sentAt, error_message: null })
         .eq('id', cl.id);
 
-      // Mirror to leads_data (outreachStatus, emailSent, emailSentDate)
       await supabase
         .from('leads_data')
         .update({
@@ -334,31 +235,22 @@ async function sendCampaignEmails(userId, campaignId, accessToken, campaignLeadI
       sent++;
 
       logger.info('Email sent', {
-        campaignLeadId: cl.id,
-        lead_data_id:   cl.lead_data_id,
-        to:             leadInfo.email,
-        subject,
-        messageId,
-        sendNumber:     sent,
-        totalBudget:    leads.length,
+        campaignLeadId: cl.id, lead_data_id: cl.lead_data_id,
+        to: leadInfo.email, subject, messageId,
+        sendNumber: sent, totalBudget: leads.length,
       });
 
       results.push({
-        campaignLeadId: cl.id,
-        status:         'sent',
-        to:             leadInfo.email,
-        subject,
-        messageId,
+        campaignLeadId: cl.id, status: 'sent',
+        to: leadInfo.email, subject, messageId,
       });
 
     } catch (sendErr) {
       failed++;
 
       logger.error('Failed to send email', {
-        campaignLeadId: cl.id,
-        lead_data_id:   cl.lead_data_id,
-        to:             leadInfo.email,
-        error:          sendErr.message,
+        campaignLeadId: cl.id, lead_data_id: cl.lead_data_id,
+        to: leadInfo.email, error: sendErr.message,
       });
 
       await supabase
@@ -367,28 +259,20 @@ async function sendCampaignEmails(userId, campaignId, accessToken, campaignLeadI
         .eq('id', cl.id);
 
       results.push({
-        campaignLeadId: cl.id,
-        status:         'failed',
-        to:             leadInfo.email,
-        error:          sendErr.message,
+        campaignLeadId: cl.id, status: 'failed',
+        to: leadInfo.email, error: sendErr.message,
       });
     }
 
-    // ── e. Random delay before next send (skip delay after the last email) ─
+    // ── e. Random delay before next send ──────────────────────────────────
     if (i < leads.length - 1) {
       const delayMs = await randomDelay();
-      logger.debug('Inter-send delay', {
-        delayMs,
-        nextLeadIndex: i + 1,
-      });
+      logger.debug('Inter-send delay', { delayMs, nextLeadIndex: i + 1 });
     }
   }
 
   const summary = {
-    sent,
-    failed,
-    skipped,
-    tokensRefreshed,
+    sent, failed, skipped, tokensRefreshed,
     total:             leads.length,
     dailyLimitReached: (alreadySentToday + sent) >= DAILY_SEND_LIMIT,
     alreadySentToday,
@@ -397,11 +281,7 @@ async function sendCampaignEmails(userId, campaignId, accessToken, campaignLeadI
     results,
   };
 
-  logger.info('Campaign email send complete', {
-    campaignId,
-    userId,
-    ...summary,
-  });
+  logger.info('Campaign email send complete', { campaignId, userId, ...summary });
 
   return summary;
 }
