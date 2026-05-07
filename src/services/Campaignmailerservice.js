@@ -1,7 +1,8 @@
-const supabase        = require('../config/supabase');
+const supabase            = require('../config/supabase');
 const { sendCustomEmail } = require('./emailService');
-const AppError        = require('../utils/AppError');
-const logger          = require('../utils/logger');
+const googleAuthService   = require('./googleAuthService');
+const AppError            = require('../utils/AppError');
+const logger              = require('../utils/logger');
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -49,6 +50,57 @@ async function getTodaySentCount(userId) {
   }
 
   return count || 0;
+}
+
+/**
+ * Ensure the Google OAuth access token is still valid before each send.
+ *
+ * Google access tokens expire after ~1 hour. During a long send loop with
+ * random delays (10s–60s per email × many leads), the token handed in at the
+ * start of the job can silently expire mid-loop.
+ *
+ * Strategy:
+ *   - If userId is provided (background worker / auto-send path):
+ *       → call getValidGoogleAccessToken(userId) which checks token_expires_at
+ *         from the DB and refreshes automatically if within the 1-min buffer.
+ *         This is the safest path — it never uses a stale token.
+ *   - If userId is null (API path where caller passed an explicit token):
+ *       → keep using the provided token as-is. The caller is responsible for
+ *         its freshness (API consumers typically provide a fresh token per request).
+ *
+ * Returns { token, refreshed } so the caller can log a refresh event.
+ *
+ * @param {string|null} userId       — DB user id; null on the manual API path
+ * @param {string}      currentToken — the token currently in use
+ * @returns {Promise<{ token: string, refreshed: boolean }>}
+ */
+async function ensureFreshToken(userId, currentToken) {
+  if (!userId) {
+    // Manual API path — trust the caller-supplied token
+    return { token: currentToken, refreshed: false };
+  }
+
+  try {
+    // getValidGoogleAccessToken checks token_expires_at and auto-refreshes
+    // if the token is expired or will expire within the next 60 seconds.
+    const freshToken = await googleAuthService.getValidGoogleAccessToken(userId);
+    const refreshed  = freshToken !== currentToken;
+
+    if (refreshed) {
+      logger.info('[TokenRefresh] Access token refreshed automatically', { userId });
+    }
+
+    return { token: freshToken, refreshed };
+  } catch (err) {
+    // Refresh failed (e.g. refresh token revoked). Log and fall back to the
+    // existing token so we don't abort the entire campaign run — the individual
+    // send will surface a 401 if it truly is expired.
+    logger.warn('[TokenRefresh] Failed to refresh access token — using existing token', {
+      userId,
+      error: err.message,
+    });
+    return { token: currentToken, refreshed: false };
+  }
 }
 
 /**
@@ -126,8 +178,9 @@ function parseTemplate(template) {
  * @param {string} campaignId
  * @param {string} accessToken   — Google OAuth2 access token for the sending user
  * @param {string|null} campaignLeadId — optional: target a single lead
+ * @param {boolean} [autoRefreshToken=true] — refresh token automatically before each send
  */
-async function sendCampaignEmails(userId, campaignId, accessToken, campaignLeadId = null) {
+async function sendCampaignEmails(userId, campaignId, accessToken, campaignLeadId = null, autoRefreshToken = true) {
   // 1. Ownership check
   const { data: campaign, error: campError } = await supabase
     .from('campaigns')
@@ -196,6 +249,7 @@ async function sendCampaignEmails(userId, campaignId, accessToken, campaignLeadI
   let sent    = 0;
   let failed  = 0;
   let skipped = 0;
+  let tokensRefreshed = 0;
   const results = [];
 
   logger.info('Starting campaign email send', {
@@ -206,8 +260,25 @@ async function sendCampaignEmails(userId, campaignId, accessToken, campaignLeadI
     remainingBudget:   remaining,
   });
 
+  // Track the active token — it may be refreshed mid-loop
+  let activeToken = accessToken;
+
   for (let i = 0; i < leads.length; i++) {
     const cl = leads[i];
+
+    // ── Refresh token before every send (catches expiry mid-loop) ─────────
+    if (autoRefreshToken) {
+      const { token, refreshed } = await ensureFreshToken(userId, activeToken);
+      if (refreshed) {
+        tokensRefreshed++;
+        logger.info('Access token auto-refreshed before send', {
+          campaignId,
+          userId,
+          sendIndex: i,
+        });
+      }
+      activeToken = token;
+    }
 
     // ── a. Parse template ─────────────────────────────────────────────────
     const { subject, body } = parseTemplate(cl.mail_template);
@@ -239,7 +310,7 @@ async function sendCampaignEmails(userId, campaignId, accessToken, campaignLeadI
         subject,
         body,
         null,          // html — plain text only; set to body if you have HTML
-        accessToken,
+        activeToken,
       );
 
       // ── d. Update status → sent ────────────────────────────────────────
@@ -317,6 +388,7 @@ async function sendCampaignEmails(userId, campaignId, accessToken, campaignLeadI
     sent,
     failed,
     skipped,
+    tokensRefreshed,
     total:             leads.length,
     dailyLimitReached: (alreadySentToday + sent) >= DAILY_SEND_LIMIT,
     alreadySentToday,
