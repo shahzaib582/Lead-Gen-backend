@@ -83,6 +83,9 @@ services:
 
 
   # 🧠 Redis (shared by all services)
-  - type: redis
-    name: auth-system-redis
-    plan: free
+    - type: redis
+      name: auth-system-redis
+      plan: free
+      ipAllowList:
+        - source: 0.0.0.0/0
+          description: allow all (internal services)
