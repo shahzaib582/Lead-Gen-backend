@@ -3,7 +3,7 @@ const connection = require('../queues/connection');
 const supabase = require('../config/supabase');
 const logger = require('../utils/logger');
 const googleAuthService = require('../services/googleAuthService');
-const { sendCampaignEmails } = require('../services/Campaignmailerservice');
+const { sendCampaignEmails } = require('../services/campaignMailerService');
 
 const MAX_ATTEMPTS = 5; // must match attempts in campaignMailQueue.js
 

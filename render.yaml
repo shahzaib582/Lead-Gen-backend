@@ -1,25 +1,26 @@
 services:
   - type: web
-    name: auth-system
+    name: leadgen-api
     runtime: node
     plan: free
     buildCommand: npm install
-    startCommand: npm start
+    startCommand: node src/index.js
     envVars:
-      - key: NODE_VERSION
-        value: 22.22.2
       - key: NODE_ENV
         value: production
+
       - key: REDIS_HOST
         fromService:
           type: redis
-          name: auth-system-redis
+          name: leadgen-redis
           property: host
+
       - key: REDIS_PORT
         fromService:
           type: redis
-          name: auth-system-redis
+          name: leadgen-redis
           property: port
+
 
   - type: worker
     name: campaign-mail-worker
@@ -28,20 +29,21 @@ services:
     buildCommand: npm install
     startCommand: node src/workers/campaignMailWorker.js
     envVars:
-      - key: NODE_VERSION
-        value: 22.22.2
       - key: NODE_ENV
         value: production
+
       - key: REDIS_HOST
         fromService:
           type: redis
-          name: auth-system-redis
+          name: leadgen-redis
           property: host
+
       - key: REDIS_PORT
         fromService:
           type: redis
-          name: auth-system-redis
+          name: leadgen-redis
           property: port
+
 
   - type: worker
     name: mail-template-worker
@@ -50,78 +52,24 @@ services:
     buildCommand: npm install
     startCommand: node src/workers/mailTemplateWorker.js
     envVars:
-      - key: NODE_VERSION
-        value: 22.22.2
       - key: NODE_ENV
         value: production
+
       - key: REDIS_HOST
         fromService:
           type: redis
-          name: auth-system-redis
+          name: leadgen-redis
           property: host
+
       - key: REDIS_PORT
         fromService:
           type: redis
-          name: auth-system-redis
+          name: leadgen-redis
           property: port
 
   - type: redis
-    name: auth-system-redis
+    name: leadgen-redis
     plan: free
     ipAllowList:
       - source: 0.0.0.0/0
-        description: allow all    startCommand: node src/workers/campaignMailWorker.js
-    envVars:
-      - key: NODE_VERSION
-        value: 22.22.2
-
-      - key: REDIS_HOST
-        fromService:
-          type: redis
-          name: auth-system-redis
-          property: host
-
-      - key: REDIS_PORT
-        fromService:
-          type: redis
-          name: auth-system-redis
-          property: port
-
-      - key: NODE_ENV
-        value: production
-
-
-  # ⚙️ Mail Template Worker
-  - type: worker
-    name: mail-template-worker
-    runtime: node
-    plan: free
-    buildCommand: npm install
-    startCommand: node src/workers/mailTemplateWorker.js
-    envVars:
-      - key: NODE_VERSION
-        value: 22.22.2
-
-      - key: REDIS_HOST
-        fromService:
-          type: redis
-          name: auth-system-redis
-          property: host
-
-      - key: REDIS_PORT
-        fromService:
-          type: redis
-          name: auth-system-redis
-          property: port
-
-      - key: NODE_ENV
-        value: production
-
-
-  # 🧠 Redis (shared by all services)
-    - type: redis
-      name: auth-system-redis
-      plan: free
-      ipAllowList:
-        - source: 0.0.0.0/0
-          description: allow all (internal services)
+        description: allow all
