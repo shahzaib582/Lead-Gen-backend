@@ -5,6 +5,8 @@ services:
     plan: free
     buildCommand: npm install
     startCommand: node src/index.js
+    envVarGroups:
+      - lead gen
     envVars:
       - key: NODE_ENV
         value: production
