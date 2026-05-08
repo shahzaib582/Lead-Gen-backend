@@ -1,5 +1,4 @@
 services:
-  # 🌐 Web Service
   - type: web
     name: auth-system
     runtime: node
@@ -9,32 +8,69 @@ services:
     envVars:
       - key: NODE_VERSION
         value: 22.22.2
-
-      # Redis connection
+      - key: NODE_ENV
+        value: production
       - key: REDIS_HOST
         fromService:
           type: redis
           name: auth-system-redis
           property: host
-
       - key: REDIS_PORT
         fromService:
           type: redis
           name: auth-system-redis
           property: port
 
-      # Example (keep yours if already used)
-      - key: NODE_ENV
-        value: production
-
-
-  # ⚙️ Campaign Mail Worker
   - type: worker
     name: campaign-mail-worker
     runtime: node
     plan: free
     buildCommand: npm install
     startCommand: node src/workers/campaignMailWorker.js
+    envVars:
+      - key: NODE_VERSION
+        value: 22.22.2
+      - key: NODE_ENV
+        value: production
+      - key: REDIS_HOST
+        fromService:
+          type: redis
+          name: auth-system-redis
+          property: host
+      - key: REDIS_PORT
+        fromService:
+          type: redis
+          name: auth-system-redis
+          property: port
+
+  - type: worker
+    name: mail-template-worker
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node src/workers/mailTemplateWorker.js
+    envVars:
+      - key: NODE_VERSION
+        value: 22.22.2
+      - key: NODE_ENV
+        value: production
+      - key: REDIS_HOST
+        fromService:
+          type: redis
+          name: auth-system-redis
+          property: host
+      - key: REDIS_PORT
+        fromService:
+          type: redis
+          name: auth-system-redis
+          property: port
+
+  - type: redis
+    name: auth-system-redis
+    plan: free
+    ipAllowList:
+      - source: 0.0.0.0/0
+        description: allow all    startCommand: node src/workers/campaignMailWorker.js
     envVars:
       - key: NODE_VERSION
         value: 22.22.2
