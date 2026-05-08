@@ -1,0 +1,89 @@
+services:
+  - type: web
+    name: auth-system
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: 22
+      - key: PORT
+        value: 3000
+
+      # Supabase
+      - key: SUPABASE_URL
+        value: https://mpddrowbaynfwjjkpjxf.supabase.co
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+
+      # JWT
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_EXPIRES_IN
+        value: 7d
+
+      # OTP settings
+      - key: OTP_EXPIRY_MINUTES
+        value: 10
+      - key: OTP_MAX_ATTEMPTS
+        value: 5
+      - key: OTP_RESEND_LIMIT
+        value: 5
+      - key: OTP_RESEND_WINDOW_MINUTES
+        value: 60
+
+      # Email / SMTP
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: 587
+      - key: SMTP_SECURE
+        value: false
+      - key: SMTP_USER
+        value: hamzaansari6060@gmail.com
+      - key: SMTP_PASS
+        sync: false
+      - key: EMAIL_FROM
+        value: "Auth System <noreply@yourdomain.com>"
+
+      # Google OAuth
+      - key: GOOGLE_CLIENT_ID
+        value: 255718389183-pubsj3j4meeoporin3ru4dmodu497v5g.apps.googleusercontent.com
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        value: https://auth-system.onrender.com/auth/google/callback
+
+      # OpenAI
+      - key: OPENAI_API_KEY
+        sync: false
+
+      # Cron
+      - key: CRON_MAIL_SCHEDULE
+        value: "0 * * * *"
+
+      # Mail delay tuning
+      - key: MAIL_DELAY_MIN_MS
+        value: 50000
+      - key: MAIL_DELAY_MAX_MS
+        value: 600000
+
+      # Redis
+      - key: REDIS_HOST
+        fromService:
+          type: redis
+          name: auth-system-redis
+          property: host
+      - key: REDIS_PORT
+        fromService:
+          type: redis
+          name: auth-system-redis
+          property: port
+
+  - type: redis
+    name: auth-system-redis
+    plan: free
+    ipAllowList: []
