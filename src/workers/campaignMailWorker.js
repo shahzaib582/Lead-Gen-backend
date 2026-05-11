@@ -4,6 +4,15 @@ const supabase = require('../config/supabase');
 const logger = require('../utils/logger');
 const googleAuthService = require('../services/googleAuthService');
 const { sendCampaignEmails } = require('../services/campaignMailerService');
+const { enqueueCampaignMailJob } = require('../jobs/campaignMailJob');
+
+// Delay between consecutive sends — reads from env, falls back to 10s–60s
+const DELAY_MIN_MS = Number(process.env.MAIL_DELAY_MIN_MS) || 10;
+const DELAY_MAX_MS = Number(process.env.MAIL_DELAY_MAX_MS) || 60;
+
+function calcNextDelay() {
+  return Math.floor(Math.random() * (DELAY_MAX_MS - DELAY_MIN_MS + 1)) + DELAY_MIN_MS;
+}
 
 const MAX_ATTEMPTS = 5; // must match attempts in campaignMailQueue.js
 
@@ -35,6 +44,15 @@ const worker = new Worker(
         throw new Error(`Lead ${campaignLeadId} not found in database`);
       }
 
+      // Guard: skip if already sent (prevents double-send on BullMQ retries)
+      if (lead.status === 'sent') {
+        logger.warn('[CampaignMailWorker] Lead already sent — skipping to avoid duplicate', {
+          campaignLeadId,
+          jobId: job.id,
+        });
+        return { success: true, skipped: true, reason: 'already_sent', leadId: campaignLeadId };
+      }
+
       // 2. Get fresh token
       const accessToken = await googleAuthService.getValidGoogleAccessToken(userId);
 
@@ -57,6 +75,35 @@ const worker = new Worker(
         campaignLeadId,
         attemptNumber,
       });
+
+      // ── Chain next lead: find the next template_generated lead for this
+      //    campaign and enqueue it after a delay from env vars.
+      //    This guarantees true sequential sending: one mail → delay → next mail.
+      const { data: nextLead } = await supabase
+        .from('campaign_leads')
+        .select('id')
+        .eq('campaign_id', campaignId)
+        .eq('user_id', userId)
+        .eq('status', 'template_generated')
+        .not('mail_template', 'is', null)
+        .neq('mail_template', '')
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .single();
+
+      if (nextLead) {
+        const delayMs = calcNextDelay();
+        await enqueueCampaignMailJob(
+          { userId, campaignId, campaignLeadId: nextLead.id },
+          { delay: delayMs }
+        );
+        logger.info('[CampaignMailWorker] Next lead queued with delay', {
+          nextCampaignLeadId: nextLead.id,
+          delayMs,
+        });
+      } else {
+        logger.info('[CampaignMailWorker] No more pending leads for campaign', { campaignId });
+      }
 
       return { success: true, leadId: campaignLeadId };
 
@@ -97,7 +144,7 @@ const worker = new Worker(
   },
   {
     connection,
-    concurrency: 2,
+    concurrency: 1,  // must be 1 — sequential sends require one job at a time per worker
     lockDuration: 60000,
   }
 );

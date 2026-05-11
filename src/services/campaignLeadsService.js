@@ -474,7 +474,7 @@ async function assignRandomLeadsToCampaign(
 
   if (leadSource === 'new') {
     idsQuery = idsQuery.or(
-      'outreachStatus.is.null,outreachStatus.eq.'
+      'outreachStatus.is.null,outreachStatus.eq.""'
     );
   } else if (
     leadSource === 'old'
@@ -636,6 +636,136 @@ async function assignRandomLeadsToCampaign(
   };
 }
 
+// ─────────────────────────────────────────────────────────────
+// Assign Filtered Leads (by country and/or industry)
+// ─────────────────────────────────────────────────────────────
+
+async function assignFilteredLeadsToCampaign(
+  userId,
+  campaignId,
+  { country, industry, limit: requestedLimit }
+) {
+  const campaign = await assertCampaignOwnership(userId, campaignId);
+
+  // Use requested limit, or fall back to campaign's target_leads, or default 50
+  const targetCount =
+    requestedLimit ||
+    campaign.target_leads ||
+    50;
+
+  if (targetCount <= 0) {
+    throw new AppError('limit must be greater than 0.', 400);
+  }
+
+  if (!country && !industry) {
+    throw new AppError(
+      'At least one filter (country or industry) is required.',
+      400
+    );
+  }
+
+  // ── Step 1: collect already-assigned lead IDs to avoid duplicates ──────────
+  const { data: existing } = await supabase
+    .from('campaign_leads')
+    .select('lead_data_id')
+    .eq('campaign_id', campaignId)
+    .eq('user_id', userId);
+
+  const excludedIds = (existing || [])
+    .map((r) => Number(r.lead_data_id))
+    .filter((n) => !isNaN(n));
+
+  // ── Step 2: query leads_data filtered by country and/or industry ───────────
+  // Schema columns are plain lowercase: country, industry (no quotes needed).
+  // ilike = case-insensitive exact match (no wildcards), so "USA" == "usa".
+  // No .limit() call — fetch the full matching pool so the shuffle is fair.
+  let idsQuery = supabase
+    .from('leads_data')
+    .select('id');
+
+  if (country)  idsQuery = idsQuery.ilike('country',  country.trim());
+  if (industry) idsQuery = idsQuery.ilike('industry', industry.trim());
+
+  if (excludedIds.length > 0) {
+    idsQuery = idsQuery.not(
+      'id',
+      'in',
+      `(${excludedIds.join(',')})`
+    );
+  }
+
+  const { data: allLeads, error: leadsError } = await idsQuery;
+
+  if (leadsError) {
+    throw new AppError(`Leads query failed: ${leadsError.message}`, 500);
+  }
+
+  if (!allLeads || allLeads.length === 0) {
+    const filterDesc = [
+      country  ? `country="${country}"`   : null,
+      industry ? `industry="${industry}"` : null,
+    ].filter(Boolean).join(', ');
+    throw new AppError(
+      `No leads found for ${filterDesc}. Check that these values exist in your leads_data table.`,
+      404
+    );
+  }
+
+  // ── Step 3: shuffle full pool, then slice to requested count ──────────────
+  for (let i = allLeads.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [allLeads[i], allLeads[j]] = [allLeads[j], allLeads[i]];
+  }
+
+  const selectedLeads = allLeads.slice(0, targetCount);
+
+  // ── Step 4: upsert into campaign_leads ────────────────────────────────────
+  const rows = selectedLeads.map((l) => ({
+    user_id:      userId,
+    campaign_id:  campaignId,
+    lead_data_id: String(l.id),
+    status:       'pending',
+  }));
+
+  const { data: inserted, error: insertError } = await supabase
+    .from('campaign_leads')
+    .upsert(rows, {
+      onConflict:       'campaign_id,lead_data_id',
+      ignoreDuplicates: true,
+    })
+    .select();
+
+  if (insertError) {
+    throw new AppError(`Insert failed: ${insertError.message}`, 500);
+  }
+
+  // ── Step 5: queue template generation if campaign is active ───────────────
+  if (campaign.status === 'active') {
+    for (const lead of inserted || []) {
+      await enqueueMailTemplateJob({
+        userId,
+        campaignId,
+        campaignLeadId: lead.id,
+      });
+    }
+  }
+
+  const insertedIds = new Set((inserted || []).map((r) => r.lead_data_id));
+  const duplicates  = selectedLeads
+    .map((l) => String(l.id))
+    .filter((id) => !insertedIds.has(id));
+
+  return {
+    inserted:        inserted || [],
+    duplicates,
+    filters:         { country: country || null, industry: industry || null },
+    totalRequested:  targetCount,
+    totalAvailable:  allLeads.length,
+    totalInserted:   (inserted || []).length,
+    totalDuplicates: duplicates.length,
+  };
+}
+
 module.exports = {
   VALID_STATUSES,
 
@@ -652,4 +782,6 @@ module.exports = {
   removeCampaignLead,
 
   assignRandomLeadsToCampaign,
+
+  assignFilteredLeadsToCampaign,
 };

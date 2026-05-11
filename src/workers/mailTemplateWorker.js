@@ -67,8 +67,8 @@ const { error: statusError } = await supabase
       }
 
       // 4. Queue mail sending with random delay
-      const minDelay = 50_000;   // 50 seconds
-      const maxDelay = 600_000;  // 10 minutes
+      const minDelay = 50;   // 50 seconds
+      const maxDelay = 600  // 10 minutes
       const randomDelay = Math.floor(Math.random() * (maxDelay - minDelay + 1)) + minDelay;
 
       await enqueueCampaignMailJob(

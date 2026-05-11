@@ -15,7 +15,7 @@ const campaignMailQueue = new Queue(
       },
 
       removeOnComplete: 100,
-      removeOnFail: false,
+      removeOnFail: true,
     },
   }
 );

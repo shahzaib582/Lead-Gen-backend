@@ -1327,7 +1327,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"status\": \"active\",\n  \"target_leads\": 300,\n  \"call_to_action\": \"Start Your Free Trial\"\n}",
+              "raw": "{\n  \"status\": \"active\",\n  \"target_leads\": 10,\n  \"call_to_action\": \"Start Your Free Trial\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1874,7 +1874,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/leads?country=United States&industry=SaaS&page=1&limit=20",
+              "raw": "{{baseUrl}}/leads?country=United States&industry=&page=1&limit=20",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1888,7 +1888,7 @@
                 },
                 {
                   "key": "industry",
-                  "value": "SaaS"
+                  "value": ""
                 },
                 {
                   "key": "page",
@@ -2804,6 +2804,109 @@
                 "{{campaignId}}",
                 "leads",
                 "{{campaignLeadId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Assign Filtered Leads (country + industry) ⭐ Copy",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"country\": \"United States\",\n  \"industry\": \"SaaS\",\n  \"limit\": 50\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/campaigns/{{campaignId}}/leads/assign-filtered",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "campaigns",
+                "{{campaignId}}",
+                "leads",
+                "assign-filtered"
+              ]
+            },
+            "description": "Assigns leads filtered by country and/or industry.\n\n**Rules:**\n- At least one of `country` or `industry` is required.\n- `limit` is optional (1–500). Falls back to `campaign.target_leads` if omitted.\n- Respects the campaign's `lead_source` setting (`new` / `old` / `both`).\n- Skips leads already assigned to the campaign.\n\n**Examples:**\n- Country only: `{ \"country\": \"United Kingdom\" }`\n- Industry only: `{ \"industry\": \"FinTech\", \"limit\": 30 }`\n- Both: `{ \"country\": \"United States\", \"industry\": \"SaaS\", \"limit\": 100 }`"
+          },
+          "response": []
+        },
+        {
+          "name": "Assign Filtered Leads (country only) Copy",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"country\": \"United Kingdom\",\n  \"limit\": 25\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/campaigns/{{campaignId}}/leads/assign-filtered",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "campaigns",
+                "{{campaignId}}",
+                "leads",
+                "assign-filtered"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Assign Filtered Leads (industry only) Copy",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"industry\": \"FinTech\",\n  \"limit\": 40\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/campaigns/{{campaignId}}/leads/assign-filtered",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "campaigns",
+                "{{campaignId}}",
+                "leads",
+                "assign-filtered"
               ]
             }
           },

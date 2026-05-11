@@ -8,8 +8,8 @@ const logger              = require('../utils/logger');
 
 const DAILY_SEND_LIMIT = 500;
 
-const DELAY_MIN_MS = Number(process.env.MAIL_DELAY_MIN_MS) || 10_000;
-const DELAY_MAX_MS = Number(process.env.MAIL_DELAY_MAX_MS) || 60_000;
+const DELAY_MIN_MS = Number(process.env.MAIL_DELAY_MIN_MS) || 100;
+const DELAY_MAX_MS = Number(process.env.MAIL_DELAY_MAX_MS) || 600;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -144,7 +144,9 @@ async function sendCampaignEmails(userId, campaignId, accessToken, campaignLeadI
     .limit(remaining);
 
   if (campaignLeadId) {
-    clQuery = clQuery.eq('id', campaignLeadId);
+    // When targeting a specific lead, only allow template_generated.
+    // This prevents re-sending to a lead that is already 'sent' or 'skipped'.
+    clQuery = clQuery.eq('id', campaignLeadId).eq('status', 'template_generated');
   }
 
   const { data: leads, error: leadsError } = await clQuery;

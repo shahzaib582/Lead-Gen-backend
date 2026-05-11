@@ -187,4 +187,39 @@ async function assignRandomLeads(req, res, next) {
   }
 }
 
-module.exports = { addLead, bulkAddLeads, listLeads, updateLead, removeLead, assignRandomLeads };
+// ─── POST /campaigns/:id/leads/assign-filtered ────────────────────────────────
+// Picks leads filtered by country and/or industry and assigns them to a campaign.
+
+async function assignFilteredLeads(req, res, next) {
+  try {
+    handleValidationErrors(req);
+
+    const campaignId = req.params.id;
+    const userId     = req.user.id;
+    const { country, industry, limit } = req.body;
+
+    const result = await campaignLeadsService.assignFilteredLeadsToCampaign(
+      userId,
+      campaignId,
+      { country, industry, limit }
+    );
+
+    logger.info('Filtered leads assigned to campaign', {
+      campaignId,
+      userId,
+      filters:         result.filters,
+      totalInserted:   result.totalInserted,
+      totalDuplicates: result.totalDuplicates,
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: `${result.totalInserted} lead(s) assigned. ${result.totalDuplicates} duplicate(s) skipped.`,
+      data: result,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { addLead, bulkAddLeads, listLeads, updateLead, removeLead, assignRandomLeads, assignFilteredLeads };

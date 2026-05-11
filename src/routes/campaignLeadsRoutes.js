@@ -124,6 +124,36 @@ router.post(
   campaignLeadsController.assignRandomLeads,
 );
 
+// POST   /campaigns/:id/leads/assign-filtered
+// Picks leads from leads_data filtered by country and/or industry,
+// then assigns them to the campaign.
+// Body params:
+//   country   (string, optional) — exact match on leads_data.country
+//   industry  (string, optional) — exact match on leads_data.industry
+//   limit     (integer, optional, 1–500) — max leads to assign; falls back to campaign.target_leads
+// At least one of country or industry must be supplied.
+router.post(
+  '/assign-filtered',
+  [
+    campaignIdParam,
+    body('country')
+      .optional({ nullable: true })
+      .isString().withMessage('country must be a string.')
+      .trim()
+      .isLength({ max: 100 }).withMessage('country must be under 100 characters.'),
+    body('industry')
+      .optional({ nullable: true })
+      .isString().withMessage('industry must be a string.')
+      .trim()
+      .isLength({ max: 100 }).withMessage('industry must be under 100 characters.'),
+    body('limit')
+      .optional({ nullable: true })
+      .isInt({ min: 1, max: 500 }).withMessage('limit must be between 1 and 500.')
+      .toInt(),
+  ],
+  campaignLeadsController.assignFilteredLeads,
+);
+
 // POST   /campaigns/:id/leads/generate-templates
 // For every pending lead in the campaign, fetch enrichment data from
 // linkedinscrapping + webscrapping, call Claude AI with the campaign template,
