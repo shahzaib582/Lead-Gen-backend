@@ -6,9 +6,11 @@ const googleAuthService = require('../services/googleAuthService');
 const { sendCampaignEmails } = require('../services/campaignMailerService');
 const { enqueueCampaignMailJob } = require('../jobs/campaignMailJob');
 
-// Delay between consecutive sends — reads from env, falls back to 10s–60s
-const DELAY_MIN_MS = Number(process.env.MAIL_DELAY_MIN_MS) || 10;
-const DELAY_MAX_MS = Number(process.env.MAIL_DELAY_MAX_MS) || 60;
+// Random delay between consecutive sends.
+// Set MAIL_DELAY_MIN_MS / MAIL_DELAY_MAX_MS in your env to override.
+// Defaults: 10s – 60s (human-like spacing, helps avoid Gmail rate limits).
+const DELAY_MIN_MS = Number(process.env.MAIL_DELAY_MIN_MS) || 10000;  // 10s
+const DELAY_MAX_MS = Number(process.env.MAIL_DELAY_MAX_MS) || 60000;  // 60s
 
 function calcNextDelay() {
   return Math.floor(Math.random() * (DELAY_MAX_MS - DELAY_MIN_MS + 1)) + DELAY_MIN_MS;
@@ -21,7 +23,7 @@ const worker = new Worker(
   async (job) => {
     const { userId, campaignId, campaignLeadId } = job.data;
 
-    const attemptNumber  = job.attemptsMade + 1; // attemptsMade is 0-indexed
+    const attemptNumber  = job.attemptsMade + 1;
     const attemptsLeft   = MAX_ATTEMPTS - attemptNumber;
     const isFinalAttempt = attemptNumber >= MAX_ATTEMPTS;
 
@@ -50,6 +52,11 @@ const worker = new Worker(
           campaignLeadId,
           jobId: job.id,
         });
+
+        // Even though we're skipping this lead, still chain the next one
+        // so the rest of the campaign continues.
+        await chainNextLead({ userId, campaignId });
+
         return { success: true, skipped: true, reason: 'already_sent', leadId: campaignLeadId };
       }
 
@@ -59,51 +66,15 @@ const worker = new Worker(
       // 3. Send email
       await sendCampaignEmails(userId, campaignId, accessToken, campaignLeadId);
 
-      // 4. Update status to 'sent' on success
-      const { error: updateError } = await supabase
-        .from('campaign_leads')
-        .update({
-          status: 'sent',
-          sent_at: new Date().toISOString(),
-          error_message: null, // clear any previous error
-        })
-        .eq('id', campaignLeadId);
-
-      if (updateError) throw updateError;
-
       logger.info('[CampaignMailWorker] Successfully sent', {
         campaignLeadId,
         attemptNumber,
       });
 
-      // ── Chain next lead: find the next template_generated lead for this
-      //    campaign and enqueue it after a delay from env vars.
-      //    This guarantees true sequential sending: one mail → delay → next mail.
-      const { data: nextLead } = await supabase
-        .from('campaign_leads')
-        .select('id')
-        .eq('campaign_id', campaignId)
-        .eq('user_id', userId)
-        .eq('status', 'template_generated')
-        .not('mail_template', 'is', null)
-        .neq('mail_template', '')
-        .order('created_at', { ascending: true })
-        .limit(1)
-        .single();
-
-      if (nextLead) {
-        const delayMs = calcNextDelay();
-        await enqueueCampaignMailJob(
-          { userId, campaignId, campaignLeadId: nextLead.id },
-          { delay: delayMs }
-        );
-        logger.info('[CampaignMailWorker] Next lead queued with delay', {
-          nextCampaignLeadId: nextLead.id,
-          delayMs,
-        });
-      } else {
-        logger.info('[CampaignMailWorker] No more pending leads for campaign', { campaignId });
-      }
+      // 4. Chain next lead with a random delay.
+      //    This is the ONLY place mail jobs are enqueued after the first kickoff,
+      //    guaranteeing true sequential sending: send → random delay → send → ...
+      await chainNextLead({ userId, campaignId });
 
       return { success: true, leadId: campaignLeadId };
 
@@ -116,7 +87,6 @@ const worker = new Worker(
       });
 
       if (isFinalAttempt) {
-        // All retries exhausted — mark as permanently failed in Supabase
         logger.error('[CampaignMailWorker] All attempts exhausted — marking as failed', {
           campaignLeadId,
           totalAttempts: MAX_ATTEMPTS,
@@ -129,8 +99,10 @@ const worker = new Worker(
             error_message: err.message.slice(0, 500),
           })
           .eq('id', campaignLeadId);
+
+        // Chain continues even after a permanent failure — don't block the rest.
+        await chainNextLead({ userId, campaignId });
       } else {
-        // Still have retries left — log but don't touch the status
         logger.warn('[CampaignMailWorker] Will retry', {
           campaignLeadId,
           attemptNumber,
@@ -139,15 +111,48 @@ const worker = new Worker(
         });
       }
 
-      throw err; // always rethrow so BullMQ handles the retry/backoff
+      throw err; // rethrow so BullMQ handles retry/backoff
     }
   },
   {
     connection,
-    concurrency: 1,  // must be 1 — sequential sends require one job at a time per worker
+    concurrency: 1,   // must stay 1 — sequential sends require one job at a time
     lockDuration: 60000,
   }
 );
+
+// ─── Helper ───────────────────────────────────────────────────────────────────
+
+async function chainNextLead({ userId, campaignId }) {
+  const { data: nextLead } = await supabase
+    .from('campaign_leads')
+    .select('id')
+    .eq('campaign_id', campaignId)
+    .eq('user_id', userId)
+    .eq('status', 'template_generated')
+    .not('mail_template', 'is', null)
+    .neq('mail_template', '')
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .single();
+
+  if (nextLead) {
+    const delayMs = calcNextDelay();
+    await enqueueCampaignMailJob(
+      { userId, campaignId, campaignLeadId: nextLead.id },
+      { delay: delayMs }
+    );
+    logger.info('[CampaignMailWorker] Next lead queued with delay', {
+      nextCampaignLeadId: nextLead.id,
+      delayMs,
+      delaySeconds: Math.round(delayMs / 1000),
+    });
+  } else {
+    logger.info('[CampaignMailWorker] No more pending leads for campaign', { campaignId });
+  }
+}
+
+// ─── Events ───────────────────────────────────────────────────────────────────
 
 worker.on('error', (err) => {
   logger.error('[CampaignMailWorker] Critical Worker Error', { error: err.message });

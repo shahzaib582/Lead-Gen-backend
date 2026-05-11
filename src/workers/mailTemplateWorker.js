@@ -3,6 +3,7 @@ const connection = require('../queues/connection');
 const supabase = require('../config/supabase');
 const logger = require('../utils/logger');
 const { generateMailTemplates } = require('../services/mailTemplateService');
+const campaignMailQueue = require('../queues/campaignMailQueue');
 const { enqueueCampaignMailJob } = require('../jobs/campaignMailJob');
 
 const MAX_ATTEMPTS = 3; // must match attempts in mailTemplateQueue.js
@@ -12,7 +13,7 @@ const worker = new Worker(
   async (job) => {
     const { userId, campaignId, campaignLeadId } = job.data;
 
-    const attemptNumber  = job.attemptsMade + 1; // attemptsMade is 0-indexed
+    const attemptNumber  = job.attemptsMade + 1;
     const attemptsLeft   = MAX_ATTEMPTS - attemptNumber;
     const isFinalAttempt = attemptNumber >= MAX_ATTEMPTS;
 
@@ -34,30 +35,29 @@ const worker = new Worker(
       if (error || !lead) throw new Error('Lead not found');
 
       // 2. Generate template
-const result = await generateMailTemplates(userId, campaignId, campaignLeadId);
+      const result = await generateMailTemplates(userId, campaignId, campaignLeadId);
 
-// Check the result object properly — it returns { processed, failed, total, results }
-if (!result || result.processed === 0) {
-  const reason = result?.results?.[0]?.error || 'Template generation failed with no output';
-  throw new Error(reason);
-}
+      if (!result || result.processed === 0) {
+        const reason = result?.results?.[0]?.error || 'Template generation failed with no output';
+        throw new Error(reason);
+      }
 
-// 3. Verify the template was actually saved in DB before marking status
-const { data: updatedLead, error: verifyError } = await supabase
-  .from('campaign_leads')
-  .select('mail_template')
-  .eq('id', campaignLeadId)
-  .single();
+      // 3. Verify the template was actually saved in DB before marking status
+      const { data: updatedLead, error: verifyError } = await supabase
+        .from('campaign_leads')
+        .select('mail_template')
+        .eq('id', campaignLeadId)
+        .single();
 
-if (verifyError || !updatedLead?.mail_template) {
-  throw new Error('Template generation reported success but mail_template is null in DB');
-}
+      if (verifyError || !updatedLead?.mail_template) {
+        throw new Error('Template generation reported success but mail_template is null in DB');
+      }
 
-// 4. Mark lead as template_generated only after confirming template exists
-const { error: statusError } = await supabase
-  .from('campaign_leads')
-  .update({ status: 'template_generated', error_message: null })
-  .eq('id', campaignLeadId);
+      // 4. Mark lead as template_generated
+      const { error: statusError } = await supabase
+        .from('campaign_leads')
+        .update({ status: 'template_generated', error_message: null })
+        .eq('id', campaignLeadId);
 
       if (statusError) {
         logger.warn('[TemplateWorker] Failed to update status to template_generated', {
@@ -66,21 +66,30 @@ const { error: statusError } = await supabase
         });
       }
 
-      // 4. Queue mail sending with random delay
-      const minDelay = 50;   // 50 seconds
-      const maxDelay = 600  // 10 minutes
-      const randomDelay = Math.floor(Math.random() * (maxDelay - minDelay + 1)) + minDelay;
+      // 5. Kick off the mail chain ONLY if no mail job is currently
+      //    waiting/delayed/active for this campaign.
+      //    campaignMailWorker handles all subsequent delays via chaining —
+      //    we must NOT enqueue every lead here or they all fire at once.
+      const counts = await campaignMailQueue.getJobCounts('waiting', 'delayed', 'active');
+      const activeChain = counts.waiting + counts.delayed + counts.active;
 
-      await enqueueCampaignMailJob(
-        { userId, campaignId, campaignLeadId },
-        { delay: randomDelay }
-      );
-
-      logger.info('[TemplateWorker] Completed & Mail Queued', {
-        campaignLeadId,
-        attemptNumber,
-        delayMs: randomDelay,
-      });
+      if (activeChain === 0) {
+        await enqueueCampaignMailJob(
+          { userId, campaignId, campaignLeadId },
+          { delay: 0 }
+        );
+        logger.info('[TemplateWorker] No active chain — kicked off mail chain', {
+          campaignLeadId,
+          attemptNumber,
+        });
+      } else {
+        // Chain is already running; campaignMailWorker will pick this lead
+        // up via the DB query after it finishes the current send.
+        logger.info('[TemplateWorker] Mail chain already active — lead will be picked up automatically', {
+          campaignLeadId,
+          activeChain,
+        });
+      }
 
       return true;
 
@@ -93,7 +102,6 @@ const { error: statusError } = await supabase
       });
 
       if (isFinalAttempt) {
-        // All retries exhausted — mark as permanently failed in Supabase
         logger.error('[TemplateWorker] All attempts exhausted — marking as failed', {
           campaignLeadId,
           totalAttempts: MAX_ATTEMPTS,
@@ -107,7 +115,6 @@ const { error: statusError } = await supabase
           })
           .eq('id', campaignLeadId);
       } else {
-        // Still have retries left — don't touch status, let BullMQ retry
         logger.warn('[TemplateWorker] Will retry', {
           campaignLeadId,
           attemptNumber,
@@ -116,18 +123,17 @@ const { error: statusError } = await supabase
         });
       }
 
-      throw err; // always rethrow so BullMQ handles retry/backoff
+      throw err;
     }
   },
   {
     connection,
     concurrency: 3,
     removeOnComplete: { count: 100 },
-    removeOnFail: false, // keep failed jobs for inspection
+    removeOnFail: false,
   }
 );
 
-// Events
 worker.on('completed', (job) => logger.info('[TemplateWorker] Job completed', { jobId: job.id }));
 worker.on('failed', (job, err) => logger.error('[TemplateWorker] Job failed', { jobId: job?.id, error: err.message }));
 worker.on('error', (err) => logger.error('[TemplateWorker] Worker error', { error: err.message }));

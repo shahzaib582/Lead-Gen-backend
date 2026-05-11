@@ -1,10 +1,8 @@
-const campaignMailQueue = require(
-  '../queues/campaignMailQueue'
-);
+const campaignMailQueue = require('../queues/campaignMailQueue');
 
 async function enqueueCampaignMailJob(
   { userId, campaignId, campaignLeadId },
-  options = {}   // ← FIX: accept options (e.g. delay) from caller
+  options = {}
 ) {
   return campaignMailQueue.add(
     'send-campaign-mail',
@@ -14,8 +12,10 @@ async function enqueueCampaignMailJob(
       campaignLeadId,
     },
     {
-      jobId: `mail-${campaignLeadId}`,
-      ...options,  // ← FIX: spread delay and any other options in
+      // Use a unique jobId so BullMQ never deduplicates/drops chained jobs.
+      // The worker already guards against double-sends via lead.status === 'sent'.
+      jobId: `mail-${campaignLeadId}-${Date.now()}`,
+      ...options,
     }
   );
 }
