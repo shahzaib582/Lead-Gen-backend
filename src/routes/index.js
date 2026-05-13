@@ -2,7 +2,6 @@ const express = require('express');
 const authRoutes = require('./authRoutes');
 const googleRoutes = require('./googleAuthRoutes');
 const campaignRoutes = require('./campaignRoutes');
-const campaignLeadsRoutes = require('./campaignLeadsRoutes');
 const emailRoutes = require('./emailRoutes');
 const leadsDataRoutes = require('./leadsDataRoutes');
 const { authenticate } = require('../middleware/authenticate');
@@ -14,7 +13,6 @@ const router = express.Router();
 router.use('/auth', authRoutes);
 router.use('/auth/google', googleRoutes);
 router.use('/campaigns', campaignRoutes);
-router.use('/campaigns/:id/leads', campaignLeadsRoutes);
 router.use('/emails', emailRoutes);
 router.use('/leads', leadsDataRoutes);
 

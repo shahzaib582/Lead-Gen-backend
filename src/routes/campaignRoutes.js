@@ -8,6 +8,7 @@ const {
   listValidation,
 } = require('../validation/campaignRoutesValidation');
 const campaignController = require('../controllers/campaignController');
+const campaignLeadsRoutes = require('./campaignLeadsRoutes');
 const { authenticate } = require('../middleware/authenticate');
 
 const router = express.Router();
@@ -26,6 +27,10 @@ const campaignLimiter = rateLimit({
 });
 
 router.use(campaignLimiter);
+
+// ─── Nested: /campaigns/:id/leads/* ───────────────────────────────────────────
+// Registered before /:id CRUD so paths like …/leads are not treated as a campaign id.
+router.use('/:id/leads', campaignLeadsRoutes);
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
