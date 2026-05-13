@@ -1,12 +1,15 @@
 const { validationResult } = require('express-validator');
 const leadsDataService = require('../services/leadsDataService');
-const AppError         = require('../utils/AppError');
-const logger           = require('../utils/logger');
+const AppError = require('../utils/AppError');
+const logger = require('../utils/logger');
 
 function handleValidationErrors(req) {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    const messages = errors.array().map((e) => e.msg).join(', ');
+    const messages = errors
+      .array()
+      .map((e) => e.msg)
+      .join(', ');
     throw new AppError(messages, 422);
   }
 }
@@ -55,7 +58,7 @@ async function list(req, res, next) {
       fitTag,
       sortBy,
       sortOrder,
-      page:  parseInt(page  || '1',  10),
+      page: parseInt(page || '1', 10),
       limit: Math.min(parseInt(limit || '20', 10), 100),
     });
 

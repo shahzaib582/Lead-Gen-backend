@@ -4,11 +4,11 @@ const supabase = require('../config/supabase');
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
 
-const OTP_EXPIRY_MINUTES  = Number(process.env.OTP_EXPIRY_MINUTES)  || 10;
-const OTP_MAX_ATTEMPTS    = Number(process.env.OTP_MAX_ATTEMPTS)    || 5;
-const OTP_RESEND_LIMIT    = Number(process.env.OTP_RESEND_LIMIT)    || 5;
-const OTP_RESEND_WINDOW   = Number(process.env.OTP_RESEND_WINDOW_MINUTES) || 60;
-const BCRYPT_ROUNDS       = 10;
+const OTP_EXPIRY_MINUTES = Number(process.env.OTP_EXPIRY_MINUTES) || 10;
+const OTP_MAX_ATTEMPTS = Number(process.env.OTP_MAX_ATTEMPTS) || 5;
+const OTP_RESEND_LIMIT = Number(process.env.OTP_RESEND_LIMIT) || 5;
+const OTP_RESEND_WINDOW = Number(process.env.OTP_RESEND_WINDOW_MINUTES) || 60;
+const BCRYPT_ROUNDS = 10;
 
 // ─── Generate ─────────────────────────────────────────────────────────────────
 
@@ -38,16 +38,11 @@ async function enforceResendRateLimit(email) {
   if (error) throw new AppError('Database error checking rate limit', 500);
 
   if (count >= OTP_RESEND_LIMIT) {
-    throw new AppError(
-      `Too many OTP requests. Please wait before requesting another code.`,
-      429
-    );
+    throw new AppError(`Too many OTP requests. Please wait before requesting another code.`, 429);
   }
 
   // Record this send
-  const { error: insertError } = await supabase
-    .from('otp_rate_limits')
-    .insert({ email });
+  const { error: insertError } = await supabase.from('otp_rate_limits').insert({ email });
 
   if (insertError) throw new AppError('Database error recording rate limit', 500);
 }
@@ -66,11 +61,7 @@ async function createOtp(userId, email) {
   await enforceResendRateLimit(email);
 
   // Invalidate old unused OTPs for this user (mark as used)
-  await supabase
-    .from('otp_codes')
-    .update({ used: true })
-    .eq('user_id', userId)
-    .eq('used', false);
+  await supabase.from('otp_codes').update({ used: true }).eq('user_id', userId).eq('used', false);
 
   const plainOtp = generateOtp();
   const codeHash = await bcrypt.hash(plainOtp, BCRYPT_ROUNDS);
@@ -118,10 +109,7 @@ async function verifyOtp(userId, submittedOtp) {
   if (otpRecord.attempts >= OTP_MAX_ATTEMPTS) {
     // Invalidate it
     await supabase.from('otp_codes').update({ used: true }).eq('id', otpRecord.id);
-    throw new AppError(
-      'Too many incorrect attempts. Please request a new verification code.',
-      429
-    );
+    throw new AppError('Too many incorrect attempts. Please request a new verification code.', 429);
   }
 
   const isMatch = await bcrypt.compare(submittedOtp, otpRecord.code_hash);
@@ -134,10 +122,7 @@ async function verifyOtp(userId, submittedOtp) {
       .eq('id', otpRecord.id);
 
     const remaining = OTP_MAX_ATTEMPTS - (otpRecord.attempts + 1);
-    throw new AppError(
-      `Invalid verification code. ${remaining} attempt(s) remaining.`,
-      400
-    );
+    throw new AppError(`Invalid verification code. ${remaining} attempt(s) remaining.`, 400);
   }
 
   // Mark as used

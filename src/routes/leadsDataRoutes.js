@@ -1,8 +1,8 @@
-const express  = require('express');
+const express = require('express');
 const { query, param } = require('express-validator');
 const rateLimit = require('express-rate-limit');
 const leadsDataController = require('../controllers/leadsDataController');
-const { authenticate }    = require('../middleware/authenticate');
+const { authenticate } = require('../middleware/authenticate');
 
 const router = express.Router();
 
@@ -23,11 +23,24 @@ router.use(leadsLimiter);
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 
-const VALID_SORT_COLUMNS  = ['created_at', 'fullName', 'email', 'company', 'country', 'fitScore', 'dateAdded'];
-const VALID_SORT_ORDERS   = ['asc', 'desc'];
+const VALID_SORT_COLUMNS = [
+  'created_at',
+  'fullName',
+  'email',
+  'company',
+  'country',
+  'fitScore',
+  'dateAdded',
+];
+const VALID_SORT_ORDERS = ['asc', 'desc'];
 
 const listValidation = [
-  query('search').optional().isString().trim().isLength({ max: 200 }).withMessage('Search term too long.'),
+  query('search')
+    .optional()
+    .isString()
+    .trim()
+    .isLength({ max: 200 })
+    .withMessage('Search term too long.'),
 
   query('emailStatus').optional().isString().trim(),
   query('country').optional().isString().trim(),
@@ -52,12 +65,14 @@ const listValidation = [
 
   query('page')
     .optional()
-    .isInt({ min: 1 }).withMessage('Page must be a positive integer.')
+    .isInt({ min: 1 })
+    .withMessage('Page must be a positive integer.')
     .toInt(),
 
   query('limit')
     .optional()
-    .isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100.')
+    .isInt({ min: 1, max: 100 })
+    .withMessage('Limit must be between 1 and 100.')
     .toInt(),
 ];
 

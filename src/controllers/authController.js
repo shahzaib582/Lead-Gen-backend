@@ -1,22 +1,21 @@
 const { validationResult } = require('express-validator');
-const userService          = require('../services/userService');
-const otpService           = require('../services/otpService');
-const emailService         = require('../services/emailService');
-const {
-  generateAccessToken,
-  generateRefreshToken,
-  signToken,                  // legacy alias
-} = require('../utils/jwt');
-const refreshTokenService  = require('../services/refreshTokenService');
-const AppError             = require('../utils/AppError');
-const logger               = require('../utils/logger');
+const userService = require('../services/userService');
+const otpService = require('../services/otpService');
+const emailService = require('../services/emailService');
+const { generateAccessToken, generateRefreshToken } = require('../utils/jwt');
+const refreshTokenService = require('../services/refreshTokenService');
+const AppError = require('../utils/AppError');
+const logger = require('../utils/logger');
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
 
 function handleValidationErrors(req) {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    const messages = errors.array().map((e) => e.msg).join(', ');
+    const messages = errors
+      .array()
+      .map((e) => e.msg)
+      .join(', ');
     throw new AppError(messages, 422);
   }
 }
@@ -26,8 +25,8 @@ function handleValidationErrors(req) {
  * token to the database.
  */
 async function issueTokenPair(user) {
-  const accessToken  = generateAccessToken(user);
-  const rawRefresh   = generateRefreshToken();
+  const accessToken = generateAccessToken(user);
+  const rawRefresh = generateRefreshToken();
   await refreshTokenService.saveRefreshToken(user.id, rawRefresh);
   return { accessToken, refreshToken: rawRefresh };
 }
@@ -40,7 +39,7 @@ async function signup(req, res, next) {
     const { email, password } = req.body;
 
     const user = await userService.createUser(email, password);
-    const otp  = await otpService.createOtp(user.id, user.email);
+    const otp = await otpService.createOtp(user.id, user.email);
     await emailService.sendOtpEmail(user.email, otp);
 
     logger.info('User signed up', { userId: user.id, email: user.email });
@@ -63,8 +62,8 @@ async function verifyOtp(req, res, next) {
     const { userId, otp } = req.body;
 
     const user = await userService.findUserById(userId);
-    if (!user)             throw new AppError('User not found.', 404);
-    if (user.is_verified)  throw new AppError('Email is already verified.', 400);
+    if (!user) throw new AppError('User not found.', 404);
+    if (user.is_verified) throw new AppError('Email is already verified.', 400);
 
     await otpService.verifyOtp(userId, otp);
     await userService.markUserVerified(userId);
@@ -113,10 +112,10 @@ async function login(req, res, next) {
         accessToken,
         refreshToken,
         user: {
-          id:         user.id,
-          email:      user.email,
+          id: user.id,
+          email: user.email,
           isVerified: user.is_verified,
-          createdAt:  user.created_at,
+          createdAt: user.created_at,
         },
       },
     });
@@ -205,7 +204,7 @@ async function resendOtp(req, res, next) {
     const { userId } = req.body;
 
     const user = await userService.findUserById(userId);
-    if (!user)            throw new AppError('User not found.', 404);
+    if (!user) throw new AppError('User not found.', 404);
     if (user.is_verified) throw new AppError('Email is already verified.', 400);
 
     const otp = await otpService.createOtp(user.id, user.email);

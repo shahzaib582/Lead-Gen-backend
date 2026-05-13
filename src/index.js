@@ -21,7 +21,7 @@ if (missing.length) {
   process.exit(1);
 }
 
-const app    = require('./app');
+const app = require('./app');
 const logger = require('./utils/logger');
 
 const PORT = Number(process.env.PORT) || 3000;
@@ -40,12 +40,12 @@ process.on('SIGINT', () => shutdown('SIGINT')); // Handle Ctrl+C
 
 async function shutdown(signal) {
   logger.info(`${signal} received — shutting down gracefully`);
-  
+
   server.close(async () => {
     // 3. Close worker connections to Redis cleanly
     await mailTemplateWorker.worker.close();
     await campaignMailWorker.worker.close();
-    
+
     logger.info('Server and workers closed');
     process.exit(0);
   });

@@ -1,8 +1,8 @@
-const supabase            = require('../config/supabase');
+const supabase = require('../config/supabase');
 const { sendCustomEmail } = require('./emailService');
-const googleAuthService   = require('./googleAuthService');
-const AppError            = require('../utils/AppError');
-const logger              = require('../utils/logger');
+const googleAuthService = require('./googleAuthService');
+const AppError = require('../utils/AppError');
+const logger = require('../utils/logger');
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -44,7 +44,7 @@ async function ensureFreshToken(userId, currentToken) {
 
   try {
     const freshToken = await googleAuthService.getValidGoogleAccessToken(userId);
-    const refreshed  = freshToken !== currentToken;
+    const refreshed = freshToken !== currentToken;
 
     if (refreshed) {
       logger.info('[TokenRefresh] Access token refreshed automatically', { userId });
@@ -74,14 +74,14 @@ async function getLeadEmail(leadDataId) {
 function parseTemplate(template) {
   if (!template) return { subject: 'Hello', body: '' };
 
-  const lines   = template.split('\n');
-  let subject   = null;
+  const lines = template.split('\n');
+  let subject = null;
   let bodyStart = 0;
 
   for (let i = 0; i < lines.length; i++) {
     const trimmed = lines[i].trim();
     if (trimmed.toLowerCase().startsWith('subject:')) {
-      subject   = trimmed.slice('subject:'.length).trim();
+      subject = trimmed.slice('subject:'.length).trim();
       bodyStart = i + 1;
       break;
     }
@@ -101,7 +101,13 @@ function parseTemplate(template) {
 
 // ─── Main exported function ───────────────────────────────────────────────────
 
-async function sendCampaignEmails(userId, campaignId, accessToken, campaignLeadId = null, autoRefreshToken = true) {
+async function sendCampaignEmails(
+  userId,
+  campaignId,
+  accessToken,
+  campaignLeadId = null,
+  autoRefreshToken = true
+) {
   // 1. Ownership check
   const { data: campaign, error: campError } = await supabase
     .from('campaigns')
@@ -118,15 +124,22 @@ async function sendCampaignEmails(userId, campaignId, accessToken, campaignLeadI
 
   // 2. Daily limit check
   const alreadySentToday = await getTodaySentCount(userId);
-  const remaining        = DAILY_SEND_LIMIT - alreadySentToday;
+  const remaining = DAILY_SEND_LIMIT - alreadySentToday;
 
   if (remaining <= 0) {
     logger.info('Daily send limit reached — no emails sent', {
-      userId, campaignId, alreadySentToday, limit: DAILY_SEND_LIMIT,
+      userId,
+      campaignId,
+      alreadySentToday,
+      limit: DAILY_SEND_LIMIT,
     });
     return {
-      sent: 0, failed: 0, skipped: 0,
-      dailyLimitReached: true, alreadySentToday, dailyLimit: DAILY_SEND_LIMIT,
+      sent: 0,
+      failed: 0,
+      skipped: 0,
+      dailyLimitReached: true,
+      alreadySentToday,
+      dailyLimit: DAILY_SEND_LIMIT,
     };
   }
 
@@ -139,7 +152,7 @@ async function sendCampaignEmails(userId, campaignId, accessToken, campaignLeadI
     .eq('user_id', userId)
     .not('mail_template', 'is', null)
     .neq('mail_template', '')
-    .in('status', ['pending', 'template_generated', 'failed'])  // FIX: correct Supabase syntax + retry failed
+    .in('status', ['pending', 'template_generated', 'failed']) // FIX: correct Supabase syntax + retry failed
     .order('created_at', { ascending: true })
     .limit(remaining);
 
@@ -155,20 +168,23 @@ async function sendCampaignEmails(userId, campaignId, accessToken, campaignLeadI
   if (!leads || leads.length === 0) {
     throw new AppError(
       'No leads with generated templates found. Run generate-templates first.',
-      404,
+      404
     );
   }
 
   // 4. Send loop
-  let sent    = 0;
-  let failed  = 0;
+  let sent = 0;
+  let failed = 0;
   let skipped = 0;
   let tokensRefreshed = 0;
   const results = [];
 
   logger.info('Starting campaign email send', {
-    campaignId, userId,
-    totalToSend: leads.length, alreadySentToday, remainingBudget: remaining,
+    campaignId,
+    userId,
+    totalToSend: leads.length,
+    alreadySentToday,
+    remainingBudget: remaining,
   });
 
   let activeToken = accessToken;
@@ -181,7 +197,11 @@ async function sendCampaignEmails(userId, campaignId, accessToken, campaignLeadI
       const { token, refreshed } = await ensureFreshToken(userId, activeToken);
       if (refreshed) {
         tokensRefreshed++;
-        logger.info('Access token auto-refreshed before send', { campaignId, userId, sendIndex: i });
+        logger.info('Access token auto-refreshed before send', {
+          campaignId,
+          userId,
+          sendIndex: i,
+        });
       }
       activeToken = token;
     }
@@ -194,7 +214,8 @@ async function sendCampaignEmails(userId, campaignId, accessToken, campaignLeadI
 
     if (!leadInfo || !leadInfo.email) {
       logger.warn('Skipping lead — no email address found', {
-        campaignLeadId: cl.id, lead_data_id: cl.lead_data_id,
+        campaignLeadId: cl.id,
+        lead_data_id: cl.lead_data_id,
       });
 
       await supabase
@@ -209,13 +230,7 @@ async function sendCampaignEmails(userId, campaignId, accessToken, campaignLeadI
 
     // ── c. Send via Gmail API ─────────────────────────────────────────────
     try {
-      const { messageId } = await sendCustomEmail(
-        leadInfo.email,
-        subject,
-        body,
-        null,
-        activeToken,
-      );
+      const { messageId } = await sendCustomEmail(leadInfo.email, subject, body, null, activeToken);
 
       // ── d. Update status → sent ────────────────────────────────────────
       const sentAt = new Date().toISOString();
@@ -229,30 +244,38 @@ async function sendCampaignEmails(userId, campaignId, accessToken, campaignLeadI
         .from('leads_data')
         .update({
           outreachStatus: 'contacted',
-          emailSent:      'true',
-          emailSentDate:  sentAt,
+          emailSent: 'true',
+          emailSentDate: sentAt,
         })
         .eq('id', Number(cl.lead_data_id));
 
       sent++;
 
       logger.info('Email sent', {
-        campaignLeadId: cl.id, lead_data_id: cl.lead_data_id,
-        to: leadInfo.email, subject, messageId,
-        sendNumber: sent, totalBudget: leads.length,
+        campaignLeadId: cl.id,
+        lead_data_id: cl.lead_data_id,
+        to: leadInfo.email,
+        subject,
+        messageId,
+        sendNumber: sent,
+        totalBudget: leads.length,
       });
 
       results.push({
-        campaignLeadId: cl.id, status: 'sent',
-        to: leadInfo.email, subject, messageId,
+        campaignLeadId: cl.id,
+        status: 'sent',
+        to: leadInfo.email,
+        subject,
+        messageId,
       });
-
     } catch (sendErr) {
       failed++;
 
       logger.error('Failed to send email', {
-        campaignLeadId: cl.id, lead_data_id: cl.lead_data_id,
-        to: leadInfo.email, error: sendErr.message,
+        campaignLeadId: cl.id,
+        lead_data_id: cl.lead_data_id,
+        to: leadInfo.email,
+        error: sendErr.message,
       });
 
       await supabase
@@ -261,8 +284,10 @@ async function sendCampaignEmails(userId, campaignId, accessToken, campaignLeadI
         .eq('id', cl.id);
 
       results.push({
-        campaignLeadId: cl.id, status: 'failed',
-        to: leadInfo.email, error: sendErr.message,
+        campaignLeadId: cl.id,
+        status: 'failed',
+        to: leadInfo.email,
+        error: sendErr.message,
       });
     }
 
@@ -274,12 +299,15 @@ async function sendCampaignEmails(userId, campaignId, accessToken, campaignLeadI
   }
 
   const summary = {
-    sent, failed, skipped, tokensRefreshed,
-    total:             leads.length,
-    dailyLimitReached: (alreadySentToday + sent) >= DAILY_SEND_LIMIT,
+    sent,
+    failed,
+    skipped,
+    tokensRefreshed,
+    total: leads.length,
+    dailyLimitReached: alreadySentToday + sent >= DAILY_SEND_LIMIT,
     alreadySentToday,
-    totalSentToday:    alreadySentToday + sent,
-    dailyLimit:        DAILY_SEND_LIMIT,
+    totalSentToday: alreadySentToday + sent,
+    dailyLimit: DAILY_SEND_LIMIT,
     results,
   };
 

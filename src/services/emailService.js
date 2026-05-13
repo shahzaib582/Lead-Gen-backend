@@ -114,11 +114,7 @@ async function sendCustomEmail(to, subject, body, html = null, accessToken) {
   const recipients = Array.isArray(to) ? to.join(', ') : to;
 
   // Build a MIME message
-  const mimeLines = [
-    `To: ${recipients}`,
-    `Subject: ${subject}`,
-    'MIME-Version: 1.0',
-  ];
+  const mimeLines = [`To: ${recipients}`, `Subject: ${subject}`, 'MIME-Version: 1.0'];
 
   if (html) {
     // Multipart message: plain text + HTML

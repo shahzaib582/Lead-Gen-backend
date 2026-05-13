@@ -1,12 +1,15 @@
 const { validationResult } = require('express-validator');
 const campaignService = require('../services/campaignService');
-const AppError        = require('../utils/AppError');
-const logger          = require('../utils/logger');
+const AppError = require('../utils/AppError');
+const logger = require('../utils/logger');
 
 function handleValidationErrors(req) {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    const messages = errors.array().map((e) => e.msg).join(', ');
+    const messages = errors
+      .array()
+      .map((e) => e.msg)
+      .join(', ');
     throw new AppError(messages, 422);
   }
 }
@@ -36,11 +39,11 @@ async function create(req, res, next) {
       target_zone,
       call_to_action,
       run_mode,
-      mail_template:    mail_template    || null,
+      mail_template: mail_template || null,
       example_training: example_training || null,
-      target_leads:     target_leads     || 0,
-      lead_source:      lead_source      || 'both',
-      status:           status           || 'draft',
+      target_leads: target_leads || 0,
+      lead_source: lead_source || 'both',
+      status: status || 'draft',
     });
 
     logger.info('Campaign created', { campaignId: campaign.id, userId: req.user.id });
@@ -62,7 +65,7 @@ async function list(req, res, next) {
     const { status, page, limit } = req.query;
     const result = await campaignService.getCampaigns(req.user.id, {
       status,
-      page:  parseInt(page  || '1',  10),
+      page: parseInt(page || '1', 10),
       limit: parseInt(limit || '20', 10),
     });
 
@@ -97,8 +100,16 @@ async function update(req, res, next) {
     handleValidationErrors(req);
 
     const allowed = [
-      'name', 'goal', 'target_zone', 'call_to_action',
-      'run_mode', 'mail_template', 'example_training', 'target_leads', 'lead_source', 'status',
+      'name',
+      'goal',
+      'target_zone',
+      'call_to_action',
+      'run_mode',
+      'mail_template',
+      'example_training',
+      'target_leads',
+      'lead_source',
+      'status',
     ];
 
     // Only include fields the client actually sent

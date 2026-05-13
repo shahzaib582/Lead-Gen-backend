@@ -13,8 +13,8 @@ const worker = new Worker(
   async (job) => {
     const { userId, campaignId, campaignLeadId } = job.data;
 
-    const attemptNumber  = job.attemptsMade + 1;
-    const attemptsLeft   = MAX_ATTEMPTS - attemptNumber;
+    const attemptNumber = job.attemptsMade + 1;
+    const attemptsLeft = MAX_ATTEMPTS - attemptNumber;
     const isFinalAttempt = attemptNumber >= MAX_ATTEMPTS;
 
     logger.info('[TemplateWorker] Started', {
@@ -74,10 +74,7 @@ const worker = new Worker(
       const activeChain = counts.waiting + counts.delayed + counts.active;
 
       if (activeChain === 0) {
-        await enqueueCampaignMailJob(
-          { userId, campaignId, campaignLeadId },
-          { delay: 0 }
-        );
+        await enqueueCampaignMailJob({ userId, campaignId, campaignLeadId }, { delay: 0 });
         logger.info('[TemplateWorker] No active chain — kicked off mail chain', {
           campaignLeadId,
           attemptNumber,
@@ -85,14 +82,16 @@ const worker = new Worker(
       } else {
         // Chain is already running; campaignMailWorker will pick this lead
         // up via the DB query after it finishes the current send.
-        logger.info('[TemplateWorker] Mail chain already active — lead will be picked up automatically', {
-          campaignLeadId,
-          activeChain,
-        });
+        logger.info(
+          '[TemplateWorker] Mail chain already active — lead will be picked up automatically',
+          {
+            campaignLeadId,
+            activeChain,
+          }
+        );
       }
 
       return true;
-
     } catch (err) {
       logger.error('[TemplateWorker] Attempt failed', {
         campaignLeadId,
@@ -135,7 +134,9 @@ const worker = new Worker(
 );
 
 worker.on('completed', (job) => logger.info('[TemplateWorker] Job completed', { jobId: job.id }));
-worker.on('failed', (job, err) => logger.error('[TemplateWorker] Job failed', { jobId: job?.id, error: err.message }));
+worker.on('failed', (job, err) =>
+  logger.error('[TemplateWorker] Job failed', { jobId: job?.id, error: err.message })
+);
 worker.on('error', (err) => logger.error('[TemplateWorker] Worker error', { error: err.message }));
 
 function start() {

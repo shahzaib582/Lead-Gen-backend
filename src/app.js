@@ -1,23 +1,23 @@
-const express        = require('express');
-const rateLimit      = require('express-rate-limit');
-const authRoutes     = require('./routes/authRoutes');
-const googleRoutes   = require('./routes/googleAuthRoutes');
-const campaignRoutes      = require('./routes/campaignRoutes');
+const express = require('express');
+const rateLimit = require('express-rate-limit');
+const authRoutes = require('./routes/authRoutes');
+const googleRoutes = require('./routes/googleAuthRoutes');
+const campaignRoutes = require('./routes/campaignRoutes');
 const campaignLeadsRoutes = require('./routes/campaignLeadsRoutes');
-const emailRoutes         = require('./routes/emailRoutes');
-const leadsDataRoutes     = require('./routes/leadsDataRoutes');
-const errorHandler   = require('./middleware/errorHandler');
+const emailRoutes = require('./routes/emailRoutes');
+const leadsDataRoutes = require('./routes/leadsDataRoutes');
+const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
 
 const cors = require('cors');
 
-
-
-app.use(cors({
-  origin: 'http://localhost:8080',
-  credentials: true
-}));
+app.use(
+  cors({
+    origin: 'http://localhost:8080',
+    credentials: true,
+  })
+);
 
 // ─── Security & parsing ───────────────────────────────────────────────────────
 
@@ -39,12 +39,12 @@ app.use(
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
-app.use('/auth',         authRoutes);
-app.use('/auth/google',  googleRoutes);
-app.use('/campaigns',            campaignRoutes);
-app.use('/campaigns/:id/leads',  campaignLeadsRoutes);
-app.use('/emails',               emailRoutes);
-app.use('/leads',                leadsDataRoutes);
+app.use('/auth', authRoutes);
+app.use('/auth/google', googleRoutes);
+app.use('/campaigns', campaignRoutes);
+app.use('/campaigns/:id/leads', campaignLeadsRoutes);
+app.use('/emails', emailRoutes);
+app.use('/leads', leadsDataRoutes);
 
 // Protected /me example
 const { authenticate } = require('./middleware/authenticate');

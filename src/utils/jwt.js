@@ -1,10 +1,9 @@
-const jwt    = require('jsonwebtoken');
+const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 
-const ACCESS_SECRET  = process.env.JWT_ACCESS_SECRET  || process.env.JWT_SECRET;
-const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET + '_refresh';
+const ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET;
 
-const ACCESS_EXPIRES  = process.env.JWT_ACCESS_EXPIRES_IN  || '15m';
+const ACCESS_EXPIRES = process.env.JWT_ACCESS_EXPIRES_IN || '15m';
 
 if (!ACCESS_SECRET || ACCESS_SECRET.length < 32) {
   throw new Error('JWT_ACCESS_SECRET must be set and at least 32 characters long.');
@@ -13,11 +12,10 @@ if (!ACCESS_SECRET || ACCESS_SECRET.length < 32) {
 // ─── Access Token ─────────────────────────────────────────────────────────────
 
 function generateAccessToken(user) {
-  return jwt.sign(
-    { sub: user.id, email: user.email, type: 'access' },
-    ACCESS_SECRET,
-    { expiresIn: ACCESS_EXPIRES, algorithm: 'HS256' }
-  );
+  return jwt.sign({ sub: user.id, email: user.email, type: 'access' }, ACCESS_SECRET, {
+    expiresIn: ACCESS_EXPIRES,
+    algorithm: 'HS256',
+  });
 }
 
 function verifyAccessToken(token) {

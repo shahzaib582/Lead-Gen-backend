@@ -48,24 +48,29 @@ const sendEmailValidation = [
       if (typeof value === 'string') {
         return value.toLowerCase().trim();
       } else if (Array.isArray(value)) {
-        return value.map(email => email.toLowerCase().trim());
+        return value.map((email) => email.toLowerCase().trim());
       }
       return value;
     }),
 
   body('subject')
     .trim()
-    .notEmpty().withMessage('Subject is required.')
-    .isLength({ max: 200 }).withMessage('Subject must be under 200 characters.'),
+    .notEmpty()
+    .withMessage('Subject is required.')
+    .isLength({ max: 200 })
+    .withMessage('Subject must be under 200 characters.'),
 
   body('body')
     .trim()
-    .notEmpty().withMessage('Email body is required.')
-    .isLength({ max: 10000 }).withMessage('Email body must be under 10,000 characters.'),
+    .notEmpty()
+    .withMessage('Email body is required.')
+    .isLength({ max: 10000 })
+    .withMessage('Email body must be under 10,000 characters.'),
 
   body('html')
     .optional()
-    .isLength({ max: 50000 }).withMessage('HTML content must be under 50,000 characters.'),
+    .isLength({ max: 50000 })
+    .withMessage('HTML content must be under 50,000 characters.'),
 ];
 
 // ─── POST /emails/send ───────────────────────────────────────────────────────

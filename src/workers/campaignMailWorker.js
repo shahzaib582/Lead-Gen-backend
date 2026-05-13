@@ -9,8 +9,8 @@ const { enqueueCampaignMailJob } = require('../jobs/campaignMailJob');
 // Random delay between consecutive sends.
 // Set MAIL_DELAY_MIN_MS / MAIL_DELAY_MAX_MS in your env to override.
 // Defaults: 10s – 60s (human-like spacing, helps avoid Gmail rate limits).
-const DELAY_MIN_MS = Number(process.env.MAIL_DELAY_MIN_MS) || 10000;  // 10s
-const DELAY_MAX_MS = Number(process.env.MAIL_DELAY_MAX_MS) || 60000;  // 60s
+const DELAY_MIN_MS = Number(process.env.MAIL_DELAY_MIN_MS) || 10000; // 10s
+const DELAY_MAX_MS = Number(process.env.MAIL_DELAY_MAX_MS) || 60000; // 60s
 
 function calcNextDelay() {
   return Math.floor(Math.random() * (DELAY_MAX_MS - DELAY_MIN_MS + 1)) + DELAY_MIN_MS;
@@ -23,8 +23,8 @@ const worker = new Worker(
   async (job) => {
     const { userId, campaignId, campaignLeadId } = job.data;
 
-    const attemptNumber  = job.attemptsMade + 1;
-    const attemptsLeft   = MAX_ATTEMPTS - attemptNumber;
+    const attemptNumber = job.attemptsMade + 1;
+    const attemptsLeft = MAX_ATTEMPTS - attemptNumber;
     const isFinalAttempt = attemptNumber >= MAX_ATTEMPTS;
 
     logger.info('[CampaignMailWorker] Started processing', {
@@ -77,7 +77,6 @@ const worker = new Worker(
       await chainNextLead({ userId, campaignId });
 
       return { success: true, leadId: campaignLeadId };
-
     } catch (err) {
       logger.error('[CampaignMailWorker] Attempt failed', {
         campaignLeadId,
@@ -116,7 +115,7 @@ const worker = new Worker(
   },
   {
     connection,
-    concurrency: 1,   // must stay 1 — sequential sends require one job at a time
+    concurrency: 1, // must stay 1 — sequential sends require one job at a time
     lockDuration: 60000,
   }
 );

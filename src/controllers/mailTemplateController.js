@@ -1,12 +1,15 @@
 const { validationResult } = require('express-validator');
-const mailTemplateService  = require('../services/mailTemplateService');
-const AppError             = require('../utils/AppError');
-const logger               = require('../utils/logger');
+const mailTemplateService = require('../services/mailTemplateService');
+const AppError = require('../utils/AppError');
+const logger = require('../utils/logger');
 
 function handleValidationErrors(req) {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    const messages = errors.array().map((e) => e.msg).join(', ');
+    const messages = errors
+      .array()
+      .map((e) => e.msg)
+      .join(', ');
     throw new AppError(messages, 422);
   }
 }
@@ -24,29 +27,29 @@ async function generateTemplates(req, res, next) {
   try {
     handleValidationErrors(req);
 
-    const campaignId      = req.params.id;
-    const userId          = req.user.id;
-    const campaignLeadId  = req.body.campaign_lead_id || null;
+    const campaignId = req.params.id;
+    const userId = req.user.id;
+    const campaignLeadId = req.body.campaign_lead_id || null;
 
     logger.info('Starting mail template generation', { campaignId, userId, campaignLeadId });
 
     const result = await mailTemplateService.generateMailTemplates(
       userId,
       campaignId,
-      campaignLeadId,
+      campaignLeadId
     );
 
     logger.info('Mail template generation complete', {
       campaignId,
       userId,
       processed: result.processed,
-      failed:    result.failed,
+      failed: result.failed,
     });
 
     return res.status(200).json({
       success: true,
       message: `${result.processed} template(s) generated. ${result.failed} failed.`,
-      data:    result,
+      data: result,
     });
   } catch (err) {
     next(err);

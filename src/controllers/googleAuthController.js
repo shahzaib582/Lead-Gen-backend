@@ -1,16 +1,16 @@
 const { getAuthUrl, exchangeCodeForProfile } = require('../config/googleOAuth');
-const googleAuthService   = require('../services/googleAuthService');
+const googleAuthService = require('../services/googleAuthService');
 const refreshTokenService = require('../services/refreshTokenService');
-const userService         = require('../services/userService');
+const userService = require('../services/userService');
 const { generateAccessToken, generateRefreshToken } = require('../utils/jwt');
-const AppError            = require('../utils/AppError');
-const logger              = require('../utils/logger');
+const AppError = require('../utils/AppError');
+const logger = require('../utils/logger');
 
 // ─── Helper: issue our own access + refresh token pair ───────────────────────
 
 async function issueTokenPair(user) {
   const accessToken = generateAccessToken(user);
-  const rawRefresh  = generateRefreshToken();
+  const rawRefresh = generateRefreshToken();
   await refreshTokenService.saveRefreshToken(user.id, rawRefresh);
   return { accessToken, refreshToken: rawRefresh };
 }
@@ -54,10 +54,12 @@ async function handleGoogleCallback(req, res, next) {
       // Returning Google user — update tokens (access token rotates, refresh token only if re-consented)
       user = existingGoogleAccount.users;
       await googleAuthService.upsertGoogleAccount(user.id, {
-        email, name, avatarUrl, googleTokens,
+        email,
+        name,
+        avatarUrl,
+        googleTokens,
       });
       logger.info('Google user logged in', { userId: user.id, email });
-
     } else {
       // Check if a local account exists with same email
       const existingUser = await userService.findUserByEmail(email);
@@ -66,7 +68,10 @@ async function handleGoogleCallback(req, res, next) {
         if (existingUser.auth_provider === 'email') {
           // Email account exists — link Google to it
           await googleAuthService.upsertGoogleAccount(existingUser.id, {
-            email, name, avatarUrl, googleTokens,
+            email,
+            name,
+            avatarUrl,
+            googleTokens,
           });
           // Upgrade provider to google
           user = existingUser;
@@ -77,7 +82,10 @@ async function handleGoogleCallback(req, res, next) {
       } else {
         // Brand-new user — create account
         user = await googleAuthService.createGoogleUser({
-          email, name, avatarUrl, googleTokens,
+          email,
+          name,
+          avatarUrl,
+          googleTokens,
         });
         logger.info('New user registered via Google', { userId: user.id, email });
       }
@@ -95,15 +103,14 @@ async function handleGoogleCallback(req, res, next) {
         accessToken,
         refreshToken,
         user: {
-          id:           user.id,
-          email:        user.email,
+          id: user.id,
+          email: user.email,
           name,
           avatarUrl,
           authProvider: 'google',
         },
       },
     });
-
   } catch (err) {
     next(err);
   }
@@ -121,17 +128,12 @@ async function loginWithGoogleToken(req, res, next) {
     const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
     const ticket = await client.verifyIdToken({
-      idToken:  id_token,
+      idToken: id_token,
       audience: process.env.GOOGLE_CLIENT_ID,
     });
 
     const payload = ticket.getPayload();
-    const {
-      email,
-      name,
-      picture:        avatarUrl,
-      email_verified: emailVerified,
-    } = payload;
+    const { email, name, picture: avatarUrl, email_verified: emailVerified } = payload;
 
     if (!emailVerified) {
       throw new AppError('Google account email is not verified.', 400);
@@ -142,27 +144,36 @@ async function loginWithGoogleToken(req, res, next) {
     let user;
 
     const googleTokens = {
-      access_token:  id_token,   // store id_token as access token for token-based flow
-      refresh_token: null,       // no refresh token in ID-token flow
-      expiry_date:   payload.exp * 1000,
-      scope:         'openid email profile',
+      access_token: id_token, // store id_token as access token for token-based flow
+      refresh_token: null, // no refresh token in ID-token flow
+      expiry_date: payload.exp * 1000,
+      scope: 'openid email profile',
     };
 
     if (existingGoogleAccount) {
       user = existingGoogleAccount.users;
       await googleAuthService.upsertGoogleAccount(user.id, {
-        email, name, avatarUrl, googleTokens,
+        email,
+        name,
+        avatarUrl,
+        googleTokens,
       });
     } else {
       const existingUser = await userService.findUserByEmail(email);
       if (existingUser) {
         await googleAuthService.upsertGoogleAccount(existingUser.id, {
-          email, name, avatarUrl, googleTokens,
+          email,
+          name,
+          avatarUrl,
+          googleTokens,
         });
         user = existingUser;
       } else {
         user = await googleAuthService.createGoogleUser({
-          email, name, avatarUrl, googleTokens,
+          email,
+          name,
+          avatarUrl,
+          googleTokens,
         });
       }
     }
@@ -180,7 +191,6 @@ async function loginWithGoogleToken(req, res, next) {
         user: { id: user.id, email: user.email, name, avatarUrl, authProvider: 'google' },
       },
     });
-
   } catch (err) {
     if (err.message && err.message.includes('Token used too late')) {
       return next(new AppError('Google ID token has expired.', 401));
@@ -205,11 +215,11 @@ async function getGoogleStatus(req, res, next) {
     return res.status(200).json({
       success: true,
       data: {
-        linked:    true,
-        email:     account.email,
-        name:      account.name,
+        linked: true,
+        email: account.email,
+        name: account.name,
         avatarUrl: account.avatar_url,
-        scopes:    account.scopes,
+        scopes: account.scopes,
         tokenExpiresAt: account.token_expires_at,
       },
     });

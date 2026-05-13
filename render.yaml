@@ -20,7 +20,7 @@ services:
           type: redis
           name: leadgen-redis
           property: port
-      
+
       - key: SUPABASE_URL
         sync: false
 
@@ -54,7 +54,6 @@ services:
 
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
-
 
   - type: worker
     name: mail-template-worker

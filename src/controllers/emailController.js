@@ -7,7 +7,10 @@ const logger = require('../utils/logger');
 function handleValidationErrors(req) {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    const messages = errors.array().map((e) => e.msg).join(', ');
+    const messages = errors
+      .array()
+      .map((e) => e.msg)
+      .join(', ');
     throw new AppError(messages, 422);
   }
 }
@@ -52,7 +55,6 @@ async function sendEmail(req, res, next) {
         accessTokenUsed: true,
       },
     });
-
   } catch (err) {
     next(err);
   }

@@ -1,12 +1,15 @@
 const { validationResult } = require('express-validator');
 const campaignLeadsService = require('../services/campaignLeadsService');
-const AppError             = require('../utils/AppError');
-const logger               = require('../utils/logger');
+const AppError = require('../utils/AppError');
+const logger = require('../utils/logger');
 
 function handleValidationErrors(req) {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    const messages = errors.array().map((e) => e.msg).join(', ');
+    const messages = errors
+      .array()
+      .map((e) => e.msg)
+      .join(', ');
     throw new AppError(messages, 422);
   }
 }
@@ -20,7 +23,7 @@ async function addLead(req, res, next) {
 
     const { lead_data_id, mail_template } = req.body;
     const campaignId = req.params.id;
-    const userId     = req.user.id;
+    const userId = req.user.id;
 
     const lead = await campaignLeadsService.addLeadToCampaign(userId, campaignId, {
       lead_data_id,
@@ -46,16 +49,16 @@ async function bulkAddLeads(req, res, next) {
   try {
     handleValidationErrors(req);
 
-    const { leads }  = req.body;
+    const { leads } = req.body;
     const campaignId = req.params.id;
-    const userId     = req.user.id;
+    const userId = req.user.id;
 
     const result = await campaignLeadsService.bulkAddLeadsToCampaign(userId, campaignId, leads);
 
     logger.info('Bulk leads added to campaign', {
       campaignId,
       userId,
-      totalInserted:   result.totalInserted,
+      totalInserted: result.totalInserted,
       totalDuplicates: result.totalDuplicates,
     });
 
@@ -77,12 +80,12 @@ async function listLeads(req, res, next) {
     handleValidationErrors(req);
 
     const campaignId = req.params.id;
-    const userId     = req.user.id;
+    const userId = req.user.id;
     const { status, page, limit } = req.query;
 
     const result = await campaignLeadsService.getCampaignLeads(userId, campaignId, {
       status,
-      page:  parseInt(page  || '1',  10),
+      page: parseInt(page || '1', 10),
       limit: Math.min(parseInt(limit || '20', 10), 100),
     });
 
@@ -164,16 +167,16 @@ async function assignRandomLeads(req, res, next) {
     handleValidationErrors(req);
 
     const campaignId = req.params.id;
-    const userId     = req.user.id;
+    const userId = req.user.id;
 
     const result = await campaignLeadsService.assignRandomLeadsToCampaign(userId, campaignId);
 
     logger.info('Random leads assigned to campaign', {
       campaignId,
       userId,
-      totalRequested:  result.totalRequested,
-      totalAvailable:  result.totalAvailable,
-      totalInserted:   result.totalInserted,
+      totalRequested: result.totalRequested,
+      totalAvailable: result.totalAvailable,
+      totalInserted: result.totalInserted,
       totalDuplicates: result.totalDuplicates,
     });
 
@@ -195,20 +198,20 @@ async function assignFilteredLeads(req, res, next) {
     handleValidationErrors(req);
 
     const campaignId = req.params.id;
-    const userId     = req.user.id;
+    const userId = req.user.id;
     const { country, industry, limit } = req.body;
 
-    const result = await campaignLeadsService.assignFilteredLeadsToCampaign(
-      userId,
-      campaignId,
-      { country, industry, limit }
-    );
+    const result = await campaignLeadsService.assignFilteredLeadsToCampaign(userId, campaignId, {
+      country,
+      industry,
+      limit,
+    });
 
     logger.info('Filtered leads assigned to campaign', {
       campaignId,
       userId,
-      filters:         result.filters,
-      totalInserted:   result.totalInserted,
+      filters: result.filters,
+      totalInserted: result.totalInserted,
       totalDuplicates: result.totalDuplicates,
     });
 
@@ -222,4 +225,12 @@ async function assignFilteredLeads(req, res, next) {
   }
 }
 
-module.exports = { addLead, bulkAddLeads, listLeads, updateLead, removeLead, assignRandomLeads, assignFilteredLeads };
+module.exports = {
+  addLead,
+  bulkAddLeads,
+  listLeads,
+  updateLead,
+  removeLead,
+  assignRandomLeads,
+  assignFilteredLeads,
+};

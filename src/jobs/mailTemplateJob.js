@@ -1,12 +1,6 @@
-const mailTemplateQueue = require(
-  '../queues/mailTemplateQueue'
-);
+const mailTemplateQueue = require('../queues/mailTemplateQueue');
 
-async function enqueueMailTemplateJob({
-  userId,
-  campaignId,
-  campaignLeadId,
-}) {
+async function enqueueMailTemplateJob({ userId, campaignId, campaignLeadId }) {
   return mailTemplateQueue.add(
     'generate-template',
     {

@@ -1,13 +1,16 @@
-const { validationResult }        = require('express-validator');
-const campaignMailerService       = require('../services/campaignMailerService');
-const googleAuthService           = require('../services/googleAuthService');
-const AppError                    = require('../utils/AppError');
-const logger                      = require('../utils/logger');
+const { validationResult } = require('express-validator');
+const campaignMailerService = require('../services/campaignMailerService');
+const googleAuthService = require('../services/googleAuthService');
+const AppError = require('../utils/AppError');
+const logger = require('../utils/logger');
 
 function handleValidationErrors(req) {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    const messages = errors.array().map((e) => e.msg).join(', ');
+    const messages = errors
+      .array()
+      .map((e) => e.msg)
+      .join(', ');
     throw new AppError(messages, 422);
   }
 }
@@ -33,8 +36,8 @@ async function sendEmails(req, res, next) {
   try {
     handleValidationErrors(req);
 
-    const campaignId     = req.params.id;
-    const userId         = req.user.id;
+    const campaignId = req.params.id;
+    const userId = req.user.id;
     const campaignLeadId = req.body.campaign_lead_id || null;
 
     // ── Resolve Google access token ───────────────────────────────────────────
@@ -45,11 +48,11 @@ async function sendEmails(req, res, next) {
     if (!accessToken) {
       try {
         accessToken = await googleAuthService.getValidGoogleAccessToken(userId);
-      } catch (tokenErr) {
+      } catch {
         // No linked Google account — give the user a clear, actionable message
         throw new AppError(
           'No Google account linked. Please visit GET /auth/google to connect your Gmail account before sending emails.',
-          400,
+          400
         );
       }
     }
@@ -65,7 +68,7 @@ async function sendEmails(req, res, next) {
       userId,
       campaignId,
       accessToken,
-      campaignLeadId,
+      campaignLeadId
     );
 
     // Build a human-readable summary message
@@ -82,7 +85,7 @@ async function sendEmails(req, res, next) {
     return res.status(200).json({
       success: true,
       message,
-      data:    result,
+      data: result,
     });
   } catch (err) {
     next(err);

@@ -1,13 +1,32 @@
-# Node modules
+# Dependencies
 node_modules/
 
-# Environment files
+# Environment and secrets
 .env
 .env.*
 
-# Google client secret file
-client_secret_255718389183-pubsj3j4meeoporin3ru4dmodu497v5g.apps.googleusercontent.com.json
-
-# Optional: logs
+# Logs and runtime
 logs/
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Test / coverage
+coverage/
+.nyc_output/
+
+# Caches
+.cache/
+.eslintcache
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor (keep shared VS Code config if you add it later)
+.idea/
+
+# Optional local tooling
+*.local

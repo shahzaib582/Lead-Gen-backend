@@ -75,22 +75,20 @@ async function getLeads({
   // Full-text search across name, email and company
   if (search && search.trim()) {
     const term = search.trim();
-    query = query.or(
-      `fullName.ilike.%${term}%,email.ilike.%${term}%,company.ilike.%${term}%`
-    );
+    query = query.or(`fullName.ilike.%${term}%,email.ilike.%${term}%,company.ilike.%${term}%`);
   }
 
   // Apply each optional exact-match filter
-  if (emailStatus)    query = query.eq('emailStatus',    emailStatus);
-  if (country)        query = query.eq('country',        country);
-  if (state)          query = query.eq('state',          state);
-  if (city)           query = query.eq('city',           city);
-  if (industry)       query = query.eq('industry',       industry);
-  if (seniority)      query = query.eq('seniority',      seniority);
-  if (department)     query = query.eq('department',     department);
-  if (company)        query = query.ilike('company',     `%${company}%`);
+  if (emailStatus) query = query.eq('emailStatus', emailStatus);
+  if (country) query = query.eq('country', country);
+  if (state) query = query.eq('state', state);
+  if (city) query = query.eq('city', city);
+  if (industry) query = query.eq('industry', industry);
+  if (seniority) query = query.eq('seniority', seniority);
+  if (department) query = query.eq('department', department);
+  if (company) query = query.ilike('company', `%${company}%`);
   if (outreachStatus) query = query.eq('outreachStatus', outreachStatus);
-  if (fitTag)         query = query.eq('fitTag',         fitTag);
+  if (fitTag) query = query.eq('fitTag', fitTag);
 
   const { data, error, count } = await query;
 
@@ -112,11 +110,7 @@ async function getLeads({
  * @param {number} id
  */
 async function getLeadById(id) {
-  const { data, error } = await supabase
-    .from('leads_data')
-    .select('*')
-    .eq('id', id)
-    .single();
+  const { data, error } = await supabase.from('leads_data').select('*').eq('id', id).single();
 
   if (error || !data) throw new AppError('Lead not found.', 404);
   return data;

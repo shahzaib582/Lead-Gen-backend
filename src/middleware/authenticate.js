@@ -1,7 +1,7 @@
-const { verifyAccessToken }      = require('../utils/jwt');
-const userService                = require('../services/userService');
-const googleAuthService          = require('../services/googleAuthService');
-const AppError                   = require('../utils/AppError');
+const { verifyAccessToken } = require('../utils/jwt');
+const userService = require('../services/userService');
+const googleAuthService = require('../services/googleAuthService');
+const AppError = require('../utils/AppError');
 
 /**
  * Middleware — verify Bearer access token and attach user to req.user.
@@ -17,18 +17,18 @@ async function authenticate(req, res, next) {
       throw new AppError('No token provided. Authorization required.', 401);
     }
 
-    const token   = authHeader.slice(7);
-    const decoded = verifyAccessToken(token);   // throws with code TOKEN_EXPIRED if expired
+    const token = authHeader.slice(7);
+    const decoded = verifyAccessToken(token); // throws with code TOKEN_EXPIRED if expired
 
     const user = await userService.findUserById(decoded.sub);
-    if (!user)             throw new AppError('User no longer exists.', 401);
+    if (!user) throw new AppError('User no longer exists.', 401);
     if (!user.is_verified) throw new AppError('Email not verified.', 403);
 
     req.user = {
-      id:         user.id,
-      email:      user.email,
+      id: user.id,
+      email: user.email,
       isVerified: user.is_verified,
-      googleAccessToken: null,   // default — populated below if linked
+      googleAccessToken: null, // default — populated below if linked
     };
 
     // Silently attach Google access token if the user has linked their Google account.
@@ -39,7 +39,7 @@ async function authenticate(req, res, next) {
       if (googleToken) {
         req.user.googleAccessToken = googleToken;
       }
-    } catch (_) {
+    } catch {
       // No Google account linked — that's fine, req.user.googleAccessToken stays null
     }
 

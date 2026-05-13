@@ -18,11 +18,7 @@ async function findUserByEmail(email) {
 }
 
 async function findUserById(id) {
-  const { data, error } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', id)
-    .maybeSingle();
+  const { data, error } = await supabase.from('users').select('*').eq('id', id).maybeSingle();
 
   if (error) throw new AppError('Database error', 500);
   return data;
@@ -43,19 +39,13 @@ async function createUser(email, password) {
     .single();
 
   if (error) {
-    console.log("Supabase createUser error:", error); // 👈 DEBUG
+    console.log('Supabase createUser error:', error); // 👈 DEBUG
 
     if (error.code === '23505') {
-      throw new AppError(
-        'An account with this email already exists.',
-        409
-      );
+      throw new AppError('An account with this email already exists.', 409);
     }
 
-    throw new AppError(
-      error.message || 'Failed to create user',
-      500
-    );
+    throw new AppError(error.message || 'Failed to create user', 500);
   }
 
   return data;
@@ -64,10 +54,7 @@ async function createUser(email, password) {
 // ─── Update ───────────────────────────────────────────────────────────────────
 
 async function markUserVerified(userId) {
-  const { error } = await supabase
-    .from('users')
-    .update({ is_verified: true })
-    .eq('id', userId);
+  const { error } = await supabase.from('users').update({ is_verified: true }).eq('id', userId);
 
   if (error) throw new AppError('Failed to verify user', 500);
 }

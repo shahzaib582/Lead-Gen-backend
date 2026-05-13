@@ -1,9 +1,6 @@
 const campaignMailQueue = require('../queues/campaignMailQueue');
 
-async function enqueueCampaignMailJob(
-  { userId, campaignId, campaignLeadId },
-  options = {}
-) {
+async function enqueueCampaignMailJob({ userId, campaignId, campaignLeadId }, options = {}) {
   return campaignMailQueue.add(
     'send-campaign-mail',
     {

@@ -3,39 +3,24 @@
 const supabase = require('../config/supabase');
 const AppError = require('../utils/AppError');
 
-const {
-  enqueueMailTemplateJob,
-} = require('../jobs/mailTemplateJob');
+const { enqueueMailTemplateJob } = require('../jobs/mailTemplateJob');
 
-const VALID_STATUSES = [
-  'pending',
-  'template_generated',
-  'sent',
-  'failed',
-  'skipped',
-];
+const VALID_STATUSES = ['pending', 'template_generated', 'sent', 'failed', 'skipped'];
 
 // ─────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────
 
-async function assertCampaignOwnership(
-  userId,
-  campaignId
-) {
-  const { data, error } =
-    await supabase
-      .from('campaigns')
-      .select('*')
-      .eq('id', campaignId)
-      .eq('user_id', userId)
-      .single();
+async function assertCampaignOwnership(userId, campaignId) {
+  const { data, error } = await supabase
+    .from('campaigns')
+    .select('*')
+    .eq('id', campaignId)
+    .eq('user_id', userId)
+    .single();
 
   if (error || !data) {
-    throw new AppError(
-      'Campaign not found.',
-      404
-    );
+    throw new AppError('Campaign not found.', 404);
   }
 
   return data;
@@ -45,55 +30,35 @@ async function assertCampaignOwnership(
 // Add Single Lead
 // ─────────────────────────────────────────────────────────────
 
-async function addLeadToCampaign(
-  userId,
-  campaignId,
-  {
-    lead_data_id,
-    mail_template,
-  }
-) {
-  const campaign =
-    await assertCampaignOwnership(
-      userId,
-      campaignId
-    );
+async function addLeadToCampaign(userId, campaignId, { lead_data_id, mail_template }) {
+  const campaign = await assertCampaignOwnership(userId, campaignId);
 
   // ------------------------------------
   // Insert lead
   // ------------------------------------
 
-  const { data, error } =
-    await supabase
-      .from('campaign_leads')
-      .insert({
-        user_id: userId,
+  const { data, error } = await supabase
+    .from('campaign_leads')
+    .insert({
+      user_id: userId,
 
-        campaign_id: campaignId,
+      campaign_id: campaignId,
 
-        lead_data_id:
-          String(lead_data_id),
+      lead_data_id: String(lead_data_id),
 
-        mail_template:
-          mail_template || null,
+      mail_template: mail_template || null,
 
-        status: 'pending',
-      })
-      .select()
-      .single();
+      status: 'pending',
+    })
+    .select()
+    .single();
 
   if (error) {
     if (error.code === '23505') {
-      throw new AppError(
-        'This lead is already added to the campaign.',
-        409
-      );
+      throw new AppError('This lead is already added to the campaign.', 409);
     }
 
-    throw new AppError(
-      `Failed to add lead to campaign: ${error.message}`,
-      500
-    );
+    throw new AppError(`Failed to add lead to campaign: ${error.message}`, 500);
   }
 
   // ------------------------------------
@@ -115,47 +80,32 @@ async function addLeadToCampaign(
 // Bulk Add Leads
 // ─────────────────────────────────────────────────────────────
 
-async function bulkAddLeadsToCampaign(
-  userId,
-  campaignId,
-  leads
-) {
-  const campaign =
-    await assertCampaignOwnership(
-      userId,
-      campaignId
-    );
+async function bulkAddLeadsToCampaign(userId, campaignId, leads) {
+  const campaign = await assertCampaignOwnership(userId, campaignId);
 
   const rows = leads.map((l) => ({
     user_id: userId,
 
     campaign_id: campaignId,
 
-    lead_data_id:
-      String(l.lead_data_id),
+    lead_data_id: String(l.lead_data_id),
 
-    mail_template:
-      l.mail_template || null,
+    mail_template: l.mail_template || null,
 
     status: 'pending',
   }));
 
-  const { data, error } =
-    await supabase
-      .from('campaign_leads')
-      .upsert(rows, {
-        onConflict:
-          'campaign_id,lead_data_id',
+  const { data, error } = await supabase
+    .from('campaign_leads')
+    .upsert(rows, {
+      onConflict: 'campaign_id,lead_data_id',
 
-        ignoreDuplicates: true,
-      })
-      .select();
+      ignoreDuplicates: true,
+    })
+    .select();
 
   if (error) {
-    throw new AppError(
-      `Bulk insert failed: ${error.message}`,
-      500
-    );
+    throw new AppError(`Bulk insert failed: ${error.message}`, 500);
   }
 
   // ------------------------------------
@@ -172,29 +122,17 @@ async function bulkAddLeadsToCampaign(
     }
   }
 
-  const insertedIds = new Set(
-    (data || []).map(
-      (r) => r.lead_data_id
-    )
-  );
+  const insertedIds = new Set((data || []).map((r) => r.lead_data_id));
 
-  const duplicates = leads
-    .map((l) =>
-      String(l.lead_data_id)
-    )
-    .filter(
-      (id) => !insertedIds.has(id)
-    );
+  const duplicates = leads.map((l) => String(l.lead_data_id)).filter((id) => !insertedIds.has(id));
 
   return {
     inserted: data || [],
     duplicates,
 
-    totalInserted:
-      (data || []).length,
+    totalInserted: (data || []).length,
 
-    totalDuplicates:
-      duplicates.length,
+    totalDuplicates: duplicates.length,
   };
 }
 
@@ -202,19 +140,8 @@ async function bulkAddLeadsToCampaign(
 // Get Campaign Leads
 // ─────────────────────────────────────────────────────────────
 
-async function getCampaignLeads(
-  userId,
-  campaignId,
-  {
-    status,
-    page = 1,
-    limit = 20,
-  } = {}
-) {
-  await assertCampaignOwnership(
-    userId,
-    campaignId
-  );
+async function getCampaignLeads(userId, campaignId, { status, page = 1, limit = 20 } = {}) {
+  await assertCampaignOwnership(userId, campaignId);
 
   let query = supabase
     .from('campaign_leads')
@@ -226,29 +153,16 @@ async function getCampaignLeads(
     .order('created_at', {
       ascending: false,
     })
-    .range(
-      (page - 1) * limit,
-      page * limit - 1
-    );
+    .range((page - 1) * limit, page * limit - 1);
 
   if (status) {
-    query = query.eq(
-      'status',
-      status
-    );
+    query = query.eq('status', status);
   }
 
-  const {
-    data,
-    error,
-    count,
-  } = await query;
+  const { data, error, count } = await query;
 
   if (error) {
-    throw new AppError(
-      'Failed to fetch campaign leads.',
-      500
-    );
+    throw new AppError('Failed to fetch campaign leads.', 500);
   }
 
   return {
@@ -256,9 +170,7 @@ async function getCampaignLeads(
     total: count,
     page,
     limit,
-    totalPages: Math.ceil(
-      count / limit
-    ),
+    totalPages: Math.ceil(count / limit),
   };
 }
 
@@ -266,33 +178,19 @@ async function getCampaignLeads(
 // Get Single Lead
 // ─────────────────────────────────────────────────────────────
 
-async function getCampaignLeadById(
-  userId,
-  campaignId,
-  leadId
-) {
-  await assertCampaignOwnership(
-    userId,
-    campaignId
-  );
+async function getCampaignLeadById(userId, campaignId, leadId) {
+  await assertCampaignOwnership(userId, campaignId);
 
-  const { data, error } =
-    await supabase
-      .from('campaign_leads')
-      .select('*')
-      .eq('id', leadId)
-      .eq(
-        'campaign_id',
-        campaignId
-      )
-      .eq('user_id', userId)
-      .single();
+  const { data, error } = await supabase
+    .from('campaign_leads')
+    .select('*')
+    .eq('id', leadId)
+    .eq('campaign_id', campaignId)
+    .eq('user_id', userId)
+    .single();
 
   if (error || !data) {
-    throw new AppError(
-      'Campaign lead not found.',
-      404
-    );
+    throw new AppError('Campaign lead not found.', 404);
   }
 
   return data;
@@ -302,37 +200,20 @@ async function getCampaignLeadById(
 // Update Lead
 // ─────────────────────────────────────────────────────────────
 
-async function updateCampaignLead(
-  userId,
-  campaignId,
-  leadId,
-  updates
-) {
-  const existing =
-    await getCampaignLeadById(
-      userId,
-      campaignId,
-      leadId
-    );
+async function updateCampaignLead(userId, campaignId, leadId, updates) {
+  const existing = await getCampaignLeadById(userId, campaignId, leadId);
 
-  const { data, error } =
-    await supabase
-      .from('campaign_leads')
-      .update(updates)
-      .eq('id', leadId)
-      .eq(
-        'campaign_id',
-        campaignId
-      )
-      .eq('user_id', userId)
-      .select()
-      .single();
+  const { data, error } = await supabase
+    .from('campaign_leads')
+    .update(updates)
+    .eq('id', leadId)
+    .eq('campaign_id', campaignId)
+    .eq('user_id', userId)
+    .select()
+    .single();
 
   if (error) {
-    throw new AppError(
-      'Failed to update campaign lead.',
-      500
-    );
+    throw new AppError('Failed to update campaign lead.', 500);
   }
 
   // ------------------------------------
@@ -345,39 +226,21 @@ async function updateCampaignLead(
     skipped: 'skipped',
   };
 
-  if (
-    updates.status &&
-    MIRROR_STATUSES[
-      updates.status
-    ]
-  ) {
+  if (updates.status && MIRROR_STATUSES[updates.status]) {
     const leadsDataUpdate = {
-      outreachStatus:
-        MIRROR_STATUSES[
-          updates.status
-        ],
+      outreachStatus: MIRROR_STATUSES[updates.status],
     };
 
-    if (
-      updates.status === 'sent'
-    ) {
-      leadsDataUpdate.emailSent =
-        'true';
+    if (updates.status === 'sent') {
+      leadsDataUpdate.emailSent = 'true';
 
-      leadsDataUpdate.emailSentDate =
-        updates.sent_at ||
-        new Date().toISOString();
+      leadsDataUpdate.emailSentDate = updates.sent_at || new Date().toISOString();
     }
 
     await supabase
       .from('leads_data')
       .update(leadsDataUpdate)
-      .eq(
-        'id',
-        Number(
-          existing.lead_data_id
-        )
-      );
+      .eq('id', Number(existing.lead_data_id));
   }
 
   return data;
@@ -387,33 +250,18 @@ async function updateCampaignLead(
 // Remove Lead
 // ─────────────────────────────────────────────────────────────
 
-async function removeCampaignLead(
-  userId,
-  campaignId,
-  leadId
-) {
-  await getCampaignLeadById(
-    userId,
-    campaignId,
-    leadId
-  );
+async function removeCampaignLead(userId, campaignId, leadId) {
+  await getCampaignLeadById(userId, campaignId, leadId);
 
-  const { error } =
-    await supabase
-      .from('campaign_leads')
-      .delete()
-      .eq('id', leadId)
-      .eq(
-        'campaign_id',
-        campaignId
-      )
-      .eq('user_id', userId);
+  const { error } = await supabase
+    .from('campaign_leads')
+    .delete()
+    .eq('id', leadId)
+    .eq('campaign_id', campaignId)
+    .eq('user_id', userId);
 
   if (error) {
-    throw new AppError(
-      'Failed to remove campaign lead.',
-      500
-    );
+    throw new AppError('Failed to remove campaign lead.', 500);
   }
 }
 
@@ -421,166 +269,77 @@ async function removeCampaignLead(
 // Assign Random Leads
 // ─────────────────────────────────────────────────────────────
 
-async function assignRandomLeadsToCampaign(
-  userId,
-  campaignId
-) {
-  const campaign =
-    await assertCampaignOwnership(
-      userId,
-      campaignId
-    );
+async function assignRandomLeadsToCampaign(userId, campaignId) {
+  const campaign = await assertCampaignOwnership(userId, campaignId);
 
-  const targetCount =
-    campaign.target_leads;
+  const targetCount = campaign.target_leads;
 
-  if (
-    !targetCount ||
-    targetCount <= 0
-  ) {
-    throw new AppError(
-      'Campaign target_leads must be greater than 0.',
-      400
-    );
+  if (!targetCount || targetCount <= 0) {
+    throw new AppError('Campaign target_leads must be greater than 0.', 400);
   }
 
   // Existing assigned leads
-  const {
-    data: existing,
-  } = await supabase
+  const { data: existing } = await supabase
     .from('campaign_leads')
     .select('lead_data_id')
-    .eq(
-      'campaign_id',
-      campaignId
-    );
+    .eq('campaign_id', campaignId);
 
-  const excludedIds =
-    (existing || [])
-      .map((r) =>
-        Number(r.lead_data_id)
-      )
-      .filter(
-        (n) => !isNaN(n)
-      );
+  const excludedIds = (existing || []).map((r) => Number(r.lead_data_id)).filter((n) => !isNaN(n));
 
-  let idsQuery = supabase
-    .from('leads_data')
-    .select('id');
+  let idsQuery = supabase.from('leads_data').select('id');
 
-  const leadSource =
-    campaign.lead_source ||
-    'both';
+  const leadSource = campaign.lead_source || 'both';
 
   if (leadSource === 'new') {
-    idsQuery = idsQuery.or(
-      'outreachStatus.is.null,outreachStatus.eq.""'
-    );
-  } else if (
-    leadSource === 'old'
-  ) {
-    idsQuery = idsQuery
-      .not(
-        'outreachStatus',
-        'is',
-        null
-      )
-      .neq(
-        'outreachStatus',
-        ''
-      );
+    idsQuery = idsQuery.or('outreachStatus.is.null,outreachStatus.eq.""');
+  } else if (leadSource === 'old') {
+    idsQuery = idsQuery.not('outreachStatus', 'is', null).neq('outreachStatus', '');
   }
 
-  if (
-    excludedIds.length > 0
-  ) {
-    idsQuery = idsQuery.not(
-      'id',
-      'in',
-      `(${excludedIds.join(',')})`
-    );
+  if (excludedIds.length > 0) {
+    idsQuery = idsQuery.not('id', 'in', `(${excludedIds.join(',')})`);
   }
 
-  const {
-    data: allLeads,
-    error: leadsError,
-  } = await idsQuery;
+  const { data: allLeads, error: leadsError } = await idsQuery;
 
   if (leadsError) {
-    throw new AppError(
-      leadsError.message,
-      500
-    );
+    throw new AppError(leadsError.message, 500);
   }
 
-  if (
-    !allLeads ||
-    allLeads.length === 0
-  ) {
-    throw new AppError(
-      'No available leads found.',
-      404
-    );
+  if (!allLeads || allLeads.length === 0) {
+    throw new AppError('No available leads found.', 404);
   }
 
   // Shuffle
-  for (
-    let i =
-      allLeads.length - 1;
-    i > 0;
-    i--
-  ) {
-    const j = Math.floor(
-      Math.random() *
-        (i + 1)
-    );
+  for (let i = allLeads.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
 
-    [
-      allLeads[i],
-      allLeads[j],
-    ] = [
-      allLeads[j],
-      allLeads[i],
-    ];
+    [allLeads[i], allLeads[j]] = [allLeads[j], allLeads[i]];
   }
 
-  const randomLeads =
-    allLeads.slice(
-      0,
-      targetCount
-    );
+  const randomLeads = allLeads.slice(0, targetCount);
 
-  const rows =
-    randomLeads.map((l) => ({
-      user_id: userId,
+  const rows = randomLeads.map((l) => ({
+    user_id: userId,
 
-      campaign_id:
-        campaignId,
+    campaign_id: campaignId,
 
-      lead_data_id:
-        String(l.id),
+    lead_data_id: String(l.id),
 
-      status: 'pending',
-    }));
+    status: 'pending',
+  }));
 
-  const {
-    data: inserted,
-    error: insertError,
-  } = await supabase
+  const { data: inserted, error: insertError } = await supabase
     .from('campaign_leads')
     .upsert(rows, {
-      onConflict:
-        'campaign_id,lead_data_id',
+      onConflict: 'campaign_id,lead_data_id',
 
       ignoreDuplicates: true,
     })
     .select();
 
   if (insertError) {
-    throw new AppError(
-      insertError.message,
-      500
-    );
+    throw new AppError(insertError.message, 500);
   }
 
   // ------------------------------------
@@ -597,40 +356,22 @@ async function assignRandomLeadsToCampaign(
     }
   }
 
-  const insertedIds =
-    new Set(
-      (inserted || []).map(
-        (r) => r.lead_data_id
-      )
-    );
+  const insertedIds = new Set((inserted || []).map((r) => r.lead_data_id));
 
-  const duplicates =
-    randomLeads
-      .map((l) =>
-        String(l.id)
-      )
-      .filter(
-        (id) =>
-          !insertedIds.has(id)
-      );
+  const duplicates = randomLeads.map((l) => String(l.id)).filter((id) => !insertedIds.has(id));
 
   return {
-    inserted:
-      inserted || [],
+    inserted: inserted || [],
 
     duplicates,
 
-    totalRequested:
-      targetCount,
+    totalRequested: targetCount,
 
-    totalAvailable:
-      randomLeads.length,
+    totalAvailable: randomLeads.length,
 
-    totalInserted:
-      (inserted || []).length,
+    totalInserted: (inserted || []).length,
 
-    totalDuplicates:
-      duplicates.length,
+    totalDuplicates: duplicates.length,
 
     leadSource,
   };
@@ -648,20 +389,14 @@ async function assignFilteredLeadsToCampaign(
   const campaign = await assertCampaignOwnership(userId, campaignId);
 
   // Use requested limit, or fall back to campaign's target_leads, or default 50
-  const targetCount =
-    requestedLimit ||
-    campaign.target_leads ||
-    50;
+  const targetCount = requestedLimit || campaign.target_leads || 50;
 
   if (targetCount <= 0) {
     throw new AppError('limit must be greater than 0.', 400);
   }
 
   if (!country && !industry) {
-    throw new AppError(
-      'At least one filter (country or industry) is required.',
-      400
-    );
+    throw new AppError('At least one filter (country or industry) is required.', 400);
   }
 
   // ── Step 1: collect already-assigned lead IDs to avoid duplicates ──────────
@@ -671,27 +406,19 @@ async function assignFilteredLeadsToCampaign(
     .eq('campaign_id', campaignId)
     .eq('user_id', userId);
 
-  const excludedIds = (existing || [])
-    .map((r) => Number(r.lead_data_id))
-    .filter((n) => !isNaN(n));
+  const excludedIds = (existing || []).map((r) => Number(r.lead_data_id)).filter((n) => !isNaN(n));
 
   // ── Step 2: query leads_data filtered by country and/or industry ───────────
   // Schema columns are plain lowercase: country, industry (no quotes needed).
   // ilike = case-insensitive exact match (no wildcards), so "USA" == "usa".
   // No .limit() call — fetch the full matching pool so the shuffle is fair.
-  let idsQuery = supabase
-    .from('leads_data')
-    .select('id');
+  let idsQuery = supabase.from('leads_data').select('id');
 
-  if (country)  idsQuery = idsQuery.ilike('country',  country.trim());
+  if (country) idsQuery = idsQuery.ilike('country', country.trim());
   if (industry) idsQuery = idsQuery.ilike('industry', industry.trim());
 
   if (excludedIds.length > 0) {
-    idsQuery = idsQuery.not(
-      'id',
-      'in',
-      `(${excludedIds.join(',')})`
-    );
+    idsQuery = idsQuery.not('id', 'in', `(${excludedIds.join(',')})`);
   }
 
   const { data: allLeads, error: leadsError } = await idsQuery;
@@ -702,9 +429,11 @@ async function assignFilteredLeadsToCampaign(
 
   if (!allLeads || allLeads.length === 0) {
     const filterDesc = [
-      country  ? `country="${country}"`   : null,
+      country ? `country="${country}"` : null,
       industry ? `industry="${industry}"` : null,
-    ].filter(Boolean).join(', ');
+    ]
+      .filter(Boolean)
+      .join(', ');
     throw new AppError(
       `No leads found for ${filterDesc}. Check that these values exist in your leads_data table.`,
       404
@@ -721,16 +450,16 @@ async function assignFilteredLeadsToCampaign(
 
   // ── Step 4: upsert into campaign_leads ────────────────────────────────────
   const rows = selectedLeads.map((l) => ({
-    user_id:      userId,
-    campaign_id:  campaignId,
+    user_id: userId,
+    campaign_id: campaignId,
     lead_data_id: String(l.id),
-    status:       'pending',
+    status: 'pending',
   }));
 
   const { data: inserted, error: insertError } = await supabase
     .from('campaign_leads')
     .upsert(rows, {
-      onConflict:       'campaign_id,lead_data_id',
+      onConflict: 'campaign_id,lead_data_id',
       ignoreDuplicates: true,
     })
     .select();
@@ -751,17 +480,15 @@ async function assignFilteredLeadsToCampaign(
   }
 
   const insertedIds = new Set((inserted || []).map((r) => r.lead_data_id));
-  const duplicates  = selectedLeads
-    .map((l) => String(l.id))
-    .filter((id) => !insertedIds.has(id));
+  const duplicates = selectedLeads.map((l) => String(l.id)).filter((id) => !insertedIds.has(id));
 
   return {
-    inserted:        inserted || [],
+    inserted: inserted || [],
     duplicates,
-    filters:         { country: country || null, industry: industry || null },
-    totalRequested:  targetCount,
-    totalAvailable:  allLeads.length,
-    totalInserted:   (inserted || []).length,
+    filters: { country: country || null, industry: industry || null },
+    totalRequested: targetCount,
+    totalAvailable: allLeads.length,
+    totalInserted: (inserted || []).length,
     totalDuplicates: duplicates.length,
   };
 }

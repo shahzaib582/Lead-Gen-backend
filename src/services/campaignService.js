@@ -11,7 +11,8 @@ async function createCampaign(userId, fields) {
     .single();
 
   if (error) {
-    if (error.code === '23505') throw new AppError('A campaign with this name already exists.', 409);
+    if (error.code === '23505')
+      throw new AppError('A campaign with this name already exists.', 409);
     throw new AppError('Failed to create campaign.', 500);
   }
 
@@ -41,7 +42,7 @@ async function getCampaignById(userId, campaignId) {
     .from('campaigns')
     .select('*')
     .eq('id', campaignId)
-    .eq('user_id', userId)   // enforce ownership
+    .eq('user_id', userId) // enforce ownership
     .single();
 
   if (error || !data) throw new AppError('Campaign not found.', 404);
