@@ -1,12 +1,7 @@
 const express = require('express');
 const rateLimit = require('express-rate-limit');
 const cors = require('cors');
-const authRoutes = require('./routes/authRoutes');
-const googleRoutes = require('./routes/googleAuthRoutes');
-const campaignRoutes = require('./routes/campaignRoutes');
-const campaignLeadsRoutes = require('./routes/campaignLeadsRoutes');
-const emailRoutes = require('./routes/emailRoutes');
-const leadsDataRoutes = require('./routes/leadsDataRoutes');
+const apiRoutes = require('./routes/index');
 const errorHandler = require('./middleware/errorHandler');
 const { errorResponse, successResponse, createRateLimitHandler } = require('./utils/response');
 
@@ -58,18 +53,7 @@ app.use(
 
 app.get('/health', (req, res) => successResponse(res, 200, undefined, { status: 'ok' }));
 
-app.use('/auth', authRoutes);
-app.use('/auth/google', googleRoutes);
-app.use('/campaigns', campaignRoutes);
-app.use('/campaigns/:id/leads', campaignLeadsRoutes);
-app.use('/emails', emailRoutes);
-app.use('/leads', leadsDataRoutes);
-
-// Protected /me example
-const { authenticate } = require('./middleware/authenticate');
-app.get('/me', authenticate, (req, res) => {
-  return successResponse(res, 200, undefined, { user: req.user });
-});
+app.use('/api', apiRoutes);
 
 // 404
 app.use((req, res) => {

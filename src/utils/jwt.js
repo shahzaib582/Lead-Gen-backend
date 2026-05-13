@@ -30,7 +30,7 @@ function verifyAccessToken(token) {
     if (err instanceof AppError) throw err;
     if (err.name === 'TokenExpiredError') {
       throw new AppError(
-        'Access token expired. Use /auth/refresh to get a new one.',
+        'Access token expired. Please login again.',
         401,
         'TOKEN_EXPIRED'
       );

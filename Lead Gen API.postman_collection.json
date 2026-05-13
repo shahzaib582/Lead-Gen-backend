@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "9d959336-db63-4afc-a958-defcb196df34",
     "name": "Lead Gen API",
-    "description": "Complete API collection for the Lead Gen auth + campaigns backend.\n\n**Setup:**\n1. Set the `baseUrl` variable to your server (default: http://localhost:3000)\n2. Run **Sign Up** → check email for OTP → run **Verify OTP**\n3. `accessToken` and `refreshToken` are saved automatically from login/verify responses\n4. All campaign requests use the saved `accessToken` automatically",
+    "description": "Complete API collection for the Lead Gen auth + campaigns backend.\n\n**Setup:**\n1. Set the `baseUrl` variable to your server root (default: http://localhost:3000). JSON routes are under `/api` (e.g. `{{baseUrl}}/api/auth/login`).\n2. Run **Sign Up** → check email for OTP → run **Verify OTP**\n3. `accessToken` and `refreshToken` are saved automatically from login/verify responses\n4. All campaign requests use the saved `accessToken` automatically",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_exporter_id": "50827256",
     "_collection_link": "https://go.postman.co/collection/50827256-9d959336-db63-4afc-a958-defcb196df34?source=collection_link"
@@ -95,7 +95,7 @@
               }
             },
             "url": {
-              "raw": "{{baseUrl}}/auth/signup",
+              "raw": "{{baseUrl}}/api/auth/signup",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -127,7 +127,7 @@
                   }
                 },
                 "url": {
-                  "raw": "{{baseUrl}}/auth/signup",
+                  "raw": "{{baseUrl}}/api/auth/signup",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -165,7 +165,7 @@
                   }
                 },
                 "url": {
-                  "raw": "{{baseUrl}}/auth/signup",
+                  "raw": "{{baseUrl}}/api/auth/signup",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -228,7 +228,7 @@
               }
             },
             "url": {
-              "raw": "{{baseUrl}}/auth/verify-otp",
+              "raw": "{{baseUrl}}/api/auth/verify-otp",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -260,7 +260,7 @@
                   }
                 },
                 "url": {
-                  "raw": "{{baseUrl}}/auth/verify-otp",
+                  "raw": "{{baseUrl}}/api/auth/verify-otp",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -298,7 +298,7 @@
                   }
                 },
                 "url": {
-                  "raw": "{{baseUrl}}/auth/verify-otp",
+                  "raw": "{{baseUrl}}/api/auth/verify-otp",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -338,7 +338,7 @@
               }
             },
             "url": {
-              "raw": "{{baseUrl}}/auth/resend-otp",
+              "raw": "{{baseUrl}}/api/auth/resend-otp",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -370,7 +370,7 @@
                   }
                 },
                 "url": {
-                  "raw": "{{baseUrl}}/auth/resend-otp",
+                  "raw": "{{baseUrl}}/api/auth/resend-otp",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -436,7 +436,7 @@
               }
             },
             "url": {
-              "raw": "{{baseUrl}}/auth/login",
+              "raw": "{{baseUrl}}/api/auth/login",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -468,7 +468,7 @@
                   }
                 },
                 "url": {
-                  "raw": "{{baseUrl}}/auth/login",
+                  "raw": "{{baseUrl}}/api/auth/login",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -506,7 +506,7 @@
                   }
                 },
                 "url": {
-                  "raw": "{{baseUrl}}/auth/login",
+                  "raw": "{{baseUrl}}/api/auth/login",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -544,7 +544,7 @@
                   }
                 },
                 "url": {
-                  "raw": "{{baseUrl}}/auth/login",
+                  "raw": "{{baseUrl}}/api/auth/login",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -609,7 +609,7 @@
               }
             },
             "url": {
-              "raw": "{{baseUrl}}/auth/refresh",
+              "raw": "{{baseUrl}}/api/auth/refresh",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -641,7 +641,7 @@
                   }
                 },
                 "url": {
-                  "raw": "{{baseUrl}}/auth/refresh",
+                  "raw": "{{baseUrl}}/api/auth/refresh",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -679,7 +679,7 @@
                   }
                 },
                 "url": {
-                  "raw": "{{baseUrl}}/auth/refresh",
+                  "raw": "{{baseUrl}}/api/auth/refresh",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -719,7 +719,7 @@
               }
             },
             "url": {
-              "raw": "{{baseUrl}}/auth/logout",
+              "raw": "{{baseUrl}}/api/auth/logout",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -751,7 +751,7 @@
                   }
                 },
                 "url": {
-                  "raw": "{{baseUrl}}/auth/logout",
+                  "raw": "{{baseUrl}}/api/auth/logout",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -782,7 +782,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/auth/logout-all",
+              "raw": "{{baseUrl}}/api/auth/logout-all",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -805,7 +805,7 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/auth/logout-all",
+                  "raw": "{{baseUrl}}/api/auth/logout-all",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -836,7 +836,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/me",
+              "raw": "{{baseUrl}}/api/me",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -858,7 +858,7 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/me",
+                  "raw": "{{baseUrl}}/api/me",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -886,7 +886,7 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/me",
+                  "raw": "{{baseUrl}}/api/me",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -923,7 +923,7 @@
               "raw": ""
             },
             "url": {
-              "raw": "{{baseUrl}}/auth/google",
+              "raw": "{{baseUrl}}/api/auth/google",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -945,7 +945,7 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/auth/google",
+                  "raw": "{{baseUrl}}/api/auth/google",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -1016,7 +1016,7 @@
               }
             },
             "url": {
-              "raw": "{{baseUrl}}/campaigns",
+              "raw": "{{baseUrl}}/api/campaigns",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1051,7 +1051,7 @@
                   }
                 },
                 "url": {
-                  "raw": "{{baseUrl}}/campaigns",
+                  "raw": "{{baseUrl}}/api/campaigns",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -1092,7 +1092,7 @@
                   }
                 },
                 "url": {
-                  "raw": "{{baseUrl}}/campaigns",
+                  "raw": "{{baseUrl}}/api/campaigns",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -1122,7 +1122,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/campaigns?page=1&limit=20",
+              "raw": "{{baseUrl}}/api/campaigns?page=1&limit=20",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1162,7 +1162,7 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/campaigns?page=1&limit=20",
+                  "raw": "{{baseUrl}}/api/campaigns?page=1&limit=20",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -1210,7 +1210,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/campaigns?status=draft",
+              "raw": "{{baseUrl}}/api/campaigns?status=draft",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1239,7 +1239,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/campaigns/{{campaignId}}",
+              "raw": "{{baseUrl}}/api/campaigns/{{campaignId}}",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1262,7 +1262,7 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/campaigns/{{campaignId}}",
+                  "raw": "{{baseUrl}}/api/campaigns/{{campaignId}}",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -1291,7 +1291,7 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/campaigns/{{campaignId}}",
+                  "raw": "{{baseUrl}}/api/campaigns/{{campaignId}}",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -1335,7 +1335,7 @@
               }
             },
             "url": {
-              "raw": "{{baseUrl}}/campaigns/{{campaignId}}",
+              "raw": "{{baseUrl}}/api/campaigns/{{campaignId}}",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1371,7 +1371,7 @@
                   }
                 },
                 "url": {
-                  "raw": "{{baseUrl}}/campaigns/{{campaignId}}",
+                  "raw": "{{baseUrl}}/api/campaigns/{{campaignId}}",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -1413,7 +1413,7 @@
                   }
                 },
                 "url": {
-                  "raw": "{{baseUrl}}/campaigns/{{campaignId}}",
+                  "raw": "{{baseUrl}}/api/campaigns/{{campaignId}}",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -1444,7 +1444,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/campaigns/{{campaignId}}",
+              "raw": "{{baseUrl}}/api/campaigns/{{campaignId}}",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1467,7 +1467,7 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/campaigns/{{campaignId}}",
+                  "raw": "{{baseUrl}}/api/campaigns/{{campaignId}}",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -1496,7 +1496,7 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/campaigns/{{campaignId}}",
+                  "raw": "{{baseUrl}}/api/campaigns/{{campaignId}}",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -1546,7 +1546,7 @@
               }
             },
             "url": {
-              "raw": "{{baseUrl}}/emails/send",
+              "raw": "{{baseUrl}}/api/emails/send",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1577,7 +1577,7 @@
                   "raw": "{\n    \"to\": \"safi06947@gmail.com\",\n    \"subject\": \"test mail\",\n    \"body\": \"testing\"\n}"
                 },
                 "url": {
-                  "raw": "{{baseUrl}}/emails/send",
+                  "raw": "{{baseUrl}}/api/emails/send",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -1616,7 +1616,7 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/emails/send",
+                  "raw": "{{baseUrl}}/api/emails/send",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -1661,7 +1661,7 @@
               "raw": "{\n  \"to\": [\"hamzaansari6060@gmail.com\", \"safi0647@gmail.com\"],\n  \"subject\": \"Campaign Update\",\n  \"body\": \"Plain text body here.\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/emails/send",
+              "raw": "{{baseUrl}}/api/emails/send",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1687,7 +1687,7 @@
                   "raw": "{\n  \"to\": [\"alice@example.com\", \"bob@example.com\"],\n  \"subject\": \"Campaign Update\",\n  \"body\": \"Plain text body here.\"\n}"
                 },
                 "url": {
-                  "raw": "{{baseUrl}}/emails/send",
+                  "raw": "{{baseUrl}}/api/emails/send",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -1741,7 +1741,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/leads?page=1&limit=20",
+              "raw": "{{baseUrl}}/api/leads?page=1&limit=20",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1838,7 +1838,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/leads?search=john&page=1&limit=20",
+              "raw": "{{baseUrl}}/api/leads?search=john&page=1&limit=20",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1874,7 +1874,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/leads?country=United States&industry=&page=1&limit=20",
+              "raw": "{{baseUrl}}/api/leads?country=United States&industry=&page=1&limit=20",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1914,7 +1914,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/leads?outreachStatus=pending&page=1&limit=20",
+              "raw": "{{baseUrl}}/api/leads?outreachStatus=pending&page=1&limit=20",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1950,7 +1950,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/leads/{{leadId}}",
+              "raw": "{{baseUrl}}/api/leads/{{leadId}}",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -2001,7 +2001,7 @@
               "raw": "{\n  \"lead_data_id\": \"lead_abc123\",\n  \"mail_template\": \"Hi John,\\n\\nPersonalised message for this lead...\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/campaigns/{{campaignId}}/leads",
+              "raw": "{{baseUrl}}/api/campaigns/{{campaignId}}/leads",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -2033,7 +2033,7 @@
               "raw": "{\n  \"leads\": [\n    { \"lead_data_id\": \"lead_001\", \"mail_template\": \"Hi Alice, ...\" },\n    { \"lead_data_id\": \"lead_002\", \"mail_template\": \"Hi Bob, ...\" },\n    { \"lead_data_id\": \"lead_003\" }\n  ]\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/campaigns/{{campaignId}}/leads/bulk",
+              "raw": "{{baseUrl}}/api/campaigns/{{campaignId}}/leads/bulk",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -2075,7 +2075,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/campaigns/{{campaignId}}/leads/assign-random",
+              "raw": "{{baseUrl}}/api/campaigns/{{campaignId}}/leads/assign-random",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -2100,7 +2100,7 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/campaigns/{{campaignId}}/leads/assign-random",
+                  "raw": "{{baseUrl}}/api/campaigns/{{campaignId}}/leads/assign-random",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -2135,7 +2135,7 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/campaigns/{{campaignId}}/leads/assign-random",
+                  "raw": "{{baseUrl}}/api/campaigns/{{campaignId}}/leads/assign-random",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -2170,7 +2170,7 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/campaigns/{{campaignId}}/leads/assign-random",
+                  "raw": "{{baseUrl}}/api/campaigns/{{campaignId}}/leads/assign-random",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -2200,7 +2200,7 @@
                 "method": "POST",
                 "header": [],
                 "url": {
-                  "raw": "{{baseUrl}}/campaigns/{{campaignId}}/leads/assign-random",
+                  "raw": "{{baseUrl}}/api/campaigns/{{campaignId}}/leads/assign-random",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -2266,7 +2266,7 @@
               }
             },
             "url": {
-              "raw": "{{baseUrl}}/campaigns/{{campaignId}}/leads/generate-templates",
+              "raw": "{{baseUrl}}/api/campaigns/{{campaignId}}/leads/generate-templates",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -2304,7 +2304,7 @@
                   }
                 },
                 "url": {
-                  "raw": "{{baseUrl}}/campaigns/{{campaignId}}/leads/generate-templates",
+                  "raw": "{{baseUrl}}/api/campaigns/{{campaignId}}/leads/generate-templates",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -2352,7 +2352,7 @@
                   }
                 },
                 "url": {
-                  "raw": "{{baseUrl}}/campaigns/{{campaignId}}/leads/generate-templates",
+                  "raw": "{{baseUrl}}/api/campaigns/{{campaignId}}/leads/generate-templates",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -2400,7 +2400,7 @@
                   }
                 },
                 "url": {
-                  "raw": "{{baseUrl}}/campaigns/{{campaignId}}/leads/generate-templates",
+                  "raw": "{{baseUrl}}/api/campaigns/{{campaignId}}/leads/generate-templates",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -2469,7 +2469,7 @@
               }
             },
             "url": {
-              "raw": "{{baseUrl}}/campaigns/{{campaignId}}/leads/send-emails",
+              "raw": "{{baseUrl}}/api/campaigns/{{campaignId}}/leads/send-emails",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -2507,7 +2507,7 @@
                   }
                 },
                 "url": {
-                  "raw": "{{baseUrl}}/campaigns/{{campaignId}}/leads/send-emails",
+                  "raw": "{{baseUrl}}/api/campaigns/{{campaignId}}/leads/send-emails",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -2555,7 +2555,7 @@
                   }
                 },
                 "url": {
-                  "raw": "{{baseUrl}}/campaigns/{{campaignId}}/leads/send-emails",
+                  "raw": "{{baseUrl}}/api/campaigns/{{campaignId}}/leads/send-emails",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -2599,7 +2599,7 @@
                   "raw": "{\n  \"campaign_lead_id\": null,\n  \"access_token\": \"{{googleAccessToken}}\"\n}"
                 },
                 "url": {
-                  "raw": "{{baseUrl}}/campaigns/{{campaignId}}/leads/send-emails",
+                  "raw": "{{baseUrl}}/api/campaigns/{{campaignId}}/leads/send-emails",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -2642,7 +2642,7 @@
                   "raw": "{\n  \"campaign_lead_id\": null\n}"
                 },
                 "url": {
-                  "raw": "{{baseUrl}}/campaigns/{{campaignId}}/leads/send-emails",
+                  "raw": "{{baseUrl}}/api/campaigns/{{campaignId}}/leads/send-emails",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -2685,7 +2685,7 @@
                   "raw": "{\n  \"campaign_lead_id\": null,\n  \"access_token\": \"{{googleAccessToken}}\"\n}"
                 },
                 "url": {
-                  "raw": "{{baseUrl}}/campaigns/{{campaignId}}/leads/send-emails",
+                  "raw": "{{baseUrl}}/api/campaigns/{{campaignId}}/leads/send-emails",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -2722,7 +2722,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/campaigns/{{campaignId}}/leads?page=1&limit=20",
+              "raw": "{{baseUrl}}/api/campaigns/{{campaignId}}/leads?page=1&limit=20",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -2770,7 +2770,7 @@
               "raw": "{\n  \"status\": \"sent\",\n  \"sent_at\": \"2026-05-05T10:00:00Z\",\n  \"mail_template\": \"Revised personalised template\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/campaigns/{{campaignId}}/leads/{{campaignLeadId}}",
+              "raw": "{{baseUrl}}/api/campaigns/{{campaignId}}/leads/{{campaignLeadId}}",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -2795,7 +2795,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/campaigns/{{campaignId}}/leads/{{campaignLeadId}}",
+              "raw": "{{baseUrl}}/api/campaigns/{{campaignId}}/leads/{{campaignLeadId}}",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -2829,7 +2829,7 @@
               }
             },
             "url": {
-              "raw": "{{baseUrl}}/campaigns/{{campaignId}}/leads/assign-filtered",
+              "raw": "{{baseUrl}}/api/campaigns/{{campaignId}}/leads/assign-filtered",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -2864,7 +2864,7 @@
               }
             },
             "url": {
-              "raw": "{{baseUrl}}/campaigns/{{campaignId}}/leads/assign-filtered",
+              "raw": "{{baseUrl}}/api/campaigns/{{campaignId}}/leads/assign-filtered",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -2898,7 +2898,7 @@
               }
             },
             "url": {
-              "raw": "{{baseUrl}}/campaigns/{{campaignId}}/leads/assign-filtered",
+              "raw": "{{baseUrl}}/api/campaigns/{{campaignId}}/leads/assign-filtered",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -2930,7 +2930,7 @@
           "  const baseUrl = pm.collectionVariables.get('baseUrl');",
           "  const rt      = pm.collectionVariables.get('refreshToken');",
           "  pm.sendRequest({",
-          "    url:    baseUrl + '/auth/refresh',",
+          "    url:    baseUrl + '/api/auth/refresh',",
           "    method: 'POST',",
           "    header: [{ key: 'Content-Type', value: 'application/json' }],",
           "    body:   { mode: 'raw', raw: JSON.stringify({ refreshToken: rt }) }",

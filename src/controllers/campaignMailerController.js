@@ -27,7 +27,7 @@ function handleValidationErrors(req) {
 //   1. req.body.access_token  — explicitly passed in the request body
 //   2. DB lookup via getValidGoogleAccessToken(userId) — auto-refreshes if expired
 //      Works for BOTH email/password users AND Google-login users, as long as
-//      the user has completed the Google OAuth flow at least once (GET /auth/google).
+//      the user has completed the Google OAuth flow at least once (GET /api/auth/google).
 //
 // Request body (all optional):
 //   campaign_lead_id  — UUID: if provided, only send to that single lead
@@ -52,7 +52,7 @@ async function sendEmails(req, res, next) {
       } catch {
         // No linked Google account — give the user a clear, actionable message
         throw new AppError(
-          'No Google account linked. Please visit GET /auth/google to connect your Gmail account before sending emails.',
+          'No Google account linked. Please visit GET /api/auth/google to connect your Gmail account before sending emails.',
           400
         );
       }
