@@ -2,6 +2,7 @@ const { validationResult } = require('express-validator');
 const campaignLeadsService = require('../services/campaignLeadsService');
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
+const { successResponse, successResponsePaginated } = require('../utils/response');
 
 function handleValidationErrors(req) {
   const errors = validationResult(req);
@@ -32,11 +33,7 @@ async function addLead(req, res, next) {
 
     logger.info('Lead added to campaign', { campaignId, lead_data_id, userId });
 
-    return res.status(201).json({
-      success: true,
-      message: 'Lead added to campaign.',
-      data: { lead },
-    });
+    return successResponse(res, 201, 'Lead added to campaign.', { lead });
   } catch (err) {
     next(err);
   }
@@ -62,11 +59,12 @@ async function bulkAddLeads(req, res, next) {
       totalDuplicates: result.totalDuplicates,
     });
 
-    return res.status(201).json({
-      success: true,
-      message: `${result.totalInserted} lead(s) added. ${result.totalDuplicates} duplicate(s) skipped.`,
-      data: result,
-    });
+    return successResponse(
+      res,
+      201,
+      `${result.totalInserted} lead(s) added. ${result.totalDuplicates} duplicate(s) skipped.`,
+      result
+    );
   } catch (err) {
     next(err);
   }
@@ -89,9 +87,11 @@ async function listLeads(req, res, next) {
       limit: Math.min(parseInt(limit || '20', 10), 100),
     });
 
-    return res.status(200).json({
-      success: true,
-      data: result,
+    return successResponsePaginated(res, 200, undefined, result.leads, {
+      page: result.page,
+      limit: result.limit,
+      total: result.total ?? 0,
+      totalPages: result.totalPages,
     });
   } catch (err) {
     next(err);
@@ -124,11 +124,7 @@ async function updateLead(req, res, next) {
 
     logger.info('Campaign lead updated', { campaignId, leadId, userId, updates });
 
-    return res.status(200).json({
-      success: true,
-      message: 'Campaign lead updated.',
-      data: { lead },
-    });
+    return successResponse(res, 200, 'Campaign lead updated.', { lead });
   } catch (err) {
     next(err);
   }
@@ -148,10 +144,7 @@ async function removeLead(req, res, next) {
 
     logger.info('Campaign lead removed', { campaignId, leadId, userId });
 
-    return res.status(200).json({
-      success: true,
-      message: 'Lead removed from campaign.',
-    });
+    return successResponse(res, 200, 'Lead removed from campaign.', undefined);
   } catch (err) {
     next(err);
   }
@@ -180,11 +173,12 @@ async function assignRandomLeads(req, res, next) {
       totalDuplicates: result.totalDuplicates,
     });
 
-    return res.status(201).json({
-      success: true,
-      message: `${result.totalInserted} lead(s) randomly assigned. ${result.totalDuplicates} duplicate(s) skipped.`,
-      data: result,
-    });
+    return successResponse(
+      res,
+      201,
+      `${result.totalInserted} lead(s) randomly assigned. ${result.totalDuplicates} duplicate(s) skipped.`,
+      result
+    );
   } catch (err) {
     next(err);
   }
@@ -215,11 +209,12 @@ async function assignFilteredLeads(req, res, next) {
       totalDuplicates: result.totalDuplicates,
     });
 
-    return res.status(201).json({
-      success: true,
-      message: `${result.totalInserted} lead(s) assigned. ${result.totalDuplicates} duplicate(s) skipped.`,
-      data: result,
-    });
+    return successResponse(
+      res,
+      201,
+      `${result.totalInserted} lead(s) assigned. ${result.totalDuplicates} duplicate(s) skipped.`,
+      result
+    );
   } catch (err) {
     next(err);
   }

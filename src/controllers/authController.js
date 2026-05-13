@@ -6,6 +6,7 @@ const { generateAccessToken, generateRefreshToken } = require('../utils/jwt');
 const refreshTokenService = require('../services/refreshTokenService');
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
+const { successResponse } = require('../utils/response');
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
 
@@ -44,11 +45,12 @@ async function signup(req, res, next) {
 
     logger.info('User signed up', { userId: user.id, email: user.email });
 
-    return res.status(201).json({
-      success: true,
-      message: 'Account created. Check your email for your 6-digit verification code.',
-      data: { userId: user.id },
-    });
+    return successResponse(
+      res,
+      201,
+      'Account created. Check your email for your 6-digit verification code.',
+      { userId: user.id }
+    );
   } catch (err) {
     next(err);
   }
@@ -72,11 +74,7 @@ async function verifyOtp(req, res, next) {
 
     logger.info('User verified email', { userId });
 
-    return res.status(200).json({
-      success: true,
-      message: 'Email verified successfully.',
-      data: { accessToken, refreshToken },
-    });
+    return successResponse(res, 200, 'Email verified successfully.', { accessToken, refreshToken });
   } catch (err) {
     next(err);
   }
@@ -105,18 +103,14 @@ async function login(req, res, next) {
 
     logger.info('User logged in', { userId: user.id });
 
-    return res.status(200).json({
-      success: true,
-      message: 'Login successful.',
-      data: {
-        accessToken,
-        refreshToken,
-        user: {
-          id: user.id,
-          email: user.email,
-          isVerified: user.is_verified,
-          createdAt: user.created_at,
-        },
+    return successResponse(res, 200, 'Login successful.', {
+      accessToken,
+      refreshToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        isVerified: user.is_verified,
+        createdAt: user.created_at,
       },
     });
   } catch (err) {
@@ -151,10 +145,9 @@ async function refreshTokens(req, res, next) {
 
     logger.info('Tokens refreshed', { userId: user.id });
 
-    return res.status(200).json({
-      success: true,
-      message: 'Tokens refreshed successfully.',
-      data: { accessToken, refreshToken: newRefreshToken },
+    return successResponse(res, 200, 'Tokens refreshed successfully.', {
+      accessToken,
+      refreshToken: newRefreshToken,
     });
   } catch (err) {
     next(err);
@@ -175,7 +168,7 @@ async function logout(req, res, next) {
       await refreshTokenService.revokeRefreshToken(refreshToken);
     }
     logger.info('User logged out', { userId: req.user?.id });
-    return res.status(200).json({ success: true, message: 'Logged out successfully.' });
+    return successResponse(res, 200, 'Logged out successfully.', undefined);
   } catch (err) {
     next(err);
   }
@@ -190,7 +183,7 @@ async function logoutAll(req, res, next) {
   try {
     await refreshTokenService.revokeAllUserRefreshTokens(req.user.id);
     logger.info('User logged out from all devices', { userId: req.user.id });
-    return res.status(200).json({ success: true, message: 'Logged out from all devices.' });
+    return successResponse(res, 200, 'Logged out from all devices.', undefined);
   } catch (err) {
     next(err);
   }
@@ -212,10 +205,12 @@ async function resendOtp(req, res, next) {
 
     logger.info('OTP resent', { userId });
 
-    return res.status(200).json({
-      success: true,
-      message: 'A new verification code has been sent to your email.',
-    });
+    return successResponse(
+      res,
+      200,
+      'A new verification code has been sent to your email.',
+      undefined
+    );
   } catch (err) {
     next(err);
   }

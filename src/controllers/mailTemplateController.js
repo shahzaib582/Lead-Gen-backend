@@ -2,6 +2,7 @@ const { validationResult } = require('express-validator');
 const mailTemplateService = require('../services/mailTemplateService');
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
+const { successResponse } = require('../utils/response');
 
 function handleValidationErrors(req) {
   const errors = validationResult(req);
@@ -46,11 +47,12 @@ async function generateTemplates(req, res, next) {
       failed: result.failed,
     });
 
-    return res.status(200).json({
-      success: true,
-      message: `${result.processed} template(s) generated. ${result.failed} failed.`,
-      data: result,
-    });
+    return successResponse(
+      res,
+      200,
+      `${result.processed} template(s) generated. ${result.failed} failed.`,
+      result
+    );
   } catch (err) {
     next(err);
   }

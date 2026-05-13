@@ -2,6 +2,7 @@ const { validationResult } = require('express-validator');
 const leadsDataService = require('../services/leadsDataService');
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
+const { successResponse, successResponsePaginated } = require('../utils/response');
 
 function handleValidationErrors(req) {
   const errors = validationResult(req);
@@ -68,9 +69,11 @@ async function list(req, res, next) {
       page: result.page,
     });
 
-    return res.status(200).json({
-      success: true,
-      data: result,
+    return successResponsePaginated(res, 200, undefined, result.leads, {
+      page: result.page,
+      limit: result.limit,
+      total: result.total ?? 0,
+      totalPages: result.totalPages,
     });
   } catch (err) {
     next(err);
@@ -89,10 +92,7 @@ async function getOne(req, res, next) {
 
     const lead = await leadsDataService.getLeadById(id);
 
-    return res.status(200).json({
-      success: true,
-      data: { lead },
-    });
+    return successResponse(res, 200, undefined, { lead });
   } catch (err) {
     next(err);
   }

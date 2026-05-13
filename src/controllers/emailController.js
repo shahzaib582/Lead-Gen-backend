@@ -3,6 +3,7 @@ const emailService = require('../services/emailService');
 const googleAuthService = require('../services/googleAuthService');
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
+const { successResponse } = require('../utils/response');
 
 function handleValidationErrors(req) {
   const errors = validationResult(req);
@@ -45,15 +46,11 @@ async function sendEmail(req, res, next) {
       messageId: emailInfo.messageId,
     });
 
-    return res.status(200).json({
-      success: true,
-      message: 'Email sent successfully.',
-      data: {
-        messageId: emailInfo.messageId,
-        to,
-        subject,
-        accessTokenUsed: true,
-      },
+    return successResponse(res, 200, 'Email sent successfully.', {
+      messageId: emailInfo.messageId,
+      to,
+      subject,
+      accessTokenUsed: true,
     });
   } catch (err) {
     next(err);

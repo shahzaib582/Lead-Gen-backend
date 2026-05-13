@@ -18,6 +18,17 @@ function errorResponse(res, statusCode, message, extras = {}) {
 }
 
 /**
+ * Factory for express-rate-limit `handler` so limit responses use {@link errorResponse}.
+ * @param {string} message
+ */
+function createRateLimitHandler(message) {
+  return (_req, res, _next, options) => {
+    const status = options && typeof options.statusCode === 'number' ? options.statusCode : 429;
+    return errorResponse(res, status, message);
+  };
+}
+
+/**
  * @param {import('express').Response} res
  * @param {number} statusCode
  * @param {string} [message]  omitted when undefined / null / ''
@@ -68,6 +79,7 @@ function successResponsePaginated(res, statusCode, message, items, meta) {
 
 module.exports = {
   errorResponse,
+  createRateLimitHandler,
   successResponse,
   successResponsePaginated,
 };

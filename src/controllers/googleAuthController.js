@@ -5,6 +5,7 @@ const userService = require('../services/userService');
 const { generateAccessToken, generateRefreshToken } = require('../utils/jwt');
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
+const { successResponse } = require('../utils/response');
 
 // ─── Helper: issue our own access + refresh token pair ───────────────────────
 
@@ -96,19 +97,15 @@ async function handleGoogleCallback(req, res, next) {
 
     // 4. Respond — for a pure API, return JSON; for a web app, redirect with tokens
     // JSON response (suitable for mobile / SPA clients)
-    return res.status(200).json({
-      success: true,
-      message: 'Google authentication successful.',
-      data: {
-        accessToken,
-        refreshToken,
-        user: {
-          id: user.id,
-          email: user.email,
-          name,
-          avatarUrl,
-          authProvider: 'google',
-        },
+    return successResponse(res, 200, 'Google authentication successful.', {
+      accessToken,
+      refreshToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        name,
+        avatarUrl,
+        authProvider: 'google',
       },
     });
   } catch (err) {
@@ -182,14 +179,10 @@ async function loginWithGoogleToken(req, res, next) {
 
     logger.info('Google token login', { userId: user.id });
 
-    return res.status(200).json({
-      success: true,
-      message: 'Google authentication successful.',
-      data: {
-        accessToken,
-        refreshToken,
-        user: { id: user.id, email: user.email, name, avatarUrl, authProvider: 'google' },
-      },
+    return successResponse(res, 200, 'Google authentication successful.', {
+      accessToken,
+      refreshToken,
+      user: { id: user.id, email: user.email, name, avatarUrl, authProvider: 'google' },
     });
   } catch (err) {
     if (err.message && err.message.includes('Token used too late')) {
@@ -206,22 +199,16 @@ async function getGoogleStatus(req, res, next) {
   try {
     const account = await googleAuthService.findGoogleAccountByUserId(req.user.id);
     if (!account) {
-      return res.status(200).json({
-        success: true,
-        data: { linked: false },
-      });
+      return successResponse(res, 200, undefined, { linked: false });
     }
 
-    return res.status(200).json({
-      success: true,
-      data: {
-        linked: true,
-        email: account.email,
-        name: account.name,
-        avatarUrl: account.avatar_url,
-        scopes: account.scopes,
-        tokenExpiresAt: account.token_expires_at,
-      },
+    return successResponse(res, 200, undefined, {
+      linked: true,
+      email: account.email,
+      name: account.name,
+      avatarUrl: account.avatar_url,
+      scopes: account.scopes,
+      tokenExpiresAt: account.token_expires_at,
     });
   } catch (err) {
     next(err);

@@ -2,6 +2,7 @@ const { validationResult } = require('express-validator');
 const campaignService = require('../services/campaignService');
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
+const { successResponse, successResponsePaginated } = require('../utils/response');
 
 function handleValidationErrors(req) {
   const errors = validationResult(req);
@@ -48,11 +49,7 @@ async function create(req, res, next) {
 
     logger.info('Campaign created', { campaignId: campaign.id, userId: req.user.id });
 
-    return res.status(201).json({
-      success: true,
-      message: 'Campaign created successfully.',
-      data: { campaign },
-    });
+    return successResponse(res, 201, 'Campaign created successfully.', { campaign });
   } catch (err) {
     next(err);
   }
@@ -69,9 +66,10 @@ async function list(req, res, next) {
       limit: parseInt(limit || '20', 10),
     });
 
-    return res.status(200).json({
-      success: true,
-      data: result,
+    return successResponsePaginated(res, 200, undefined, result.campaigns, {
+      page: result.page,
+      limit: result.limit,
+      total: result.total ?? 0,
     });
   } catch (err) {
     next(err);
@@ -84,10 +82,7 @@ async function getOne(req, res, next) {
   try {
     const campaign = await campaignService.getCampaignById(req.user.id, req.params.id);
 
-    return res.status(200).json({
-      success: true,
-      data: { campaign },
-    });
+    return successResponse(res, 200, undefined, { campaign });
   } catch (err) {
     next(err);
   }
@@ -128,11 +123,7 @@ async function update(req, res, next) {
 
     logger.info('Campaign updated', { campaignId: campaign.id, userId: req.user.id });
 
-    return res.status(200).json({
-      success: true,
-      message: 'Campaign updated successfully.',
-      data: { campaign },
-    });
+    return successResponse(res, 200, 'Campaign updated successfully.', { campaign });
   } catch (err) {
     next(err);
   }
@@ -146,10 +137,7 @@ async function remove(req, res, next) {
 
     logger.info('Campaign deleted', { campaignId: req.params.id, userId: req.user.id });
 
-    return res.status(200).json({
-      success: true,
-      message: 'Campaign deleted successfully.',
-    });
+    return successResponse(res, 200, 'Campaign deleted successfully.', undefined);
   } catch (err) {
     next(err);
   }

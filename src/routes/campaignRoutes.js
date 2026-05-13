@@ -1,6 +1,7 @@
 const express = require('express');
 const { body, param, query } = require('express-validator');
 const rateLimit = require('express-rate-limit');
+const { createRateLimitHandler } = require('../utils/response');
 const campaignController = require('../controllers/campaignController');
 const { authenticate } = require('../middleware/authenticate');
 
@@ -14,7 +15,7 @@ router.use(authenticate);
 const campaignLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
-  message: { success: false, message: 'Too many campaign requests. Please try again later.' },
+  handler: createRateLimitHandler('Too many campaign requests. Please try again later.'),
   standardHeaders: true,
   legacyHeaders: false,
 });

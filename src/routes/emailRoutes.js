@@ -1,6 +1,7 @@
 const express = require('express');
 const { body } = require('express-validator');
 const rateLimit = require('express-rate-limit');
+const { createRateLimitHandler } = require('../utils/response');
 const emailController = require('../controllers/emailController');
 const { authenticate } = require('../middleware/authenticate');
 
@@ -14,7 +15,7 @@ router.use(authenticate);
 const emailLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 50, // limit each user to 50 email sends per windowMs
-  message: { success: false, message: 'Too many email requests. Please try again later.' },
+  handler: createRateLimitHandler('Too many email requests. Please try again later.'),
   standardHeaders: true,
   legacyHeaders: false,
 });

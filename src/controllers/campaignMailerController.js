@@ -3,6 +3,7 @@ const campaignMailerService = require('../services/campaignMailerService');
 const googleAuthService = require('../services/googleAuthService');
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
+const { successResponse } = require('../utils/response');
 
 function handleValidationErrors(req) {
   const errors = validationResult(req);
@@ -82,11 +83,7 @@ async function sendEmails(req, res, next) {
       }
     }
 
-    return res.status(200).json({
-      success: true,
-      message,
-      data: result,
-    });
+    return successResponse(res, 200, message, result);
   } catch (err) {
     next(err);
   }

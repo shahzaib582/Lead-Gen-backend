@@ -1,6 +1,7 @@
 const express = require('express');
 const { body } = require('express-validator');
 const rateLimit = require('express-rate-limit');
+const { createRateLimitHandler } = require('../utils/response');
 const authController = require('../controllers/authController');
 const { authenticate } = require('../middleware/authenticate');
 
@@ -11,7 +12,7 @@ const router = express.Router();
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
-  message: { success: false, message: 'Too many requests. Please try again later.' },
+  handler: createRateLimitHandler('Too many requests. Please try again later.'),
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -19,7 +20,7 @@ const authLimiter = rateLimit({
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
-  message: { success: false, message: 'Too many login attempts. Please try again later.' },
+  handler: createRateLimitHandler('Too many login attempts. Please try again later.'),
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -27,7 +28,7 @@ const loginLimiter = rateLimit({
 const refreshLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 30,
-  message: { success: false, message: 'Too many refresh requests.' },
+  handler: createRateLimitHandler('Too many refresh requests.'),
   standardHeaders: true,
   legacyHeaders: false,
 });

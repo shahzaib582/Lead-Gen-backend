@@ -1,6 +1,7 @@
 const express = require('express');
 const { body, param, query } = require('express-validator');
 const rateLimit = require('express-rate-limit');
+const { createRateLimitHandler } = require('../utils/response');
 const campaignLeadsController = require('../controllers/campaignLeadsController');
 const mailTemplateController = require('../controllers/mailTemplateController');
 const campaignMailerController = require('../controllers/campaignMailerController');
@@ -16,7 +17,7 @@ router.use(authenticate);
 const leadsLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 200,
-  message: { success: false, message: 'Too many requests. Please try again later.' },
+  handler: createRateLimitHandler('Too many requests. Please try again later.'),
   standardHeaders: true,
   legacyHeaders: false,
 });

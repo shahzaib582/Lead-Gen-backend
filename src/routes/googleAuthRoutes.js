@@ -1,5 +1,6 @@
 const express = require('express');
 const rateLimit = require('express-rate-limit');
+const { createRateLimitHandler } = require('../utils/response');
 const googleAuthController = require('../controllers/googleAuthController');
 const { authenticate } = require('../middleware/authenticate');
 
@@ -8,7 +9,7 @@ const router = express.Router();
 const googleLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 30,
-  message: { success: false, message: 'Too many Google auth requests. Please try again later.' },
+  handler: createRateLimitHandler('Too many Google auth requests. Please try again later.'),
   standardHeaders: true,
   legacyHeaders: false,
 });
