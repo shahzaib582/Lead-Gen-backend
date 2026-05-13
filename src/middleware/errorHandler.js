@@ -1,4 +1,5 @@
 const logger = require('../utils/logger');
+const { errorResponse } = require('../utils/response');
 
 /**
  * Express global error handler.
@@ -10,10 +11,9 @@ function errorHandler(err, req, res, next) {
 
   // Operational errors: safe to expose message
   if (err.isOperational) {
-    return res.status(err.statusCode).json({
-      success: false,
-      message: err.message,
-    });
+    const extras = {};
+    if (err.code) extras.code = err.code;
+    return errorResponse(res, err.statusCode, err.message, extras);
   }
 
   // Programmer / unknown errors: log the full stack, return generic message
@@ -24,11 +24,9 @@ function errorHandler(err, req, res, next) {
     method: req.method,
   });
 
-  return res.status(500).json({
-    success: false,
-    message: isProduction ? 'Something went wrong. Please try again later.' : err.message,
-    ...(isProduction ? {} : { stack: err.stack }),
-  });
+  const message = isProduction ? 'Something went wrong. Please try again later.' : err.message;
+  const extras = isProduction ? {} : { stack: err.stack };
+  return errorResponse(res, 500, message, extras);
 }
 
 module.exports = errorHandler;
