@@ -1,5 +1,6 @@
 const express = require('express');
 const rateLimit = require('express-rate-limit');
+const cors = require('cors');
 const authRoutes = require('./routes/authRoutes');
 const googleRoutes = require('./routes/googleAuthRoutes');
 const campaignRoutes = require('./routes/campaignRoutes');
@@ -10,11 +11,28 @@ const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
 
-const cors = require('cors');
+function corsOriginConfig() {
+  const raw = process.env.CORS_ORIGIN || process.env.FRONTEND_URL;
+  if (!raw) return 'http://localhost:8080';
+  const origins = raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (origins.length === 0) return 'http://localhost:8080';
+  if (origins.length === 1) return origins[0];
+  return origins;
+}
+
+const trustProxy = process.env.TRUST_PROXY;
+if (trustProxy === '1' || trustProxy === 'true') {
+  app.set('trust proxy', 1);
+} else if (trustProxy && !Number.isNaN(Number(trustProxy))) {
+  app.set('trust proxy', Number(trustProxy));
+}
 
 app.use(
   cors({
-    origin: 'http://localhost:8080',
+    origin: corsOriginConfig(),
     credentials: true,
   })
 );

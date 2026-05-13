@@ -18,7 +18,7 @@ async function authenticate(req, res, next) {
     }
 
     const token = authHeader.slice(7);
-    const decoded = verifyAccessToken(token); // throws with code TOKEN_EXPIRED if expired
+    const decoded = verifyAccessToken(token); // throws AppError 401 (e.g. TOKEN_EXPIRED)
 
     const user = await userService.findUserById(decoded.sub);
     if (!user) throw new AppError('User no longer exists.', 401);
@@ -45,11 +45,6 @@ async function authenticate(req, res, next) {
 
     next();
   } catch (err) {
-    // Pass token-expired errors with a helpful hint for the client
-    if (err.code === 'TOKEN_EXPIRED') {
-      err.message = 'Access token expired. Use /auth/refresh to get a new one.';
-      err.statusCode = 401;
-    }
     next(err);
   }
 }

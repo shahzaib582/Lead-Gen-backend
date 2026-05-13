@@ -1,6 +1,7 @@
 const OpenAI = require('openai');
 const supabase = require('../config/supabase');
 const AppError = require('../utils/AppError');
+const { parseLeadDataId } = require('../utils/leadDataId');
 const logger = require('../utils/logger');
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -11,7 +12,7 @@ async function fetchLeadData(leadDataId) {
   const { data, error } = await supabase
     .from('leads_data')
     .select('*')
-    .eq('id', Number(leadDataId))
+    .eq('id', parseLeadDataId(leadDataId))
     .single();
 
   if (error || !data) return null;

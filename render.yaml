@@ -9,6 +9,9 @@ services:
       - key: NODE_ENV
         value: production
 
+      - key: TRUST_PROXY
+        value: '1'
+
       - key: REDIS_HOST
         fromService:
           type: redis
@@ -76,10 +79,14 @@ services:
           type: redis
           name: leadgen-redis
           property: port
+
       - key: SUPABASE_URL
         sync: false
 
       - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+
+      - key: OPENAI_API_KEY
         sync: false
 
   - type: redis

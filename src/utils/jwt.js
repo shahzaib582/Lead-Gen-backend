@@ -1,12 +1,13 @@
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const AppError = require('./AppError');
 
 const ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET;
 
 const ACCESS_EXPIRES = process.env.JWT_ACCESS_EXPIRES_IN || '15m';
 
 if (!ACCESS_SECRET || ACCESS_SECRET.length < 32) {
-  throw new Error('JWT_ACCESS_SECRET must be set and at least 32 characters long.');
+  throw new Error('JWT_ACCESS_SECRET or JWT_SECRET must be set and at least 32 characters long.');
 }
 
 // ─── Access Token ─────────────────────────────────────────────────────────────
@@ -21,18 +22,20 @@ function generateAccessToken(user) {
 function verifyAccessToken(token) {
   try {
     const decoded = jwt.verify(token, ACCESS_SECRET, { algorithms: ['HS256'] });
-    if (decoded.type !== 'access') throw new Error('Wrong token type');
+    if (decoded.type !== 'access') {
+      throw new AppError('Invalid access token.', 401, 'INVALID_ACCESS_TOKEN');
+    }
     return decoded;
   } catch (err) {
+    if (err instanceof AppError) throw err;
     if (err.name === 'TokenExpiredError') {
-      const e = new Error('Access token expired.');
-      e.statusCode = 401;
-      e.code = 'TOKEN_EXPIRED';
-      throw e;
+      throw new AppError(
+        'Access token expired. Use /auth/refresh to get a new one.',
+        401,
+        'TOKEN_EXPIRED'
+      );
     }
-    const e = new Error('Invalid access token.');
-    e.statusCode = 401;
-    throw e;
+    throw new AppError('Invalid access token.', 401, 'INVALID_ACCESS_TOKEN');
   }
 }
 

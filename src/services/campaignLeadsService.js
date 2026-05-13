@@ -2,10 +2,15 @@
 
 const supabase = require('../config/supabase');
 const AppError = require('../utils/AppError');
-
+const { parseLeadDataId } = require('../utils/leadDataId');
 const { enqueueMailTemplateJob } = require('../jobs/mailTemplateJob');
 
 const VALID_STATUSES = ['pending', 'template_generated', 'sent', 'failed', 'skipped'];
+
+function uniqueExcludedLeadDataIds(rows) {
+  const ids = (rows || []).map((r) => parseLeadDataId(r.lead_data_id)).filter((v) => v != null);
+  return [...new Set(ids)];
+}
 
 // ─────────────────────────────────────────────────────────────
 // Helpers
@@ -240,7 +245,7 @@ async function updateCampaignLead(userId, campaignId, leadId, updates) {
     await supabase
       .from('leads_data')
       .update(leadsDataUpdate)
-      .eq('id', Number(existing.lead_data_id));
+      .eq('id', parseLeadDataId(existing.lead_data_id));
   }
 
   return data;
@@ -284,7 +289,7 @@ async function assignRandomLeadsToCampaign(userId, campaignId) {
     .select('lead_data_id')
     .eq('campaign_id', campaignId);
 
-  const excludedIds = (existing || []).map((r) => Number(r.lead_data_id)).filter((n) => !isNaN(n));
+  const excludedIds = uniqueExcludedLeadDataIds(existing);
 
   let idsQuery = supabase.from('leads_data').select('id');
 
@@ -297,7 +302,7 @@ async function assignRandomLeadsToCampaign(userId, campaignId) {
   }
 
   if (excludedIds.length > 0) {
-    idsQuery = idsQuery.not('id', 'in', `(${excludedIds.join(',')})`);
+    idsQuery = idsQuery.notIn('id', excludedIds);
   }
 
   const { data: allLeads, error: leadsError } = await idsQuery;
@@ -406,7 +411,7 @@ async function assignFilteredLeadsToCampaign(
     .eq('campaign_id', campaignId)
     .eq('user_id', userId);
 
-  const excludedIds = (existing || []).map((r) => Number(r.lead_data_id)).filter((n) => !isNaN(n));
+  const excludedIds = uniqueExcludedLeadDataIds(existing);
 
   // ── Step 2: query leads_data filtered by country and/or industry ───────────
   // Schema columns are plain lowercase: country, industry (no quotes needed).
@@ -418,7 +423,7 @@ async function assignFilteredLeadsToCampaign(
   if (industry) idsQuery = idsQuery.ilike('industry', industry.trim());
 
   if (excludedIds.length > 0) {
-    idsQuery = idsQuery.not('id', 'in', `(${excludedIds.join(',')})`);
+    idsQuery = idsQuery.notIn('id', excludedIds);
   }
 
   const { data: allLeads, error: leadsError } = await idsQuery;

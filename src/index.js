@@ -8,14 +8,20 @@ const campaignMailWorker = require('./workers/campaignMailWorker');
 const REQUIRED_ENV = [
   'SUPABASE_URL',
   'SUPABASE_SERVICE_ROLE_KEY',
-  'JWT_SECRET',
   'SMTP_HOST',
   'SMTP_USER',
   'SMTP_PASS',
   'EMAIL_FROM',
+  'OPENAI_API_KEY',
 ];
 
 const missing = REQUIRED_ENV.filter((k) => !process.env[k]);
+if (!process.env.JWT_SECRET && !process.env.JWT_ACCESS_SECRET) {
+  missing.push('JWT_SECRET or JWT_ACCESS_SECRET');
+}
+if (!process.env.REDIS_URL && !process.env.REDIS_HOST) {
+  missing.push('REDIS_URL or REDIS_HOST');
+}
 if (missing.length) {
   console.error(`Missing required environment variables: ${missing.join(', ')}`);
   process.exit(1);

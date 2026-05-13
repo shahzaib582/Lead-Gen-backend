@@ -2,6 +2,7 @@ const supabase = require('../config/supabase');
 const { sendCustomEmail } = require('./emailService');
 const googleAuthService = require('./googleAuthService');
 const AppError = require('../utils/AppError');
+const { parseLeadDataId } = require('../utils/leadDataId');
 const logger = require('../utils/logger');
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -64,7 +65,7 @@ async function getLeadEmail(leadDataId) {
   const { data, error } = await supabase
     .from('leads_data')
     .select('email, fullName, firstName')
-    .eq('id', Number(leadDataId))
+    .eq('id', parseLeadDataId(leadDataId))
     .single();
 
   if (error || !data) return null;
@@ -247,7 +248,7 @@ async function sendCampaignEmails(
           emailSent: 'true',
           emailSentDate: sentAt,
         })
-        .eq('id', Number(cl.lead_data_id));
+        .eq('id', parseLeadDataId(cl.lead_data_id));
 
       sent++;
 
