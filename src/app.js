@@ -8,6 +8,7 @@ const campaignLeadsRoutes = require('./routes/campaignLeadsRoutes');
 const emailRoutes = require('./routes/emailRoutes');
 const leadsDataRoutes = require('./routes/leadsDataRoutes');
 const errorHandler = require('./middleware/errorHandler');
+const { errorResponse, successResponse, createRateLimitHandler } = require('./utils/response');
 
 const app = express();
 
@@ -49,13 +50,13 @@ app.use(
     max: 200,
     standardHeaders: true,
     legacyHeaders: false,
-    message: { success: false, message: 'Too many requests. Slow down.' },
+    handler: createRateLimitHandler('Too many requests. Slow down.'),
   })
 );
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
-app.get('/health', (req, res) => res.json({ status: 'ok' }));
+app.get('/health', (req, res) => successResponse(res, 200, undefined, { status: 'ok' }));
 
 app.use('/auth', authRoutes);
 app.use('/auth/google', googleRoutes);
@@ -67,12 +68,12 @@ app.use('/leads', leadsDataRoutes);
 // Protected /me example
 const { authenticate } = require('./middleware/authenticate');
 app.get('/me', authenticate, (req, res) => {
-  res.json({ success: true, data: { user: req.user } });
+  return successResponse(res, 200, undefined, { user: req.user });
 });
 
 // 404
 app.use((req, res) => {
-  res.status(404).json({ success: false, message: 'Route not found.' });
+  return errorResponse(res, 404, 'Route not found.');
 });
 
 // Global error handler (must be last)
