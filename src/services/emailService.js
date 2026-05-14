@@ -90,6 +90,20 @@ async function sendOtpEmail(to, otp) {
 }
 
 /**
+ * Encode a display name for a MIME From header (quoted-printable safe subset or RFC 2047).
+ * @param {string} name
+ */
+function encodeMimeDisplayName(name) {
+  const trimmed = String(name).trim();
+  if (!trimmed) return '';
+  if (/[\r\n]/.test(trimmed)) return '';
+  if (/^[\x20-\x7e]+$/.test(trimmed)) {
+    return `"${trimmed.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+  }
+  return `=?UTF-8?B?${Buffer.from(trimmed, 'utf8').toString('base64')}?=`;
+}
+
+/**
  * Send a custom email via the Gmail API using the user's Google OAuth access token.
  * This sends as the authenticated Google user (their Gmail address), which is
  * essential for lead-gen outreach.
@@ -99,11 +113,14 @@ async function sendOtpEmail(to, otp) {
  * @param {string} body         - Plain-text body
  * @param {string|null} html    - Optional HTML body
  * @param {string} accessToken  - Valid Google OAuth2 access token for the sending user
+ * @param {{ replyTo?: string, fromDisplayName?: string, fromEmail?: string }|undefined} [mimeOptions]
  */
-async function sendCustomEmail(to, subject, body, html = null, accessToken) {
+async function sendCustomEmail(to, subject, body, html = null, accessToken, mimeOptions = undefined) {
   if (!accessToken) {
     throw new Error('Google access token is required to send email via Gmail API.');
   }
+
+  const opts = mimeOptions && typeof mimeOptions === 'object' ? mimeOptions : {};
 
   // Authenticate against Gmail API with the user's token
   const auth = new google.auth.OAuth2();
@@ -114,7 +131,20 @@ async function sendCustomEmail(to, subject, body, html = null, accessToken) {
   const recipients = Array.isArray(to) ? to.join(', ') : to;
 
   // Build a MIME message
-  const mimeLines = [`To: ${recipients}`, `Subject: ${subject}`, 'MIME-Version: 1.0'];
+  const mimeLines = [];
+
+  if (opts.fromDisplayName && opts.fromEmail) {
+    const enc = encodeMimeDisplayName(opts.fromDisplayName);
+    if (enc) {
+      mimeLines.push(`From: ${enc} <${opts.fromEmail}>`);
+    }
+  }
+
+  if (opts.replyTo) {
+    mimeLines.push(`Reply-To: ${opts.replyTo}`);
+  }
+
+  mimeLines.push(`To: ${recipients}`, `Subject: ${subject}`, 'MIME-Version: 1.0');
 
   if (html) {
     // Multipart message: plain text + HTML

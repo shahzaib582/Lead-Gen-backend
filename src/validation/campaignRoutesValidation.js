@@ -58,6 +58,30 @@ const createValidation = [
     .isIn(LEAD_SOURCES)
     .withMessage(`lead_source must be one of: ${LEAD_SOURCES.join(', ')}.`),
 
+  body('sender_display_name')
+    .optional({ values: 'falsy' })
+    .trim()
+    .isLength({ max: 120 })
+    .withMessage('sender_display_name must be at most 120 characters.'),
+
+  body('sender_reply_to')
+    .optional({ values: 'falsy' })
+    .trim()
+    .isEmail()
+    .withMessage('sender_reply_to must be a valid email when provided.'),
+
+  body('sender_address')
+    .optional({ values: 'falsy' })
+    .trim()
+    .isLength({ max: 500 })
+    .withMessage('sender_address must be at most 500 characters.'),
+
+  body('sender_phone')
+    .optional({ values: 'falsy' })
+    .trim()
+    .isLength({ max: 80 })
+    .withMessage('sender_phone must be at most 80 characters.'),
+
   body('status')
     .optional()
     .isIn(STATUSES)
@@ -124,6 +148,30 @@ const updateValidation = [
     .optional()
     .isIn(LEAD_SOURCES)
     .withMessage(`lead_source must be one of: ${LEAD_SOURCES.join(', ')}.`),
+
+  body('sender_display_name')
+    .optional({ nullable: true })
+    .trim()
+    .isLength({ max: 120 })
+    .withMessage('sender_display_name must be at most 120 characters.'),
+
+  body('sender_reply_to')
+    .optional({ nullable: true })
+    .trim()
+    .isEmail()
+    .withMessage('sender_reply_to must be a valid email when provided.'),
+
+  body('sender_address')
+    .optional({ nullable: true })
+    .trim()
+    .isLength({ max: 500 })
+    .withMessage('sender_address must be at most 500 characters.'),
+
+  body('sender_phone')
+    .optional({ nullable: true })
+    .trim()
+    .isLength({ max: 80 })
+    .withMessage('sender_phone must be at most 80 characters.'),
 
   body('status')
     .optional()

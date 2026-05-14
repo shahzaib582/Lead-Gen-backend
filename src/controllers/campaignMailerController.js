@@ -20,7 +20,7 @@ function handleValidationErrors(req) {
 //
 // Sends the AI-generated mail_template to every pending campaign lead that has
 // one, applying:
-//   • A random delay (10s – 60s, configurable) between each send
+//   • A random delay between MAIL_DELAY_MIN_MS and MAIL_DELAY_MAX_MS (defaults 3–5 minutes)
 //   • A hard cap of 500 emails per calendar day (UTC) across all campaigns
 //
 // Token resolution order:
@@ -49,11 +49,13 @@ async function sendEmails(req, res, next) {
     if (!accessToken) {
       try {
         accessToken = await googleAuthService.getValidGoogleAccessToken(userId);
-      } catch {
-        // No linked Google account — give the user a clear, actionable message
+      } catch (err) {
+        const code = err.code || 'GOOGLE_NOT_LINKED';
         throw new AppError(
-          'No Google account linked. Please visit GET /api/auth/google to connect your Gmail account before sending emails.',
-          400
+          err.message ||
+            'No Google account linked. Visit GET /api/auth/google to connect Gmail before sending.',
+          err.statusCode || 400,
+          code
         );
       }
     }

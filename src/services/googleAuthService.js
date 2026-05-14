@@ -1,5 +1,6 @@
 const { google } = require('googleapis');
 const supabase = require('../config/supabase');
+const AppError = require('../utils/AppError');
 
 const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_ID,
@@ -15,7 +16,7 @@ async function getValidGoogleAccessToken(userId) {
     .single();
 
   if (error || !account) {
-    throw new Error('Google account not connected');
+    throw new AppError('Google account not connected.', 401, 'GOOGLE_NOT_LINKED');
   }
 
   const { google_access_token, google_refresh_token, token_expires_at } = account;
@@ -31,17 +32,30 @@ async function getValidGoogleAccessToken(userId) {
 
   // Refresh token missing
   if (!google_refresh_token) {
-    throw new Error('Refresh token missing');
+    throw new AppError(
+      'Google refresh token missing; reconnect Gmail (GET /api/auth/google).',
+      401,
+      'GOOGLE_REFRESH_MISSING'
+    );
   }
 
   oauth2Client.setCredentials({
     refresh_token: google_refresh_token,
   });
 
-  const { credentials } = await oauth2Client.refreshAccessToken();
+  let credentials;
+  try {
+    ({ credentials } = await oauth2Client.refreshAccessToken());
+  } catch (err) {
+    throw new AppError(
+      `Google token refresh failed: ${err.message || 'unknown error'}`,
+      401,
+      'GOOGLE_REFRESH_FAILED'
+    );
+  }
 
   if (!credentials.access_token) {
-    throw new Error('Failed to refresh token');
+    throw new AppError('Google token refresh returned no access token.', 401, 'GOOGLE_REFRESH_FAILED');
   }
 
   await supabase

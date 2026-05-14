@@ -419,6 +419,14 @@ async function assignFilteredLeadsToCampaign(
   // No .limit() call — fetch the full matching pool so the shuffle is fair.
   let idsQuery = supabase.from('leads_data').select('id');
 
+  const leadSource = campaign.lead_source || 'both';
+
+  if (leadSource === 'new') {
+    idsQuery = idsQuery.or('outreachStatus.is.null,outreachStatus.eq.""');
+  } else if (leadSource === 'old') {
+    idsQuery = idsQuery.not('outreachStatus', 'is', null).neq('outreachStatus', '');
+  }
+
   if (country) idsQuery = idsQuery.ilike('country', country.trim());
   if (industry) idsQuery = idsQuery.ilike('industry', industry.trim());
 
@@ -491,6 +499,7 @@ async function assignFilteredLeadsToCampaign(
     inserted: inserted || [],
     duplicates,
     filters: { country: country || null, industry: industry || null },
+    leadSource,
     totalRequested: targetCount,
     totalAvailable: allLeads.length,
     totalInserted: (inserted || []).length,

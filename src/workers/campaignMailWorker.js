@@ -5,15 +5,11 @@ const logger = require('../utils/logger');
 const googleAuthService = require('../services/googleAuthService');
 const { sendCampaignEmails } = require('../services/campaignMailerService');
 const { enqueueCampaignMailJob } = require('../jobs/campaignMailJob');
-
-// Random delay between consecutive sends.
-// Set MAIL_DELAY_MIN_MS / MAIL_DELAY_MAX_MS in your env to override.
-// Defaults: 10s – 60s (human-like spacing, helps avoid Gmail rate limits).
-const DELAY_MIN_MS = Number(process.env.MAIL_DELAY_MIN_MS) || 10000; // 10s
-const DELAY_MAX_MS = Number(process.env.MAIL_DELAY_MAX_MS) || 60000; // 60s
+const { randomDelayMs } = require('../config/mailDelay');
+const { publishCampaignEvent, getCampaignProgressSnapshot } = require('../services/campaignEventsPublisher');
 
 function calcNextDelay() {
-  return Math.floor(Math.random() * (DELAY_MAX_MS - DELAY_MIN_MS + 1)) + DELAY_MIN_MS;
+  return randomDelayMs();
 }
 
 const MAX_ATTEMPTS = 5; // must match attempts in campaignMailQueue.js
@@ -61,7 +57,27 @@ const worker = new Worker(
       }
 
       // 2. Get fresh token
-      const accessToken = await googleAuthService.getValidGoogleAccessToken(userId);
+      let accessToken;
+      try {
+        accessToken = await googleAuthService.getValidGoogleAccessToken(userId);
+      } catch (err) {
+        logger.error('[CampaignMailWorker] Google token unavailable', {
+          userId,
+          campaignId,
+          code: err.code,
+          message: err.message,
+        });
+        await publishCampaignEvent(campaignId, {
+          type: 'mail_failed',
+          campaignLeadId,
+          userId,
+          reason: 'google_token',
+          code: err.code,
+          message: err.message,
+          ...(await getCampaignProgressSnapshot(userId, campaignId)),
+        });
+        throw err;
+      }
 
       // 3. Send email
       await sendCampaignEmails(userId, campaignId, accessToken, campaignLeadId);
@@ -69,6 +85,13 @@ const worker = new Worker(
       logger.info('[CampaignMailWorker] Successfully sent', {
         campaignLeadId,
         attemptNumber,
+      });
+
+      await publishCampaignEvent(campaignId, {
+        type: 'mail_sent',
+        campaignLeadId,
+        userId,
+        ...(await getCampaignProgressSnapshot(userId, campaignId)),
       });
 
       // 4. Chain next lead with a random delay.
@@ -83,6 +106,7 @@ const worker = new Worker(
         attemptNumber,
         attemptsLeft: isFinalAttempt ? 0 : attemptsLeft,
         error: err.message,
+        code: err.code,
       });
 
       if (isFinalAttempt) {
@@ -95,12 +119,22 @@ const worker = new Worker(
           .from('campaign_leads')
           .update({
             status: 'failed',
-            error_message: err.message.slice(0, 500),
+            error_message: (err.code ? `[${err.code}] ` : '') + err.message.slice(0, 450),
           })
           .eq('id', campaignLeadId);
 
         // Chain continues even after a permanent failure — don't block the rest.
         await chainNextLead({ userId, campaignId });
+
+        await publishCampaignEvent(campaignId, {
+          type: 'mail_failed',
+          campaignLeadId,
+          userId,
+          final: true,
+          code: err.code,
+          message: err.message?.slice(0, 300),
+          ...(await getCampaignProgressSnapshot(userId, campaignId)),
+        });
       } else {
         logger.warn('[CampaignMailWorker] Will retry', {
           campaignLeadId,
@@ -149,6 +183,11 @@ async function chainNextLead({ userId, campaignId }) {
   } else {
     logger.info('[CampaignMailWorker] No more pending leads for campaign', { campaignId });
   }
+
+  await publishCampaignEvent(campaignId, {
+    type: 'campaign_progress',
+    ...(await getCampaignProgressSnapshot(userId, campaignId)),
+  });
 }
 
 // ─── Events ───────────────────────────────────────────────────────────────────

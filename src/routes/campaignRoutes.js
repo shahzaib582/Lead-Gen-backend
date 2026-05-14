@@ -8,15 +8,11 @@ const {
   listValidation,
 } = require('../validation/campaignRoutesValidation');
 const campaignController = require('../controllers/campaignController');
+const campaignEventsController = require('../controllers/campaignEventsController');
 const campaignLeadsRoutes = require('./campaignLeadsRoutes');
 const { authenticate } = require('../middleware/authenticate');
 
 const router = express.Router();
-
-// All campaign routes require a valid access token
-router.use(authenticate);
-
-// ─── Rate limiter ─────────────────────────────────────────────────────────────
 
 const campaignLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -26,27 +22,27 @@ const campaignLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// SSE: GET must work without Bearer (auth via ?sid=); POST session uses Bearer.
+router.post(
+  '/:id/events/session',
+  campaignLimiter,
+  authenticate,
+  idValidation,
+  campaignEventsController.createEventsSession
+);
+router.get('/:id/events', campaignLimiter, idValidation, campaignEventsController.streamCampaignEvents);
+
+// All other campaign routes require JWT
+router.use(authenticate);
 router.use(campaignLimiter);
 
-// ─── Nested: /campaigns/:id/leads/* ───────────────────────────────────────────
-// Registered before /:id CRUD so paths like …/leads are not treated as a campaign id.
+// Nested: /campaigns/:id/leads/* — before /:id CRUD
 router.use('/:id/leads', campaignLeadsRoutes);
 
-// ─── Routes ───────────────────────────────────────────────────────────────────
-
-// POST   /campaigns          — create a new campaign
 router.post('/', createValidation, campaignController.create);
-
-// GET    /campaigns          — list all campaigns for the authenticated user
 router.get('/', listValidation, campaignController.list);
-
-// GET    /campaigns/:id      — get a single campaign
 router.get('/:id', idValidation, campaignController.getOne);
-
-// PATCH  /campaigns/:id      — partial update
 router.patch('/:id', updateValidation, campaignController.update);
-
-// DELETE /campaigns/:id      — delete a campaign
 router.delete('/:id', idValidation, campaignController.remove);
 
 module.exports = router;

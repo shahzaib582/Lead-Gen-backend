@@ -5,6 +5,7 @@ const logger = require('../utils/logger');
 const { generateMailTemplates } = require('../services/mailTemplateService');
 const campaignMailQueue = require('../queues/campaignMailQueue');
 const { enqueueCampaignMailJob } = require('../jobs/campaignMailJob');
+const { publishCampaignEvent, getCampaignProgressSnapshot } = require('../services/campaignEventsPublisher');
 
 const MAX_ATTEMPTS = 3; // must match attempts in mailTemplateQueue.js
 
@@ -22,6 +23,12 @@ const worker = new Worker(
       campaignLeadId,
       attemptNumber,
       isFinalAttempt,
+    });
+
+    await publishCampaignEvent(campaignId, {
+      type: 'template_started',
+      campaignLeadId,
+      userId,
     });
 
     try {
@@ -91,6 +98,14 @@ const worker = new Worker(
         );
       }
 
+      await publishCampaignEvent(campaignId, {
+        type: 'template_done',
+        campaignLeadId,
+        userId,
+        success: true,
+        ...(await getCampaignProgressSnapshot(userId, campaignId)),
+      });
+
       return true;
     } catch (err) {
       logger.error('[TemplateWorker] Attempt failed', {
@@ -113,6 +128,14 @@ const worker = new Worker(
             error_message: err.message.slice(0, 500),
           })
           .eq('id', campaignLeadId);
+
+        await publishCampaignEvent(campaignId, {
+          type: 'template_failed',
+          campaignLeadId,
+          userId,
+          message: err.message.slice(0, 300),
+          ...(await getCampaignProgressSnapshot(userId, campaignId)),
+        });
       } else {
         logger.warn('[TemplateWorker] Will retry', {
           campaignLeadId,

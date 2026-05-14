@@ -1,5 +1,7 @@
 const { validationResult } = require('express-validator');
 const campaignService = require('../services/campaignService');
+const campaignLeadsService = require('../services/campaignLeadsService');
+const { enqueuePendingTemplateJobsForCampaign } = require('../services/campaignActivationService');
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
 const { successResponse, successResponsePaginated } = require('../utils/response');
@@ -32,8 +34,13 @@ async function create(req, res, next) {
       target_leads,
       lead_source,
       status,
+      sender_display_name,
+      sender_reply_to,
+      sender_address,
+      sender_phone,
     } = req.body;
 
+    const initialStatus = status || 'draft';
     const campaign = await campaignService.createCampaign(req.user.id, {
       name,
       goal,
@@ -44,12 +51,42 @@ async function create(req, res, next) {
       example_training: example_training || null,
       target_leads: target_leads || 0,
       lead_source: lead_source || 'both',
-      status: status || 'draft',
+      status: initialStatus,
+      sender_display_name: sender_display_name || null,
+      sender_reply_to: sender_reply_to || null,
+      sender_address: sender_address || null,
+      sender_phone: sender_phone || null,
     });
 
     logger.info('Campaign created', { campaignId: campaign.id, userId: req.user.id });
 
-    return successResponse(res, 201, 'Campaign created successfully.', { campaign });
+    let autoAssignSummary = null;
+    const autoAssign =
+      process.env.CAMPAIGN_ACTIVE_CREATE_AUTO_ASSIGN === '1' ||
+      process.env.CAMPAIGN_ACTIVE_CREATE_AUTO_ASSIGN === 'true';
+    if (autoAssign && initialStatus === 'active' && (target_leads || 0) > 0) {
+      try {
+        autoAssignSummary = await campaignLeadsService.assignRandomLeadsToCampaign(
+          req.user.id,
+          campaign.id
+        );
+        logger.info('Campaign create auto-assign (CAMPAIGN_ACTIVE_CREATE_AUTO_ASSIGN)', {
+          campaignId: campaign.id,
+          ...autoAssignSummary,
+        });
+      } catch (err) {
+        logger.warn('Campaign create auto-assign failed', {
+          campaignId: campaign.id,
+          error: err.message,
+        });
+        autoAssignSummary = { error: err.message };
+      }
+    }
+
+    return successResponse(res, 201, 'Campaign created successfully.', {
+      campaign,
+      ...(autoAssignSummary ? { autoAssign: autoAssignSummary } : {}),
+    });
   } catch (err) {
     next(err);
   }
@@ -105,6 +142,10 @@ async function update(req, res, next) {
       'target_leads',
       'lead_source',
       'status',
+      'sender_display_name',
+      'sender_reply_to',
+      'sender_address',
+      'sender_phone',
     ];
 
     // Only include fields the client actually sent
@@ -119,11 +160,29 @@ async function update(req, res, next) {
       throw new AppError('No valid fields provided for update.', 400);
     }
 
+    const previous = await campaignService.getCampaignById(req.user.id, req.params.id);
+
     const campaign = await campaignService.updateCampaign(req.user.id, req.params.id, updates);
 
-    logger.info('Campaign updated', { campaignId: campaign.id, userId: req.user.id });
+    let activationSummary = null;
+    if (Object.prototype.hasOwnProperty.call(updates, 'status') && updates.status === 'active') {
+      if (previous.status !== 'active') {
+        activationSummary = await enqueuePendingTemplateJobsForCampaign(req.user.id, campaign.id, {
+          previousStatus: previous.status,
+        });
+      }
+    }
 
-    return successResponse(res, 200, 'Campaign updated successfully.', { campaign });
+    logger.info('Campaign updated', {
+      campaignId: campaign.id,
+      userId: req.user.id,
+      ...(activationSummary ? { activationSummary } : {}),
+    });
+
+    return successResponse(res, 200, 'Campaign updated successfully.', {
+      campaign,
+      ...(activationSummary ? { activation: activationSummary } : {}),
+    });
   } catch (err) {
     next(err);
   }

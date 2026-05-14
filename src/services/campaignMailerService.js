@@ -4,18 +4,16 @@ const googleAuthService = require('./googleAuthService');
 const AppError = require('../utils/AppError');
 const { parseLeadDataId } = require('../utils/leadDataId');
 const logger = require('../utils/logger');
+const { randomDelayMs } = require('../config/mailDelay');
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const DAILY_SEND_LIMIT = 500;
 
-const DELAY_MIN_MS = Number(process.env.MAIL_DELAY_MIN_MS) || 100;
-const DELAY_MAX_MS = Number(process.env.MAIL_DELAY_MAX_MS) || 600;
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function randomDelay() {
-  const ms = Math.floor(Math.random() * (DELAY_MAX_MS - DELAY_MIN_MS + 1)) + DELAY_MIN_MS;
+  const ms = randomDelayMs();
   return new Promise((resolve) => setTimeout(() => resolve(ms), ms));
 }
 
@@ -40,7 +38,7 @@ async function getTodaySentCount(userId) {
 
 async function ensureFreshToken(userId, currentToken) {
   if (!userId) {
-    return { token: currentToken, refreshed: false };
+    return { token: currentToken, refreshed: false, errorCode: undefined };
   }
 
   try {
@@ -51,13 +49,14 @@ async function ensureFreshToken(userId, currentToken) {
       logger.info('[TokenRefresh] Access token refreshed automatically', { userId });
     }
 
-    return { token: freshToken, refreshed };
+    return { token: freshToken, refreshed, errorCode: undefined };
   } catch (err) {
     logger.warn('[TokenRefresh] Failed to refresh access token — using existing token', {
       userId,
       error: err.message,
+      code: err.code,
     });
-    return { token: currentToken, refreshed: false };
+    return { token: currentToken, refreshed: false, errorCode: err.code };
   }
 }
 
@@ -100,6 +99,24 @@ function parseTemplate(template) {
   };
 }
 
+function looksLikeEmail(s) {
+  if (!s || typeof s !== 'string') return false;
+  const t = s.trim();
+  return t.length > 3 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t);
+}
+
+function appendCampaignSignature(body, campaign) {
+  const lines = [];
+  if (campaign.sender_address && String(campaign.sender_address).trim()) {
+    lines.push(String(campaign.sender_address).trim());
+  }
+  if (campaign.sender_phone && String(campaign.sender_phone).trim()) {
+    lines.push(String(campaign.sender_phone).trim());
+  }
+  if (lines.length === 0) return body;
+  return `${body}\n\n--\n${lines.join('\n')}`;
+}
+
 // ─── Main exported function ───────────────────────────────────────────────────
 
 async function sendCampaignEmails(
@@ -112,12 +129,32 @@ async function sendCampaignEmails(
   // 1. Ownership check
   const { data: campaign, error: campError } = await supabase
     .from('campaigns')
-    .select('id, name')
+    .select(
+      'id, name, sender_display_name, sender_reply_to, sender_address, sender_phone'
+    )
     .eq('id', campaignId)
     .eq('user_id', userId)
     .single();
 
   if (campError || !campaign) throw new AppError('Campaign not found.', 404);
+
+  const { data: googleAcct } = await supabase
+    .from('google_accounts')
+    .select('email')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  const googleSendEmail = googleAcct && googleAcct.email ? String(googleAcct.email).trim() : null;
+
+  const mimeOptions = {};
+  if (looksLikeEmail(campaign.sender_reply_to)) {
+    mimeOptions.replyTo = campaign.sender_reply_to.trim();
+  }
+  const displayName = campaign.sender_display_name ? String(campaign.sender_display_name).trim() : '';
+  if (displayName && googleSendEmail) {
+    mimeOptions.fromDisplayName = displayName;
+    mimeOptions.fromEmail = googleSendEmail;
+  }
 
   if (!accessToken) {
     throw new AppError('A valid Google OAuth access token is required to send emails.', 400);
@@ -189,13 +226,14 @@ async function sendCampaignEmails(
   });
 
   let activeToken = accessToken;
+  let googleAuthError = null;
 
   for (let i = 0; i < leads.length; i++) {
     const cl = leads[i];
 
     // ── Refresh token before every send ───────────────────────────────────
     if (autoRefreshToken) {
-      const { token, refreshed } = await ensureFreshToken(userId, activeToken);
+      const { token, refreshed, errorCode } = await ensureFreshToken(userId, activeToken);
       if (refreshed) {
         tokensRefreshed++;
         logger.info('Access token auto-refreshed before send', {
@@ -204,11 +242,15 @@ async function sendCampaignEmails(
           sendIndex: i,
         });
       }
+      if (errorCode && !refreshed) {
+        googleAuthError = { code: errorCode, message: 'Google token could not be refreshed; using caller token.' };
+      }
       activeToken = token;
     }
 
     // ── a. Parse template ─────────────────────────────────────────────────
-    const { subject, body } = parseTemplate(cl.mail_template);
+    const { subject, body: rawBody } = parseTemplate(cl.mail_template);
+    const body = appendCampaignSignature(rawBody, campaign);
 
     // ── b. Get lead email ─────────────────────────────────────────────────
     const leadInfo = await getLeadEmail(cl.lead_data_id);
@@ -231,7 +273,15 @@ async function sendCampaignEmails(
 
     // ── c. Send via Gmail API ─────────────────────────────────────────────
     try {
-      const { messageId } = await sendCustomEmail(leadInfo.email, subject, body, null, activeToken);
+      const hasMime = Object.keys(mimeOptions).length > 0;
+      const { messageId } = await sendCustomEmail(
+        leadInfo.email,
+        subject,
+        body,
+        null,
+        activeToken,
+        hasMime ? mimeOptions : undefined
+      );
 
       // ── d. Update status → sent ────────────────────────────────────────
       const sentAt = new Date().toISOString();
@@ -277,11 +327,16 @@ async function sendCampaignEmails(
         lead_data_id: cl.lead_data_id,
         to: leadInfo.email,
         error: sendErr.message,
+        code: sendErr.code,
       });
 
+      const errMsg =
+        sendErr.code && sendErr.message
+          ? `[${sendErr.code}] ${sendErr.message}`
+          : sendErr.message;
       await supabase
         .from('campaign_leads')
-        .update({ status: 'failed', error_message: sendErr.message.slice(0, 500) })
+        .update({ status: 'failed', error_message: errMsg.slice(0, 500) })
         .eq('id', cl.id);
 
       results.push({
@@ -289,6 +344,7 @@ async function sendCampaignEmails(
         status: 'failed',
         to: leadInfo.email,
         error: sendErr.message,
+        fatalCode: sendErr.code,
       });
     }
 
@@ -310,6 +366,7 @@ async function sendCampaignEmails(
     totalSentToday: alreadySentToday + sent,
     dailyLimit: DAILY_SEND_LIMIT,
     results,
+    ...(googleAuthError ? { googleError: googleAuthError } : {}),
   };
 
   logger.info('Campaign email send complete', { campaignId, userId, ...summary });
