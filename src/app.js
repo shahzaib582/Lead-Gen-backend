@@ -52,15 +52,25 @@ app.get('/api/openapi.yaml', (req, res) => {
   res.send(fs.readFileSync(openApiYamlPath, 'utf8'));
 });
 
-app.use(
-  '/api/docs',
-  swaggerUi.serve,
-  swaggerUi.setup(null, {
-    swaggerOptions: {
-      url: '/api/openapi.yaml',
-    },
-  })
-);
+const swaggerUiOptions = {
+  customSiteTitle: 'Lead Gen API — Reference',
+  customCss: [
+    '.swagger-ui .topbar{display:none}',
+    '.swagger-ui .information-container.wrapper{padding-top:1rem}',
+  ].join(''),
+  swaggerOptions: {
+    url: '/api/openapi.yaml',
+    persistAuthorization: true,
+    displayRequestDuration: true,
+    filter: true,
+    tryItOutEnabled: true,
+    docExpansion: 'list',
+    defaultModelsExpandDepth: 2,
+    defaultModelExpandDepth: 3,
+  },
+};
+
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(null, swaggerUiOptions));
 
 // Global rate limit
 app.use(

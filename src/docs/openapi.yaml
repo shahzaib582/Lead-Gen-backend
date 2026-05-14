@@ -22,6 +22,8 @@ info:
 
     **Docs:** Swagger UI `/api/docs` · OpenAPI YAML `/api/openapi.yaml`
   version: 1.0.0
+  contact:
+    name: Lead Gen API
 
 servers:
   - url: http://localhost:3000
@@ -31,14 +33,23 @@ servers:
 
 tags:
   - name: Health
+    description: Process health and machine-readable spec.
   - name: Docs
+    description: Swagger UI entry (HTML).
   - name: Auth
+    description: Email/password signup, OTP, login, tokens, logout.
   - name: GoogleAuth
+    description: Google OAuth redirect, callback, ID-token exchange, link status.
   - name: Campaigns
+    description: Campaign CRUD and listing (authenticated).
   - name: CampaignLeads
+    description: Leads attached to a campaign — assign, templates, send, CRUD.
   - name: Emails
+    description: One-off send via user Gmail token.
   - name: LeadsData
+    description: Global leads pool search and fetch by id.
   - name: Me
+    description: Current user from access JWT.
 
 security:
   - bearerAuth: []
