@@ -35,7 +35,6 @@ async function create(req, res, next) {
       lead_source,
       status,
       sender_display_name,
-      sender_reply_to,
       sender_address,
       sender_phone,
     } = req.body;
@@ -53,7 +52,6 @@ async function create(req, res, next) {
       lead_source: lead_source || 'both',
       status: initialStatus,
       sender_display_name: sender_display_name || null,
-      sender_reply_to: sender_reply_to || null,
       sender_address: sender_address || null,
       sender_phone: sender_phone || null,
     });
@@ -143,7 +141,6 @@ async function update(req, res, next) {
       'lead_source',
       'status',
       'sender_display_name',
-      'sender_reply_to',
       'sender_address',
       'sender_phone',
     ];

@@ -33,7 +33,7 @@ info:
     **Response time (Swagger + clients)**
     Successful and error JSON responses include **`X-Response-Time`** (e.g. `12.4ms`) and **`Server-Timing: total;dur=...`**. In Swagger UI, use **Try it out** → execute a request → open **Response headers** to see them; the UI also shows **Request duration** (round-trip, measured in the browser). For cross-origin `fetch`, these header names are listed in **`Access-Control-Expose-Headers`**.
 
-    **Docs:** Swagger UI `/api/docs` · OpenAPI YAML `/api/openapi.yaml`
+    **Docs:** Swagger UI `/api/docs` · OpenAPI YAML `/api/openapi.yaml` — auth (`signup`, `verify-otp`, `login`, `refresh`), `GET /api/me`, Google ID-token exchange, campaign create/update/get, and campaign send-emails document **typed response schemas** with examples under **components/schemas**.
   version: 1.0.0
   contact:
     name: Lead Gen API
@@ -190,6 +190,444 @@ components:
             pagination:
               $ref: '#/components/schemas/Pagination'
 
+    # ─── Typed success bodies (high-traffic / integration-critical) ─────────────
+
+    UserPublic:
+      type: object
+      required: [id, email, isVerified, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        isVerified:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+          description: ISO 8601 from `users.created_at`.
+
+    MeUser:
+      type: object
+      description: |
+        Payload under `data.user` for `GET /api/me`. When a Google account is linked and a valid token exists,
+        `googleAccessToken` may be present — **treat as secret** (same sensitivity as a password).
+      required: [id, email, isVerified]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        isVerified:
+          type: boolean
+        googleAccessToken:
+          type: string
+          nullable: true
+
+    MeResponse:
+      type: object
+      required: [success, message, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        message:
+          type: string
+          example: User fetched successfully.
+        data:
+          type: object
+          required: [user]
+          properties:
+            user:
+              $ref: '#/components/schemas/MeUser'
+
+    AuthLoginData:
+      type: object
+      required: [accessToken, refreshToken, user]
+      properties:
+        accessToken:
+          type: string
+          description: Short-lived JWT — send as `Authorization: Bearer <accessToken>`.
+        refreshToken:
+          type: string
+          description: Opaque refresh token for `POST /api/auth/refresh`.
+        user:
+          $ref: '#/components/schemas/UserPublic'
+
+    AuthLoginResponse:
+      type: object
+      required: [success, message, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        message:
+          type: string
+          example: Login successful.
+        data:
+          $ref: '#/components/schemas/AuthLoginData'
+
+    AuthTokenPairData:
+      type: object
+      required: [accessToken, refreshToken]
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+
+    AuthVerifyOtpResponse:
+      type: object
+      required: [success, message, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        message:
+          type: string
+          example: Email verified successfully.
+        data:
+          $ref: '#/components/schemas/AuthTokenPairData'
+
+    AuthRefreshResponse:
+      type: object
+      required: [success, message, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        message:
+          type: string
+          example: Tokens refreshed successfully.
+        data:
+          $ref: '#/components/schemas/AuthTokenPairData'
+
+    SignupResponseData:
+      type: object
+      required: [userId]
+      properties:
+        userId:
+          type: string
+          format: uuid
+
+    SignupResponse:
+      type: object
+      required: [success, message, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/SignupResponseData'
+
+    AuthGoogleUser:
+      type: object
+      required: [id, email, authProvider]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+          nullable: true
+        avatarUrl:
+          type: string
+          nullable: true
+        authProvider:
+          type: string
+          enum: [google]
+
+    AuthGoogleLoginData:
+      type: object
+      required: [accessToken, refreshToken, user]
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        user:
+          $ref: '#/components/schemas/AuthGoogleUser'
+
+    AuthGoogleLoginResponse:
+      type: object
+      required: [success, message, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        message:
+          type: string
+          example: Google authentication successful.
+        data:
+          $ref: '#/components/schemas/AuthGoogleLoginData'
+
+    Campaign:
+      type: object
+      description: Campaign row as stored (snake_case columns from PostgreSQL/Supabase).
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        goal:
+          type: string
+        target_zone:
+          type: string
+        call_to_action:
+          type: string
+        run_mode:
+          $ref: '#/components/schemas/CampaignRunMode'
+        mail_template:
+          type: string
+          nullable: true
+        example_training:
+          type: string
+          nullable: true
+        target_leads:
+          type: integer
+        lead_source:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/LeadSource'
+        status:
+          $ref: '#/components/schemas/CampaignStatus'
+        sender_display_name:
+          type: string
+          nullable: true
+        sender_address:
+          type: string
+          nullable: true
+        sender_phone:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    AssignLeadsSummary:
+      type: object
+      description: Shape from assign-random / assign-filtered; may also appear as `autoAssign` on campaign create when env opt-in is on.
+      properties:
+        inserted:
+          type: array
+          items:
+            type: object
+        duplicates:
+          type: array
+          items:
+            type: string
+        filters:
+          type: object
+          nullable: true
+          properties:
+            country:
+              type: string
+              nullable: true
+            industry:
+              type: string
+              nullable: true
+        leadSource:
+          $ref: '#/components/schemas/LeadSource'
+        totalRequested:
+          type: integer
+        totalAvailable:
+          type: integer
+        totalInserted:
+          type: integer
+        totalDuplicates:
+          type: integer
+        error:
+          type: string
+          description: Present when auto-assign on create failed.
+
+    CampaignCreatedData:
+      type: object
+      required: [campaign]
+      properties:
+        campaign:
+          $ref: '#/components/schemas/Campaign'
+        autoAssign:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/AssignLeadsSummary'
+
+    CampaignCreatedResponse:
+      type: object
+      required: [success, message, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        message:
+          type: string
+          example: Campaign created successfully.
+        data:
+          $ref: '#/components/schemas/CampaignCreatedData'
+
+    CampaignActivationSummary:
+      type: object
+      properties:
+        enqueued:
+          type: integer
+        skippedDuplicate:
+          type: integer
+        skippedWrongState:
+          type: integer
+        examined:
+          type: integer
+        note:
+          type: string
+          description: e.g. `already_active` when the campaign was already active.
+
+    CampaignUpdateData:
+      type: object
+      required: [campaign]
+      properties:
+        campaign:
+          $ref: '#/components/schemas/Campaign'
+        activation:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/CampaignActivationSummary'
+
+    CampaignUpdateResponse:
+      type: object
+      required: [success, message, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        message:
+          type: string
+          example: Campaign updated successfully.
+        data:
+          $ref: '#/components/schemas/CampaignUpdateData'
+
+    CampaignGetData:
+      type: object
+      required: [campaign]
+      properties:
+        campaign:
+          $ref: '#/components/schemas/Campaign'
+
+    CampaignGetResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/CampaignGetData'
+
+    GoogleErrorSummary:
+      type: object
+      properties:
+        code:
+          type: string
+          example: GOOGLE_REFRESH_FAILED
+        message:
+          type: string
+
+    CampaignSendEmailResultItem:
+      type: object
+      properties:
+        campaignLeadId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [sent, failed, skipped]
+        to:
+          type: string
+          format: email
+        subject:
+          type: string
+        messageId:
+          type: string
+        reason:
+          type: string
+          description: When `status` is `skipped` (e.g. no email on lead).
+        error:
+          type: string
+        fatalCode:
+          type: string
+          description: Machine-readable code when send failed.
+
+    CampaignSendEmailsData:
+      type: object
+      required:
+        - sent
+        - failed
+        - skipped
+        - tokensRefreshed
+        - total
+        - dailyLimitReached
+        - alreadySentToday
+        - totalSentToday
+        - dailyLimit
+        - results
+      properties:
+        sent:
+          type: integer
+        failed:
+          type: integer
+        skipped:
+          type: integer
+        tokensRefreshed:
+          type: integer
+        total:
+          type: integer
+        dailyLimitReached:
+          type: boolean
+        alreadySentToday:
+          type: integer
+        totalSentToday:
+          type: integer
+        dailyLimit:
+          type: integer
+          example: 500
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/CampaignSendEmailResultItem'
+        googleError:
+          description: Present when the server could not refresh Google credentials before a send attempt.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/GoogleErrorSummary'
+
+    CampaignSendEmailsResponse:
+      type: object
+      required: [success, message, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        message:
+          type: string
+          example: 2 email(s) sent, 0 failed, 0 skipped.
+        data:
+          $ref: '#/components/schemas/CampaignSendEmailsData'
+
 paths:
   /health:
     get:
@@ -274,7 +712,12 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SuccessEnvelope'
+                $ref: '#/components/schemas/SignupResponse'
+              example:
+                success: true
+                message: Account created. Check your email for your 6-digit verification code.
+                data:
+                  userId: 11111111-2222-3333-4444-555555555555
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
         '409':
@@ -314,7 +757,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SuccessEnvelope'
+                $ref: '#/components/schemas/AuthVerifyOtpResponse'
+              example:
+                success: true
+                message: Email verified successfully.
+                data:
+                  accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.example
+                  refreshToken: a1b2c3d4e5f678901234567890abcdef0123456789abcdef0123456789abcd
         '404':
           description: User not found
           content:
@@ -352,7 +801,7 @@ paths:
                   type: string
                   description: Non-empty string (no strength check on login).
             example:
-              email: hamzaansari6060@gmail.com
+              email: user@example.com
               password: SecureP@ss1
       responses:
         '200':
@@ -360,7 +809,18 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SuccessEnvelope'
+                $ref: '#/components/schemas/AuthLoginResponse'
+              example:
+                success: true
+                message: Login successful.
+                data:
+                  accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.example
+                  refreshToken: a1b2c3d4e5f678901234567890abcdef0123456789abcdef0123456789abcd
+                  user:
+                    id: 11111111-2222-3333-4444-555555555555
+                    email: user@example.com
+                    isVerified: true
+                    createdAt: '2026-05-04T11:44:20.112293+00:00'
         '401':
           description: Invalid email or password
           content:
@@ -428,7 +888,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SuccessEnvelope'
+                $ref: '#/components/schemas/AuthRefreshResponse'
+              example:
+                success: true
+                message: Tokens refreshed successfully.
+                data:
+                  accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.example
+                  refreshToken: b2c3d4e5f678901234567890abcdef0123456789abcdef0123456789abcdef0
         '400':
           description: Missing refresh token in body
           content:
@@ -558,7 +1024,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SuccessEnvelope'
+                $ref: '#/components/schemas/AuthGoogleLoginResponse'
+              example:
+                success: true
+                message: Google authentication successful.
+                data:
+                  accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.example
+                  refreshToken: c3d4e5f678901234567890abcdef0123456789abcdef0123456789abcdef01
+                  user:
+                    id: 11111111-2222-3333-4444-555555555555
+                    email: user@example.com
+                    name: Example User
+                    avatarUrl: https://lh3.googleusercontent.com/a/example
+                    authProvider: google
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
         '429':
@@ -592,7 +1070,16 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SuccessEnvelope'
+                $ref: '#/components/schemas/MeResponse'
+              example:
+                success: true
+                message: User fetched successfully.
+                data:
+                  user:
+                    id: 11111111-2222-3333-4444-555555555555
+                    email: user@example.com
+                    isVerified: true
+                    googleAccessToken: null
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -674,10 +1161,6 @@ paths:
                   type: string
                   maxLength: 120
                   description: Optional display name for MIME From (paired with linked Gmail address).
-                sender_reply_to:
-                  type: string
-                  format: email
-                  description: Optional Reply-To header for campaign sends.
                 sender_address:
                   type: string
                   maxLength: 500
@@ -694,7 +1177,29 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SuccessEnvelope'
+                $ref: '#/components/schemas/CampaignCreatedResponse'
+              example:
+                success: true
+                message: Campaign created successfully.
+                data:
+                  campaign:
+                    id: 22222222-3333-4444-5555-666666666666
+                    user_id: 11111111-2222-3333-4444-555555555555
+                    name: Q2 outbound
+                    goal: Book 10 demos
+                    target_zone: North America
+                    call_to_action: Reply for a 15-min call
+                    run_mode: manual
+                    mail_template: null
+                    example_training: null
+                    target_leads: 50
+                    lead_source: both
+                    status: draft
+                    sender_display_name: null
+                    sender_address: null
+                    sender_phone: null
+                    created_at: '2026-05-13T10:00:00.000Z'
+                    updated_at: '2026-05-13T10:00:00.000Z'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -793,7 +1298,25 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SuccessEnvelope'
+                $ref: '#/components/schemas/CampaignGetResponse'
+              example:
+                success: true
+                data:
+                  campaign:
+                    id: 22222222-3333-4444-5555-666666666666
+                    user_id: 11111111-2222-3333-4444-555555555555
+                    name: Q2 outbound
+                    goal: Book 10 demos
+                    target_zone: North America
+                    call_to_action: Reply for a 15-min call
+                    run_mode: manual
+                    mail_template: null
+                    example_training: null
+                    target_leads: 50
+                    lead_source: both
+                    status: draft
+                    created_at: '2026-05-13T10:00:00.000Z'
+                    updated_at: '2026-05-13T10:00:00.000Z'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -843,10 +1366,6 @@ paths:
                   type: string
                   maxLength: 120
                   nullable: true
-                sender_reply_to:
-                  type: string
-                  format: email
-                  nullable: true
                 sender_address:
                   type: string
                   maxLength: 500
@@ -863,7 +1382,31 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SuccessEnvelope'
+                $ref: '#/components/schemas/CampaignUpdateResponse'
+              example:
+                success: true
+                message: Campaign updated successfully.
+                data:
+                  campaign:
+                    id: 22222222-3333-4444-5555-666666666666
+                    user_id: 11111111-2222-3333-4444-555555555555
+                    name: Q2 outbound
+                    goal: Book 10 demos
+                    target_zone: North America
+                    call_to_action: Reply for a 15-min call
+                    run_mode: manual
+                    mail_template: null
+                    example_training: null
+                    target_leads: 50
+                    lead_source: both
+                    status: active
+                    created_at: '2026-05-13T10:00:00.000Z'
+                    updated_at: '2026-05-13T11:00:00.000Z'
+                  activation:
+                    enqueued: 12
+                    skippedDuplicate: 0
+                    skippedWrongState: 38
+                    examined: 50
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1166,7 +1709,31 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SuccessEnvelope'
+                $ref: '#/components/schemas/CampaignSendEmailsResponse'
+              example:
+                success: true
+                message: 2 email(s) sent, 0 failed, 0 skipped.
+                data:
+                  sent: 2
+                  failed: 0
+                  skipped: 0
+                  tokensRefreshed: 1
+                  total: 2
+                  dailyLimitReached: false
+                  alreadySentToday: 0
+                  totalSentToday: 2
+                  dailyLimit: 500
+                  results:
+                    - campaignLeadId: 33333333-4444-5555-6666-777777777777
+                      status: sent
+                      to: lead@example.com
+                      subject: Hello
+                      messageId: msg_abc123
+                    - campaignLeadId: 44444444-5555-6666-7777-888888888888
+                      status: sent
+                      to: other@example.com
+                      subject: Hello
+                      messageId: msg_def456
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':

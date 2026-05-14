@@ -99,12 +99,6 @@ function parseTemplate(template) {
   };
 }
 
-function looksLikeEmail(s) {
-  if (!s || typeof s !== 'string') return false;
-  const t = s.trim();
-  return t.length > 3 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t);
-}
-
 function appendCampaignSignature(body, campaign) {
   const lines = [];
   if (campaign.sender_address && String(campaign.sender_address).trim()) {
@@ -129,9 +123,7 @@ async function sendCampaignEmails(
   // 1. Ownership check
   const { data: campaign, error: campError } = await supabase
     .from('campaigns')
-    .select(
-      'id, name, sender_display_name, sender_reply_to, sender_address, sender_phone'
-    )
+    .select('id, name, sender_display_name, sender_address, sender_phone')
     .eq('id', campaignId)
     .eq('user_id', userId)
     .single();
@@ -147,9 +139,6 @@ async function sendCampaignEmails(
   const googleSendEmail = googleAcct && googleAcct.email ? String(googleAcct.email).trim() : null;
 
   const mimeOptions = {};
-  if (looksLikeEmail(campaign.sender_reply_to)) {
-    mimeOptions.replyTo = campaign.sender_reply_to.trim();
-  }
   const displayName = campaign.sender_display_name ? String(campaign.sender_display_name).trim() : '';
   if (displayName && googleSendEmail) {
     mimeOptions.fromDisplayName = displayName;

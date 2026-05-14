@@ -64,12 +64,6 @@ const createValidation = [
     .isLength({ max: 120 })
     .withMessage('sender_display_name must be at most 120 characters.'),
 
-  body('sender_reply_to')
-    .optional({ values: 'falsy' })
-    .trim()
-    .isEmail()
-    .withMessage('sender_reply_to must be a valid email when provided.'),
-
   body('sender_address')
     .optional({ values: 'falsy' })
     .trim()
@@ -154,12 +148,6 @@ const updateValidation = [
     .trim()
     .isLength({ max: 120 })
     .withMessage('sender_display_name must be at most 120 characters.'),
-
-  body('sender_reply_to')
-    .optional({ nullable: true })
-    .trim()
-    .isEmail()
-    .withMessage('sender_reply_to must be a valid email when provided.'),
 
   body('sender_address')
     .optional({ nullable: true })
