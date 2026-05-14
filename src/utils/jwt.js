@@ -29,11 +29,7 @@ function verifyAccessToken(token) {
   } catch (err) {
     if (err instanceof AppError) throw err;
     if (err.name === 'TokenExpiredError') {
-      throw new AppError(
-        'Access token expired. Please login again.',
-        401,
-        'TOKEN_EXPIRED'
-      );
+      throw new AppError('Access token expired. Please login again.', 401, 'TOKEN_EXPIRED');
     }
     throw new AppError('Invalid access token.', 401, 'INVALID_ACCESS_TOKEN');
   }
