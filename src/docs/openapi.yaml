@@ -318,6 +318,9 @@ paths:
                 password:
                   type: string
                   description: Non-empty string (no strength check on login).
+            example:
+              email: hamzaansari6060@gmail.com
+              password: SecureP@ss1
       responses:
         '200':
           description: Tokens issued
