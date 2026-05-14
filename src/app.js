@@ -1,9 +1,16 @@
+const path = require('path');
+const fs = require('fs');
 const express = require('express');
 const rateLimit = require('express-rate-limit');
 const cors = require('cors');
+const swaggerUi = require('swagger-ui-express');
+const YAML = require('yamljs');
 const apiRoutes = require('./routes/index');
 const errorHandler = require('./middleware/errorHandler');
 const { errorResponse, successResponse, createRateLimitHandler } = require('./utils/response');
+
+const openApiYamlPath = path.join(__dirname, 'docs', 'openapi.yaml');
+YAML.load(openApiYamlPath);
 
 const app = express();
 
@@ -37,6 +44,23 @@ app.use(
 
 app.use(express.json({ limit: '10kb' }));
 app.disable('x-powered-by');
+
+// ─── OpenAPI + Swagger UI (before global rate limit: UI loads many assets + spec fetch) ─
+
+app.get('/api/openapi.yaml', (req, res) => {
+  res.type('application/yaml');
+  res.send(fs.readFileSync(openApiYamlPath, 'utf8'));
+});
+
+app.use(
+  '/api/docs',
+  swaggerUi.serve,
+  swaggerUi.setup(null, {
+    swaggerOptions: {
+      url: '/api/openapi.yaml',
+    },
+  })
+);
 
 // Global rate limit
 app.use(

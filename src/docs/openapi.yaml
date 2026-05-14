@@ -1,0 +1,882 @@
+# maintain this file when routes or response shapes change.
+openapi: 3.0.3
+info:
+  title: Lead Gen API
+  description: |
+    Auth, campaigns, leads, and email flows for the Lead Gen backend.
+    All JSON routes are under `/api` except `GET /health`.
+    Interactive docs (Swagger UI): `/api/docs`. Canonical OpenAPI YAML: `/api/openapi.yaml`.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:3000
+    description: Local
+
+tags:
+  - name: Health
+  - name: Auth
+  - name: GoogleAuth
+  - name: Campaigns
+  - name: CampaignLeads
+  - name: Emails
+  - name: LeadsData
+  - name: Me
+
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Access token from login, verify-otp, refresh, or Google token exchange.
+
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [success, message]
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+        code:
+          type: string
+          description: Optional machine-readable code (e.g. TOKEN_EXPIRED).
+        stack:
+          type: string
+          description: Present only for non-operational errors in non-production.
+
+    SuccessEnvelope:
+      type: object
+      required: [success]
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+        data:
+          description: Arbitrary payload; shape varies by endpoint.
+
+    Pagination:
+      type: object
+      required: [page, limit, total, totalPages]
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        totalPages:
+          type: integer
+
+    SuccessPaginated:
+      allOf:
+        - $ref: '#/components/schemas/SuccessEnvelope'
+        - type: object
+          required: [data, pagination]
+          properties:
+            data:
+              type: array
+              items: {}
+            pagination:
+              $ref: '#/components/schemas/Pagination'
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Liveness probe
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                        example: ok
+
+  /api/openapi.yaml:
+    get:
+      tags: [Health]
+      summary: Raw OpenAPI document (this file)
+      security: []
+      responses:
+        '200':
+          description: YAML document
+          content:
+            application/yaml:
+              schema:
+                type: string
+
+  /api/auth/signup:
+    post:
+      tags: [Auth]
+      summary: Register and send OTP email
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/verify-otp:
+    post:
+      tags: [Auth]
+      summary: Verify email OTP and receive tokens
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, otp]
+              properties:
+                userId:
+                  type: string
+                  format: uuid
+                otp:
+                  type: string
+      responses:
+        '200':
+          description: Verified
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Login with email and password
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Tokens issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /api/auth/resend-otp:
+    post:
+      tags: [Auth]
+      summary: Resend verification OTP
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId]
+              properties:
+                userId:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: OTP resent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /api/auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Rotate refresh token and get new access + refresh pair
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken:
+                  type: string
+      responses:
+        '200':
+          description: New tokens
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /api/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Revoke refresh token (optional body)
+      security: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken:
+                  type: string
+      responses:
+        '200':
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /api/auth/logout-all:
+    post:
+      tags: [Auth]
+      summary: Revoke all refresh tokens for the current user
+      responses:
+        '200':
+          description: All sessions revoked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /api/auth/google:
+    get:
+      tags: [GoogleAuth]
+      summary: Redirect to Google OAuth consent
+      security: []
+      responses:
+        '302':
+          description: Redirect to Google
+
+  /api/auth/google/callback:
+    get:
+      tags: [GoogleAuth]
+      summary: Google OAuth callback (query ?code=...)
+      security: []
+      parameters:
+        - in: query
+          name: code
+          schema:
+            type: string
+        - in: query
+          name: error
+          schema:
+            type: string
+      responses:
+        '200':
+          description: JSON tokens (API mode)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /api/auth/google/token:
+    post:
+      tags: [GoogleAuth]
+      summary: Exchange Google ID token for app JWT pair
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id_token]
+              properties:
+                id_token:
+                  type: string
+      responses:
+        '200':
+          description: Tokens issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /api/auth/google/status:
+    get:
+      tags: [GoogleAuth]
+      summary: Google link status for current user
+      responses:
+        '200':
+          description: Linked or not
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /api/me:
+    get:
+      tags: [Me]
+      summary: Current user (from access token)
+      responses:
+        '200':
+          description: User payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /api/campaigns:
+    get:
+      tags: [Campaigns]
+      summary: List campaigns (paginated)
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [draft, active, paused, completed]
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: Paginated campaigns
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessPaginated'
+    post:
+      tags: [Campaigns]
+      summary: Create campaign
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, goal, target_zone, call_to_action, run_mode]
+              properties:
+                name:
+                  type: string
+                goal:
+                  type: string
+                target_zone:
+                  type: string
+                call_to_action:
+                  type: string
+                run_mode:
+                  type: string
+                  enum: [manual, scheduled, auto]
+                mail_template:
+                  type: string
+                  nullable: true
+                example_training:
+                  type: string
+                  nullable: true
+                target_leads:
+                  type: integer
+                lead_source:
+                  type: string
+                  enum: [new, old, both]
+                status:
+                  type: string
+                  enum: [draft, active, paused, completed]
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /api/campaigns/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [Campaigns]
+      summary: Get one campaign
+      responses:
+        '200':
+          description: Campaign
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+    patch:
+      tags: [Campaigns]
+      summary: Update campaign
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+    delete:
+      tags: [Campaigns]
+      summary: Delete campaign
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /api/campaigns/{id}/leads:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [CampaignLeads]
+      summary: List campaign leads (paginated)
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [pending, sent, failed, skipped]
+        - in: query
+          name: page
+          schema:
+            type: integer
+        - in: query
+          name: limit
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Paginated leads
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessPaginated'
+    post:
+      tags: [CampaignLeads]
+      summary: Add one lead to campaign
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [lead_data_id]
+              properties:
+                lead_data_id:
+                  type: string
+                  description: Identifier from `leads_data` (not necessarily UUID).
+                mail_template:
+                  type: string
+                  nullable: true
+      responses:
+        '201':
+          description: Lead added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /api/campaigns/{id}/leads/bulk:
+    post:
+      tags: [CampaignLeads]
+      summary: Bulk add leads
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [leads]
+              properties:
+                leads:
+                  type: array
+                  minItems: 1
+                  maxItems: 500
+                  items:
+                    type: object
+                    required: [lead_data_id]
+                    properties:
+                      lead_data_id:
+                        type: string
+                      mail_template:
+                        type: string
+                        nullable: true
+      responses:
+        '201':
+          description: Bulk result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /api/campaigns/{id}/leads/assign-random:
+    post:
+      tags: [CampaignLeads]
+      summary: Assign random leads from pool
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '201':
+          description: Assignment result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /api/campaigns/{id}/leads/assign-filtered:
+    post:
+      tags: [CampaignLeads]
+      summary: Assign leads filtered by country/industry
+      description: At least one of `country` or `industry` must be provided.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                country:
+                  type: string
+                  maxLength: 100
+                  nullable: true
+                industry:
+                  type: string
+                  maxLength: 100
+                  nullable: true
+                limit:
+                  type: integer
+                  minimum: 1
+                  maximum: 500
+                  nullable: true
+      responses:
+        '201':
+          description: Assignment result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /api/campaigns/{id}/leads/generate-templates:
+    post:
+      tags: [CampaignLeads]
+      summary: Generate AI mail templates for campaign leads
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                campaign_lead_id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Generation summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /api/campaigns/{id}/leads/send-emails:
+    post:
+      tags: [CampaignLeads]
+      summary: Send campaign emails (Gmail)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                campaign_lead_id:
+                  type: string
+                  format: uuid
+                access_token:
+                  type: string
+      responses:
+        '200':
+          description: Send summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /api/campaigns/{id}/leads/{leadId}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: leadId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    patch:
+      tags: [CampaignLeads]
+      summary: Update a campaign lead
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                sent_at:
+                  type: string
+                  format: date-time
+                mail_template:
+                  type: string
+                error_message:
+                  type: string
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+    delete:
+      tags: [CampaignLeads]
+      summary: Remove lead from campaign
+      responses:
+        '200':
+          description: Removed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /api/emails/send:
+    post:
+      tags: [Emails]
+      summary: Send email via Gmail API (user Google token)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [to, subject, body]
+              properties:
+                to:
+                  oneOf:
+                    - type: string
+                    - type: array
+                      items:
+                        type: string
+                subject:
+                  type: string
+                body:
+                  type: string
+                html:
+                  type: string
+      responses:
+        '200':
+          description: Sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /api/leads:
+    get:
+      tags: [LeadsData]
+      summary: List leads_data with filters and pagination
+      parameters:
+        - in: query
+          name: search
+          schema:
+            type: string
+        - in: query
+          name: emailStatus
+          schema:
+            type: string
+        - in: query
+          name: country
+          schema:
+            type: string
+        - in: query
+          name: state
+          schema:
+            type: string
+        - in: query
+          name: city
+          schema:
+            type: string
+        - in: query
+          name: industry
+          schema:
+            type: string
+        - in: query
+          name: seniority
+          schema:
+            type: string
+        - in: query
+          name: department
+          schema:
+            type: string
+        - in: query
+          name: company
+          schema:
+            type: string
+        - in: query
+          name: outreachStatus
+          schema:
+            type: string
+        - in: query
+          name: fitTag
+          schema:
+            type: string
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+        - in: query
+          name: sortBy
+          schema:
+            type: string
+            enum:
+              - created_at
+              - fullName
+              - email
+              - company
+              - country
+              - fitScore
+              - dateAdded
+        - in: query
+          name: sortOrder
+          schema:
+            type: string
+            enum: [asc, desc]
+      responses:
+        '200':
+          description: Paginated leads
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessPaginated'
+
+  /api/leads/{id}:
+    get:
+      tags: [LeadsData]
+      summary: Get one lead by numeric id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Lead
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
