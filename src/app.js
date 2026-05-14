@@ -7,7 +7,9 @@ const swaggerUi = require('swagger-ui-express');
 const YAML = require('yamljs');
 const apiRoutes = require('./routes/index');
 const errorHandler = require('./middleware/errorHandler');
+const responseTime = require('./middleware/responseTime');
 const { errorResponse, successResponse, createRateLimitHandler } = require('./utils/response');
+const { swaggerBearerAutofillResponseInterceptor } = require('./config/swaggerBearerAutofill');
 
 const openApiYamlPath = path.join(__dirname, 'docs', 'openapi.yaml');
 YAML.load(openApiYamlPath);
@@ -56,11 +58,13 @@ app.use(
   cors({
     origin: corsOriginCallback,
     credentials: true,
+    exposedHeaders: ['X-Response-Time', 'Server-Timing'],
   })
 );
 
 // ─── Security & parsing ───────────────────────────────────────────────────────
 
+app.use(responseTime);
 app.use(express.json({ limit: '10kb' }));
 app.disable('x-powered-by');
 
@@ -86,6 +90,8 @@ const swaggerUiOptions = {
     docExpansion: 'list',
     defaultModelsExpandDepth: 2,
     defaultModelExpandDepth: 3,
+    // Browser-only: after Try it out on login / verify-otp / refresh / Google token, set Bearer
+    responseInterceptor: swaggerBearerAutofillResponseInterceptor,
   },
 };
 

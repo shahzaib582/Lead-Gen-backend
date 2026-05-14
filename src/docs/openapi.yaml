@@ -13,6 +13,7 @@ info:
     Default security is HTTP Bearer (JWT access token). In Swagger UI use **Authorize** and paste only the token value, or send header `Authorization: Bearer <accessToken>`.
     Tokens come from `POST /api/auth/login`, `POST /api/auth/verify-otp`, `POST /api/auth/refresh`, or Google flows.
     Bearer-protected routes return **403** when the account exists but **email is not verified** (same shape as other errors).
+    **Swagger UI:** after **Try it out** succeeds on `POST /api/auth/login`, `POST /api/auth/verify-otp`, `POST /api/auth/refresh`, or `POST /api/auth/google/token`, the UI **automatically applies** the returned `data.accessToken` to **Authorize → bearerAuth** (still persisted when `persistAuthorization` is on).
 
     **Requests**
     Send JSON bodies with header `Content-Type: application/json` unless noted otherwise.
@@ -28,6 +29,9 @@ info:
 
     **Create with `status: active`**
     By default, creating an active campaign does **not** auto-assign leads. Set **`CAMPAIGN_ACTIVE_CREATE_AUTO_ASSIGN=1`** (or `true`) to opt in: when `status` is `active` and `target_leads > 0`, the server runs the same assignment as random-assign after insert.
+
+    **Response time (Swagger + clients)**
+    Successful and error JSON responses include **`X-Response-Time`** (e.g. `12.4ms`) and **`Server-Timing: total;dur=...`**. In Swagger UI, use **Try it out** → execute a request → open **Response headers** to see them; the UI also shows **Request duration** (round-trip, measured in the browser). For cross-origin `fetch`, these header names are listed in **`Access-Control-Expose-Headers`**.
 
     **Docs:** Swagger UI `/api/docs` · OpenAPI YAML `/api/openapi.yaml`
   version: 1.0.0
@@ -72,6 +76,21 @@ components:
       description: |
         Short-lived access JWT. Obtain via email auth (`/api/auth/login`, `/api/auth/verify-otp`, `/api/auth/refresh`) or Google (`/api/auth/google/token` or callback).
         Send as: `Authorization: Bearer <accessToken>`.
+
+  headers:
+    X-Response-Time:
+      description: |
+        Server-side handling duration for this request (middleware start through `res.end`), in milliseconds with an `ms` suffix.
+        Shown in Swagger **Try it out** under **Response headers**; Swagger also shows a separate **Request duration** (measured in the browser).
+      schema:
+        type: string
+        example: "12.4ms"
+    Server-Timing:
+      description: |
+        [RFC 9210](https://www.rfc-editor.org/rfc/rfc9210.html) timing hint. Includes `total;dur=<ms>` matching `X-Response-Time`. DevTools **Network** tab may surface this under **Timing**.
+      schema:
+        type: string
+        example: 'total;dur=12.4'
 
   responses:
     Unauthorized:
@@ -180,6 +199,11 @@ paths:
       responses:
         '200':
           description: OK
+          headers:
+            X-Response-Time:
+              $ref: '#/components/headers/X-Response-Time'
+            Server-Timing:
+              $ref: '#/components/headers/Server-Timing'
           content:
             application/json:
               schema:
