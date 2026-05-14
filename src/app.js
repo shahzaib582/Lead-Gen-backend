@@ -14,16 +14,35 @@ YAML.load(openApiYamlPath);
 
 const app = express();
 
-function corsOriginConfig() {
+function corsOriginCallback(origin, callback) {
   const raw = process.env.CORS_ORIGIN || process.env.FRONTEND_URL;
-  if (!raw) return 'http://localhost:8080';
-  const origins = raw
+  const allowList = (raw || 'http://localhost:8080')
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
-  if (origins.length === 0) return 'http://localhost:8080';
-  if (origins.length === 1) return origins[0];
-  return origins;
+
+  const devAllowAny =
+    process.env.NODE_ENV !== 'production' &&
+    (process.env.CORS_DEV_ALLOW_ANY === '1' || process.env.CORS_DEV_ALLOW_ANY === 'true');
+
+  // Non-browser or same-origin requests often omit Origin
+  if (!origin) {
+    return callback(null, true);
+  }
+
+  if (devAllowAny) {
+    return callback(null, origin);
+  }
+
+  if (allowList.length === 0) {
+    return callback(null, 'http://localhost:8080');
+  }
+
+  if (allowList.includes(origin)) {
+    return callback(null, origin);
+  }
+
+  return callback(null, false);
 }
 
 const trustProxy = process.env.TRUST_PROXY;
@@ -35,7 +54,7 @@ if (trustProxy === '1' || trustProxy === 'true') {
 
 app.use(
   cors({
-    origin: corsOriginConfig(),
+    origin: corsOriginCallback,
     credentials: true,
   })
 );
