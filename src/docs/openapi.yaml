@@ -804,7 +804,7 @@ paths:
                   type: string
                   description: Non-empty string (no strength check on login).
             example:
-              email: user@example.com
+              email: hamzaansari6060@gmail.com
               password: SecureP@ss1
       responses:
         '200':
@@ -821,7 +821,7 @@ paths:
                   refreshToken: a1b2c3d4e5f678901234567890abcdef0123456789abcdef0123456789abcd
                   user:
                     id: 11111111-2222-3333-4444-555555555555
-                    email: user@example.com
+                    email: hamzaansari6060@gmail.com
                     isVerified: true
                     createdAt: '2026-05-04T11:44:20.112293+00:00'
         '401':
