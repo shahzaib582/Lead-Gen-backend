@@ -52,7 +52,8 @@ tags:
   - name: Auth
     description: Email/password signup, OTP, login, tokens, logout.
   - name: GoogleAuth
-    description: Google OAuth redirect, callback, ID-token exchange, link status.
+    description: |
+      Google OAuth: **`GET /api/auth/google`** starts the browser redirect flow (302 to Google). That path is **not** usable from Swagger **Try it out** (`fetch` hits CORS after redirect). Use **`GET /api/auth/google?format=json`** in Swagger to get `authUrl`, then open that URL in a real browser; or use **`POST /api/auth/google/token`** with a Google ID token from your client.
   - name: Campaigns
     description: Campaign CRUD and listing (authenticated).
   - name: CampaignLeads
@@ -251,7 +252,9 @@ components:
       properties:
         accessToken:
           type: string
-          description: Short-lived JWT — send as `Authorization: Bearer <accessToken>`.
+          description: >-
+            Short-lived JWT. In requests send it as a Bearer token in the HTTP Authorization header
+            (Swagger Authorize uses the token value only).
         refreshToken:
           type: string
           description: Opaque refresh token for `POST /api/auth/refresh`.
@@ -955,13 +958,52 @@ paths:
   /api/auth/google:
     get:
       tags: [GoogleAuth]
-      summary: Redirect to Google OAuth consent
+      summary: Start Google OAuth (redirect or JSON auth URL)
+      description: |
+        **Default (no query):** HTTP **302** to Google’s consent screen — use a **real browser** (address bar or `window.location`), not Swagger **Try it out**. Swagger uses `fetch`, which follows the redirect to `accounts.google.com` and then fails (**Failed to fetch** / CORS) because Google’s response is not CORS-enabled for your API origin.
+
+        **`?format=json`:** Returns **200** JSON with `data.authUrl`. Use this from Swagger or scripts: open `authUrl` in a browser to continue OAuth.
+
+        SPA/mobile flows without redirect: prefer **`POST /api/auth/google/token`** with a Google ID token.
       security: []
+      parameters:
+        - name: format
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [json]
+          description: When `json`, respond with `authUrl` in JSON instead of redirecting.
       responses:
         '302':
-          description: Redirect to Google authorization URL (`Location` header).
+          description: Redirect to Google (when `format` is not `json`).
+          headers:
+            Location:
+              description: Google OAuth authorization URL
+              schema:
+                type: string
+                format: uri
+        '200':
+          description: When `format=json` — open `data.authUrl` in a browser to sign in with Google.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    required: [authUrl]
+                    properties:
+                      authUrl:
+                        type: string
+                        format: uri
+                        description: Same URL the 302 redirect would use.
         '429':
-          description: Too many Google auth starts (per-IP rate limit on this route).
+          $ref: '#/components/responses/TooManyRequests'
 
   /api/auth/google/callback:
     get:

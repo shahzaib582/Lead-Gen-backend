@@ -18,9 +18,13 @@ async function issueTokenPair(user) {
 
 // ─── GET /auth/google ─────────────────────────────────────────────────────────
 // Redirect the user to Google's consent screen.
+// Query `?format=json` returns JSON { authUrl } for API clients / Swagger (browser redirect is not fetch-safe).
 
 function redirectToGoogle(req, res) {
   const url = getAuthUrl();
+  if (req.query.format === 'json') {
+    return successResponse(res, 200, undefined, { authUrl: url });
+  }
   res.redirect(url);
 }
 
