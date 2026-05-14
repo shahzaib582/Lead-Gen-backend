@@ -4,16 +4,34 @@ info:
   title: Lead Gen API
   description: |
     Auth, campaigns, leads, and email flows for the Lead Gen backend.
-    All JSON routes are under `/api` except `GET /health`.
-    Interactive docs (Swagger UI): `/api/docs`. Canonical OpenAPI YAML: `/api/openapi.yaml`.
+
+    **Where the API lives**
+    - **Development:** `http://localhost:3000` — JSON routes are under `/api` (example: `POST /api/auth/login`). Liveness: `GET /health` (no `/api` prefix).
+    - **Production (Render):** `https://leadgen-api-xct7.onrender.com` — same paths (example: `https://leadgen-api-xct7.onrender.com/api/auth/login`).
+
+    **Authentication**
+    Default security is HTTP Bearer (JWT access token). In Swagger UI use **Authorize** and paste only the token value, or send header `Authorization: Bearer <accessToken>`.
+    Tokens come from `POST /api/auth/login`, `POST /api/auth/verify-otp`, `POST /api/auth/refresh`, or Google flows.
+    Bearer-protected routes return **403** when the account exists but **email is not verified** (same shape as other errors).
+
+    **Requests**
+    Send JSON bodies with header `Content-Type: application/json` unless noted otherwise.
+
+    **Rate limits**
+    Some routes return **429** with `{ success: false, message }` when limits are exceeded (auth, Google, campaigns, etc.).
+
+    **Docs:** Swagger UI `/api/docs` · OpenAPI YAML `/api/openapi.yaml`
   version: 1.0.0
 
 servers:
   - url: http://localhost:3000
-    description: Local
+    description: Local development
+  - url: https://leadgen-api-xct7.onrender.com
+    description: Production (Render)
 
 tags:
   - name: Health
+  - name: Docs
   - name: Auth
   - name: GoogleAuth
   - name: Campaigns
@@ -31,9 +49,55 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: Access token from login, verify-otp, refresh, or Google token exchange.
+      description: |
+        Short-lived access JWT. Obtain via email auth (`/api/auth/login`, `/api/auth/verify-otp`, `/api/auth/refresh`) or Google (`/api/auth/google/token` or callback).
+        Send as: `Authorization: Bearer <accessToken>`.
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid Bearer access token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    UnprocessableEntity:
+      description: Request validation failed (body, query, or path parameters).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Authenticated but not allowed — typically email not yet verified for Bearer routes.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    TooManyRequests:
+      description: Rate limit exceeded for this route or client.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
 
   schemas:
+    CampaignRunMode:
+      type: string
+      enum: [manual, scheduled, auto]
+    CampaignStatus:
+      type: string
+      enum: [draft, active, paused, completed]
+    LeadSource:
+      type: string
+      enum: [new, old, both]
+    CampaignLeadStatus:
+      type: string
+      enum: [pending, sent, failed, skipped]
+    LeadsSortBy:
+      type: string
+      enum: [created_at, fullName, email, company, country, fitScore, dateAdded]
+    SortOrder:
+      type: string
+      enum: [asc, desc]
     ErrorResponse:
       type: object
       required: [success, message]
@@ -124,6 +188,20 @@ paths:
               schema:
                 type: string
 
+  /api/docs:
+    get:
+      tags: [Docs]
+      summary: Swagger UI (interactive API documentation)
+      security: []
+      description: Serves HTML; static assets load from the same `/api/docs/` path prefix.
+      responses:
+        '200':
+          description: Swagger UI page (HTML)
+          content:
+            text/html:
+              schema:
+                type: string
+
   /api/auth/signup:
     post:
       tags: [Auth]
@@ -140,21 +218,29 @@ paths:
                 email:
                   type: string
                   format: email
+                  description: Normalized by the server (e.g. lowercasing rules from validator).
                 password:
                   type: string
+                  minLength: 8
+                  description: |
+                    Required rules: ≥8 characters, at least one uppercase, one lowercase, one digit, and one special character (non-alphanumeric).
       responses:
         '201':
-          description: Created
+          description: Created; check email for 6-digit OTP.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
         '422':
-          description: Validation error
+          $ref: '#/components/responses/UnprocessableEntity'
+        '409':
+          description: Email already registered
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
 
   /api/auth/verify-otp:
     post:
@@ -174,13 +260,33 @@ paths:
                   format: uuid
                 otp:
                   type: string
+                  pattern: '^[0-9]{6}$'
+                  minLength: 6
+                  maxLength: 6
+                  description: Six-digit numeric code from email.
       responses:
         '200':
-          description: Verified
+          description: Verified; returns access + refresh tokens.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '400':
+          description: Already verified or invalid OTP state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
 
   /api/auth/login:
     post:
@@ -197,8 +303,10 @@ paths:
               properties:
                 email:
                   type: string
+                  format: email
                 password:
                   type: string
+                  description: Non-empty string (no strength check on login).
       responses:
         '200':
           description: Tokens issued
@@ -206,6 +314,22 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          description: Invalid email or password
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Email not verified yet
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
 
   /api/auth/resend-otp:
     post:
@@ -230,6 +354,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
 
   /api/auth/refresh:
     post:
@@ -246,6 +374,7 @@ paths:
               properties:
                 refreshToken:
                   type: string
+                  description: Opaque refresh token string from prior login/verify/refresh response.
       responses:
         '200':
           description: New tokens
@@ -253,13 +382,31 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
+        '400':
+          description: Missing refresh token in body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid or revoked refresh token, or user missing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
 
   /api/auth/logout:
     post:
       tags: [Auth]
       summary: Revoke refresh token (optional body)
+      description: If `refreshToken` is omitted, the server still returns success but may not revoke a specific session.
       security: []
       requestBody:
+        required: false
         content:
           application/json:
             schema:
@@ -279,6 +426,7 @@ paths:
     post:
       tags: [Auth]
       summary: Revoke all refresh tokens for the current user
+      description: Requires valid access JWT.
       responses:
         '200':
           description: All sessions revoked
@@ -286,6 +434,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
 
   /api/auth/google:
     get:
@@ -294,29 +446,48 @@ paths:
       security: []
       responses:
         '302':
-          description: Redirect to Google
+          description: Redirect to Google authorization URL (`Location` header).
+        '429':
+          description: Too many Google auth starts (per-IP rate limit on this route).
 
   /api/auth/google/callback:
     get:
       tags: [GoogleAuth]
-      summary: Google OAuth callback (query ?code=...)
+      summary: Google OAuth callback (browser redirect flow)
+      description: Google redirects here with `?code=` after consent. Returns JSON token payload (not an HTML redirect to your SPA).
       security: []
       parameters:
         - in: query
           name: code
+          required: false
           schema:
             type: string
+          description: Authorization code from Google (required unless `error` is set).
         - in: query
           name: error
+          required: false
           schema:
             type: string
+          description: OAuth error code from Google if the user denied access.
       responses:
         '200':
-          description: JSON tokens (API mode)
+          description: JSON with accessToken, refreshToken, and user (API-style response).
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
+        '400':
+          description: Missing code, Google error query param, or unverified Google email
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Email already registered with a different auth provider
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/auth/google/token:
     post:
@@ -333,6 +504,7 @@ paths:
               properties:
                 id_token:
                   type: string
+                  description: Google Sign-In ID token (JWT string from client SDK).
       responses:
         '200':
           description: Tokens issued
@@ -340,11 +512,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
 
   /api/auth/google/status:
     get:
       tags: [GoogleAuth]
       summary: Google link status for current user
+      description: Requires Bearer access token.
       responses:
         '200':
           description: Linked or not
@@ -352,11 +529,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
 
   /api/me:
     get:
       tags: [Me]
       summary: Current user (from access token)
+      description: Requires Bearer access token. Returns `data.user` from JWT payload.
       responses:
         '200':
           description: User payload
@@ -364,6 +546,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
 
   /api/campaigns:
     get:
@@ -373,8 +559,7 @@ paths:
         - in: query
           name: status
           schema:
-            type: string
-            enum: [draft, active, paused, completed]
+            $ref: '#/components/schemas/CampaignStatus'
         - in: query
           name: page
           schema:
@@ -393,6 +578,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessPaginated'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
     post:
       tags: [Campaigns]
       summary: Create campaign
@@ -406,15 +597,18 @@ paths:
               properties:
                 name:
                   type: string
+                  maxLength: 200
                 goal:
                   type: string
+                  maxLength: 500
                 target_zone:
                   type: string
+                  maxLength: 300
                 call_to_action:
                   type: string
+                  maxLength: 200
                 run_mode:
-                  type: string
-                  enum: [manual, scheduled, auto]
+                  $ref: '#/components/schemas/CampaignRunMode'
                 mail_template:
                   type: string
                   nullable: true
@@ -423,12 +617,12 @@ paths:
                   nullable: true
                 target_leads:
                   type: integer
+                  minimum: 0
+                  description: Optional; non-negative integer.
                 lead_source:
-                  type: string
-                  enum: [new, old, both]
+                  $ref: '#/components/schemas/LeadSource'
                 status:
-                  type: string
-                  enum: [draft, active, paused, completed]
+                  $ref: '#/components/schemas/CampaignStatus'
       responses:
         '201':
           description: Created
@@ -436,6 +630,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
 
   /api/campaigns/{id}:
     parameters:
@@ -455,15 +655,51 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
     patch:
       tags: [Campaigns]
-      summary: Update campaign
+      summary: Partial update campaign
+      description: All body fields optional; when present they must satisfy the same constraints as create (non-empty strings where applicable).
       requestBody:
+        required: false
         content:
           application/json:
             schema:
               type: object
-              additionalProperties: true
+              minProperties: 1
+              properties:
+                name:
+                  type: string
+                  maxLength: 200
+                goal:
+                  type: string
+                  maxLength: 500
+                target_zone:
+                  type: string
+                  maxLength: 300
+                call_to_action:
+                  type: string
+                  maxLength: 200
+                run_mode:
+                  $ref: '#/components/schemas/CampaignRunMode'
+                mail_template:
+                  type: string
+                  nullable: true
+                example_training:
+                  type: string
+                  nullable: true
+                target_leads:
+                  type: integer
+                  minimum: 0
+                lead_source:
+                  $ref: '#/components/schemas/LeadSource'
+                status:
+                  $ref: '#/components/schemas/CampaignStatus'
       responses:
         '200':
           description: Updated
@@ -471,6 +707,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
     delete:
       tags: [Campaigns]
       summary: Delete campaign
@@ -481,6 +723,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
 
   /api/campaigns/{id}/leads:
     parameters:
@@ -497,16 +745,18 @@ paths:
         - in: query
           name: status
           schema:
-            type: string
-            enum: [pending, sent, failed, skipped]
+            $ref: '#/components/schemas/CampaignLeadStatus'
         - in: query
           name: page
           schema:
             type: integer
+            minimum: 1
         - in: query
           name: limit
           schema:
             type: integer
+            minimum: 1
+            maximum: 100
       responses:
         '200':
           description: Paginated leads
@@ -514,6 +764,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessPaginated'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
     post:
       tags: [CampaignLeads]
       summary: Add one lead to campaign
@@ -527,10 +783,11 @@ paths:
               properties:
                 lead_data_id:
                   type: string
-                  description: Identifier from `leads_data` (not necessarily UUID).
+                  description: Identifier from `leads_data` (string; not necessarily UUID).
                 mail_template:
                   type: string
                   nullable: true
+                  maxLength: 50000
       responses:
         '201':
           description: Lead added
@@ -538,6 +795,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
 
   /api/campaigns/{id}/leads/bulk:
     post:
@@ -571,6 +834,7 @@ paths:
                       mail_template:
                         type: string
                         nullable: true
+                        maxLength: 50000
       responses:
         '201':
           description: Bulk result
@@ -578,11 +842,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
 
   /api/campaigns/{id}/leads/assign-random:
     post:
       tags: [CampaignLeads]
       summary: Assign random leads from pool
+      description: No request body. Uses campaign `target_leads` (and duplicate checks) server-side.
       parameters:
         - name: id
           in: path
@@ -597,6 +868,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
 
   /api/campaigns/{id}/leads/assign-filtered:
     post:
@@ -611,10 +888,12 @@ paths:
             type: string
             format: uuid
       requestBody:
+        required: false
         content:
           application/json:
             schema:
               type: object
+              description: At least one of `country` or `industry` must be non-empty after trim (validated in service).
               properties:
                 country:
                   type: string
@@ -636,11 +915,30 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
+        '400':
+          description: Neither country nor industry provided, or invalid limit
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: No matching rows in `leads_data` for the filters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
 
   /api/campaigns/{id}/leads/generate-templates:
     post:
       tags: [CampaignLeads]
       summary: Generate AI mail templates for campaign leads
+      description: Optional body to target a single campaign lead row.
       parameters:
         - name: id
           in: path
@@ -649,6 +947,7 @@ paths:
             type: string
             format: uuid
       requestBody:
+        required: false
         content:
           application/json:
             schema:
@@ -657,6 +956,7 @@ paths:
                 campaign_lead_id:
                   type: string
                   format: uuid
+                  nullable: true
       responses:
         '200':
           description: Generation summary
@@ -664,11 +964,20 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
 
   /api/campaigns/{id}/leads/send-emails:
     post:
       tags: [CampaignLeads]
       summary: Send campaign emails (Gmail)
+      description: |
+        Optional `campaign_lead_id` scopes to one lead. Optional `access_token` overrides the user's stored Google token.
+        Rate limits and daily caps apply server-side.
       parameters:
         - name: id
           in: path
@@ -677,6 +986,7 @@ paths:
             type: string
             format: uuid
       requestBody:
+        required: false
         content:
           application/json:
             schema:
@@ -685,8 +995,10 @@ paths:
                 campaign_lead_id:
                   type: string
                   format: uuid
+                  nullable: true
                 access_token:
                   type: string
+                  nullable: true
       responses:
         '200':
           description: Send summary
@@ -694,6 +1006,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
 
   /api/campaigns/{id}/leads/{leadId}:
     parameters:
@@ -712,21 +1030,28 @@ paths:
     patch:
       tags: [CampaignLeads]
       summary: Update a campaign lead
+      description: All fields optional; include at least one property to change. `sent_at` must be ISO 8601 if provided.
       requestBody:
+        required: false
         content:
           application/json:
             schema:
               type: object
+              minProperties: 1
               properties:
                 status:
-                  type: string
+                  $ref: '#/components/schemas/CampaignLeadStatus'
                 sent_at:
                   type: string
                   format: date-time
+                  nullable: true
                 mail_template:
                   type: string
+                  nullable: true
+                  maxLength: 50000
                 error_message:
                   type: string
+                  nullable: true
       responses:
         '200':
           description: Updated
@@ -734,6 +1059,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
     delete:
       tags: [CampaignLeads]
       summary: Remove lead from campaign
@@ -744,11 +1075,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
 
   /api/emails/send:
     post:
       tags: [Emails]
       summary: Send email via Gmail API (user Google token)
+      description: Requires Bearer access token. Uses the authenticated user's Google credentials unless you implement otherwise in the controller.
       requestBody:
         required: true
         content:
@@ -760,15 +1098,22 @@ paths:
                 to:
                   oneOf:
                     - type: string
+                      description: Single recipient; must contain `@`.
                     - type: array
+                      minItems: 1
                       items:
                         type: string
+                        description: Each string must contain `@`.
                 subject:
                   type: string
+                  maxLength: 200
                 body:
                   type: string
+                  maxLength: 10000
                 html:
                   type: string
+                  maxLength: 50000
+                  description: Optional HTML part; size capped server-side.
       responses:
         '200':
           description: Sent
@@ -776,6 +1121,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
 
   /api/leads:
     get:
@@ -786,6 +1137,7 @@ paths:
           name: search
           schema:
             type: string
+            maxLength: 200
         - in: query
           name: emailStatus
           schema:
@@ -840,20 +1192,11 @@ paths:
         - in: query
           name: sortBy
           schema:
-            type: string
-            enum:
-              - created_at
-              - fullName
-              - email
-              - company
-              - country
-              - fitScore
-              - dateAdded
+            $ref: '#/components/schemas/LeadsSortBy'
         - in: query
           name: sortOrder
           schema:
-            type: string
-            enum: [asc, desc]
+            $ref: '#/components/schemas/SortOrder'
       responses:
         '200':
           description: Paginated leads
@@ -861,6 +1204,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessPaginated'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
 
   /api/leads/{id}:
     get:
@@ -880,3 +1229,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'

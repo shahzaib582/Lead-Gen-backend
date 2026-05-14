@@ -31,9 +31,18 @@ const app = require('./app');
 const logger = require('./utils/logger');
 
 const PORT = Number(process.env.PORT) || 3000;
+const publicBaseUrl = (process.env.PUBLIC_BASE_URL || `http://localhost:${PORT}`).replace(
+  /\/$/,
+  ''
+);
 
 const server = app.listen(PORT, () => {
-  logger.info(`Server running on port ${PORT} [${process.env.NODE_ENV || 'development'}]`);
+  const env = process.env.NODE_ENV || 'development';
+  logger.info(`Server running on port ${PORT} [${env}]`);
+  logger.info(`API JSON base URL: ${publicBaseUrl}/api`);
+  logger.info(`Health check: ${publicBaseUrl}/health`);
+  logger.info(`Swagger UI: ${publicBaseUrl}/api/docs`);
+  logger.info(`OpenAPI YAML: ${publicBaseUrl}/api/openapi.yaml`);
 
   // 2. Start BOTH background workers
   mailTemplateWorker.start();
