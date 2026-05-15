@@ -1,6 +1,4 @@
 const express = require('express');
-const rateLimit = require('express-rate-limit');
-const { createRateLimitHandler } = require('../utils/response');
 const {
   createValidation,
   updateValidation,
@@ -11,38 +9,36 @@ const campaignController = require('../controllers/campaignController');
 const campaignEventsController = require('../controllers/campaignEventsController');
 const campaignLeadsRoutes = require('./campaignLeadsRoutes');
 const { authenticate } = require('../middleware/authenticate');
+const validateRequest = require('../middleware/validateRequest');
+const { campaignLimiter } = require('../config/rateLimits');
 
 const router = express.Router();
 
-const campaignLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  handler: createRateLimitHandler('Too many campaign requests. Please try again later.'),
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-// SSE: GET must work without Bearer (auth via ?sid=); POST session uses Bearer.
 router.post(
   '/:id/events/session',
   campaignLimiter,
   authenticate,
   idValidation,
+  validateRequest,
   campaignEventsController.createEventsSession
 );
-router.get('/:id/events', campaignLimiter, idValidation, campaignEventsController.streamCampaignEvents);
+router.get(
+  '/:id/events',
+  campaignLimiter,
+  idValidation,
+  validateRequest,
+  campaignEventsController.streamCampaignEvents
+);
 
-// All other campaign routes require JWT
 router.use(authenticate);
 router.use(campaignLimiter);
 
-// Nested: /campaigns/:id/leads/* — before /:id CRUD
 router.use('/:id/leads', campaignLeadsRoutes);
 
-router.post('/', createValidation, campaignController.create);
-router.get('/', listValidation, campaignController.list);
-router.get('/:id', idValidation, campaignController.getOne);
-router.patch('/:id', updateValidation, campaignController.update);
-router.delete('/:id', idValidation, campaignController.remove);
+router.post('/', createValidation, validateRequest, campaignController.create);
+router.get('/', listValidation, validateRequest, campaignController.list);
+router.get('/:id', idValidation, validateRequest, campaignController.getOne);
+router.patch('/:id', updateValidation, validateRequest, campaignController.update);
+router.delete('/:id', idValidation, validateRequest, campaignController.remove);
 
 module.exports = router;

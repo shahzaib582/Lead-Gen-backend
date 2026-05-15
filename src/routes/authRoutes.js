@@ -1,6 +1,4 @@
 const express = require('express');
-const rateLimit = require('express-rate-limit');
-const { createRateLimitHandler } = require('../utils/response');
 const {
   signupValidation,
   verifyOtpValidation,
@@ -9,47 +7,31 @@ const {
 } = require('../validation/authRoutesValidation');
 const authController = require('../controllers/authController');
 const { authenticate } = require('../middleware/authenticate');
+const validateRequest = require('../middleware/validateRequest');
+const { authLimiter, loginLimiter, refreshLimiter } = require('../config/rateLimits');
 
 const router = express.Router();
 
-// ─── Rate limiters ────────────────────────────────────────────────────────────
+router.post('/signup', authLimiter, signupValidation, validateRequest, authController.signup);
+router.post(
+  '/verify-otp',
+  authLimiter,
+  verifyOtpValidation,
+  validateRequest,
+  authController.verifyOtp
+);
+router.post('/login', loginLimiter, loginValidation, validateRequest, authController.login);
+router.post(
+  '/resend-otp',
+  authLimiter,
+  resendOtpValidation,
+  validateRequest,
+  authController.resendOtp
+);
 
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 20,
-  handler: createRateLimitHandler('Too many requests. Please try again later.'),
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  handler: createRateLimitHandler('Too many login attempts. Please try again later.'),
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-const refreshLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 30,
-  handler: createRateLimitHandler('Too many refresh requests.'),
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-// ─── Routes ───────────────────────────────────────────────────────────────────
-
-router.post('/signup', authLimiter, signupValidation, authController.signup);
-router.post('/verify-otp', authLimiter, verifyOtpValidation, authController.verifyOtp);
-router.post('/login', loginLimiter, loginValidation, authController.login);
-router.post('/resend-otp', authLimiter, resendOtpValidation, authController.resendOtp);
-
-// Refresh & Logout (no access token required — uses refresh token in body)
 router.post('/refresh', refreshLimiter, authController.refreshTokens);
 router.post('/logout', authController.logout);
 
-// Logout all devices (requires valid access token)
 router.post('/logout-all', authenticate, authController.logoutAll);
 
 module.exports = router;

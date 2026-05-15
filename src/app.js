@@ -1,14 +1,14 @@
 const path = require('path');
 const fs = require('fs');
 const express = require('express');
-const rateLimit = require('express-rate-limit');
 const cors = require('cors');
+const { globalLimiter } = require('./config/rateLimits');
 const swaggerUi = require('swagger-ui-express');
 const YAML = require('yamljs');
 const apiRoutes = require('./routes/index');
 const errorHandler = require('./middleware/errorHandler');
 const responseTime = require('./middleware/responseTime');
-const { errorResponse, successResponse, createRateLimitHandler } = require('./utils/response');
+const { errorResponse, successResponse } = require('./utils/response');
 const { swaggerBearerAutofillResponseInterceptor } = require('./config/swaggerBearerAutofill');
 
 const openApiYamlPath = path.join(__dirname, 'docs', 'openapi.yaml');
@@ -97,16 +97,7 @@ const swaggerUiOptions = {
 
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(null, swaggerUiOptions));
 
-// Global rate limit
-app.use(
-  rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 200,
-    standardHeaders: true,
-    legacyHeaders: false,
-    handler: createRateLimitHandler('Too many requests. Slow down.'),
-  })
-);
+app.use(globalLimiter);
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
