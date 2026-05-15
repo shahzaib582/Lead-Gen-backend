@@ -2,38 +2,7 @@
 openapi: 3.0.3
 info:
   title: Lead Gen API
-  description: |
-    Auth, campaigns, leads, and email flows for the Lead Gen backend.
-
-    **Where the API lives**
-    - **Development:** `http://localhost:3000` — JSON routes are under `/api` (example: `POST /api/auth/login`). Liveness: `GET /health` (no `/api` prefix).
-    - **Production (Render):** `https://leadgen-api-xct7.onrender.com` — same paths (example: `https://leadgen-api-xct7.onrender.com/api/auth/login`).
-
-    **Authentication**
-    Default security is HTTP Bearer (JWT access token). In Swagger UI use **Authorize** and paste only the token value, or send header `Authorization: Bearer <accessToken>`.
-    Tokens come from `POST /api/auth/login`, `POST /api/auth/verify-otp`, `POST /api/auth/refresh`, or Google flows.
-    Bearer-protected routes return **403** when the account exists but **email is not verified** (same shape as other errors).
-    **Swagger UI:** after **Try it out** succeeds on `POST /api/auth/login`, `POST /api/auth/verify-otp`, `POST /api/auth/refresh`, or `POST /api/auth/google/token`, the UI **automatically applies** the returned `data.accessToken` to **Authorize → bearerAuth** (still persisted when `persistAuthorization` is on).
-
-    **Requests**
-    Send JSON bodies with header `Content-Type: application/json` unless noted otherwise.
-
-    **Rate limits**
-    Some routes return **429** with `{ success: false, message }` when limits are exceeded (auth, Google, campaigns, etc.).
-
-    **Campaign mail timing**
-    Sequential sends (BullMQ mail worker and the HTTP `send-emails` loop) use a random delay between **`MAIL_DELAY_MIN_MS`** and **`MAIL_DELAY_MAX_MS`** (defaults **180000–300000** ms, i.e. 3–5 minutes). Override only when you understand deliverability trade-offs.
-
-    **Campaign SSE (progress)**
-    Workers publish progress to Redis; the web process streams **Server-Sent Events** at `GET /api/campaigns/{id}/events?sid=...`. Create a short-lived session with **`POST /api/campaigns/{id}/events/session`** (Bearer). The `sid` is secret—treat like a password. Cross-origin `EventSource` can use the query `sid` without cookies if `CORS_ORIGIN` includes your frontend origin.
-
-    **Create with `status: active`**
-    By default, creating an active campaign does **not** auto-assign leads. Set **`CAMPAIGN_ACTIVE_CREATE_AUTO_ASSIGN=1`** (or `true`) to opt in: when `status` is `active` and `target_leads > 0`, the server runs the same assignment as random-assign after insert.
-
-    **Response time (Swagger + clients)**
-    Successful and error JSON responses include **`X-Response-Time`** (e.g. `12.4ms`) and **`Server-Timing: total;dur=...`**. In Swagger UI, use **Try it out** → execute a request → open **Response headers** to see them; the UI also shows **Request duration** (round-trip, measured in the browser). For cross-origin `fetch`, these header names are listed in **`Access-Control-Expose-Headers`**.
-
-    **Docs:** Swagger UI `/api/docs` · OpenAPI YAML `/api/openapi.yaml` — auth (`signup`, `verify-otp`, `login`, `refresh`), `GET /api/me`, Google ID-token exchange, campaign create/update/get, and campaign send-emails document **typed response schemas** with examples under **components/schemas**.
+  description: Lead Gen API is a RESTful API for managing leads and campaigns.
   version: 1.0.0
   contact:
     name: Lead Gen API
@@ -46,14 +15,11 @@ servers:
 
 tags:
   - name: Health
-    description: Process health and machine-readable spec.
-  - name: Docs
-    description: Swagger UI entry (HTML).
+    description: Liveness.
   - name: Auth
     description: Email/password signup, OTP, login, tokens, logout.
   - name: GoogleAuth
-    description: |
-      Google OAuth: **`GET /api/auth/google`** starts the browser redirect flow (302 to Google). That path is **not** usable from Swagger **Try it out** (`fetch` hits CORS after redirect). Use **`GET /api/auth/google?format=json`** in Swagger to get `authUrl`, then open that URL in a real browser; or use **`POST /api/auth/google/token`** with a Google ID token from your client.
+    description: Google OAuth and ID-token login.
   - name: Campaigns
     description: Campaign CRUD and listing (authenticated).
   - name: CampaignLeads
@@ -74,21 +40,17 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: |
-        Short-lived access JWT. Obtain via email auth (`/api/auth/login`, `/api/auth/verify-otp`, `/api/auth/refresh`) or Google (`/api/auth/google/token` or callback).
-        Send as: `Authorization: Bearer <accessToken>`.
+      description: >-
+        JWT access token. Send as HTTP header Authorization Bearer (scheme bearer in Authorize).
 
   headers:
     X-Response-Time:
-      description: |
-        Server-side handling duration for this request (middleware start through `res.end`), in milliseconds with an `ms` suffix.
-        Shown in Swagger **Try it out** under **Response headers**; Swagger also shows a separate **Request duration** (measured in the browser).
+      description: Request duration on the server (e.g. `12.4ms`).
       schema:
         type: string
         example: "12.4ms"
     Server-Timing:
-      description: |
-        [RFC 9210](https://www.rfc-editor.org/rfc/rfc9210.html) timing hint. Includes `total;dur=<ms>` matching `X-Response-Time`. DevTools **Network** tab may surface this under **Timing**.
+      description: Timing hint; includes `total;dur=<ms>`.
       schema:
         type: string
         example: 'total;dur=12.4'
@@ -212,9 +174,7 @@ components:
 
     MeUser:
       type: object
-      description: |
-        Payload under `data.user` for `GET /api/me`. When a Google account is linked and a valid token exists,
-        `googleAccessToken` may be present — **treat as secret** (same sensitivity as a password).
+      description: Current user; `googleAccessToken` when linked — treat as secret.
       required: [id, email, isVerified]
       properties:
         id:
@@ -660,33 +620,6 @@ paths:
                         type: string
                         example: ok
 
-  /api/openapi.yaml:
-    get:
-      tags: [Health]
-      summary: Raw OpenAPI document (this file)
-      security: []
-      responses:
-        '200':
-          description: YAML document
-          content:
-            application/yaml:
-              schema:
-                type: string
-
-  /api/docs:
-    get:
-      tags: [Docs]
-      summary: Swagger UI (interactive API documentation)
-      security: []
-      description: Serves HTML; static assets load from the same `/api/docs/` path prefix.
-      responses:
-        '200':
-          description: Swagger UI page (HTML)
-          content:
-            text/html:
-              schema:
-                type: string
-
   /api/auth/signup:
     post:
       tags: [Auth]
@@ -959,12 +892,7 @@ paths:
     get:
       tags: [GoogleAuth]
       summary: Start Google OAuth (redirect or JSON auth URL)
-      description: |
-        **Default (no query):** HTTP **302** to Google’s consent screen — use a **real browser** (address bar or `window.location`), not Swagger **Try it out**. Swagger uses `fetch`, which follows the redirect to `accounts.google.com` and then fails (**Failed to fetch** / CORS) because Google’s response is not CORS-enabled for your API origin.
-
-        **`?format=json`:** Returns **200** JSON with `data.authUrl`. Use this from Swagger or scripts: open `authUrl` in a browser to continue OAuth.
-
-        SPA/mobile flows without redirect: prefer **`POST /api/auth/google/token`** with a Google ID token.
+      description: Default returns 302 to Google. Use `?format=json` for `{ authUrl }` (e.g. Swagger). Or use `POST /api/auth/google/token`.
       security: []
       parameters:
         - name: format
