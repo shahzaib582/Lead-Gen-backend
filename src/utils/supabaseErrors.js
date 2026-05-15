@@ -36,7 +36,7 @@ function throwSupabaseError(error, opts) {
 
   if (schemaHint && isLikelyMissingCampaignColumns(error)) {
     throw new AppError(
-      'Database is missing columns the API expects on `campaigns` (e.g. `lead_source`, `sender_display_name`). Run `sql/campaign_sender_fields.sql` in the Supabase SQL editor, then retry.',
+      'Database is missing columns the API expects on `campaigns` (e.g. `lead_source`, `sender_display_name`). Align `campaigns` with `sql/schema.sql` in the Supabase SQL editor, then retry.',
       500,
       'CAMPAIGN_DB_SCHEMA'
     );

@@ -58,7 +58,7 @@ async function enforceResendRateLimit(email) {
  *
  * @param {string} userId
  * @param {string} email    - Used for rate limiting
- * @param {string} purpose  - `email_verify` | `password_reset` (requires DB column — see `sql/password_reset_otp_purpose.sql`)
+ * @param {string} purpose  - `email_verify` | `password_reset` (requires `otp_codes.purpose` — see `sql/schema.sql`)
  * @returns {string}        - Plaintext OTP
  */
 async function createOtp(userId, email, purpose = OTP_PURPOSE_EMAIL_VERIFY) {

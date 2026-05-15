@@ -5,7 +5,7 @@ Use this in staging or local against a real Supabase project, Redis, and a test 
 ## Prerequisites
 
 1. **Env** (see `env.example`): `SUPABASE_*`, `JWT_*`, `REDIS_HOST` / `REDIS_PORT` or `REDIS_URL`, `OPENAI_API_KEY` (for templates), Google OAuth vars, optional `MAIL_DELAY_MIN_MS` / `MAIL_DELAY_MAX_MS`, optional `CAMPAIGN_ACTIVE_CREATE_AUTO_ASSIGN`.
-2. **DB**: apply `sql/campaign_sender_fields.sql` (and existing schema migrations) so `campaigns` has `lead_source` and optional sender columns. If you ever added `sender_reply_to`, run `sql/remove_campaign_sender_reply_to.sql` once to drop it.
+2. **DB**: ensure `campaigns` matches `sql/schema.sql` (`lead_source`, optional sender columns). For legacy DBs, add missing columns with ALTER to match that file.
 3. **Processes**: API (`npm run dev` or `node src/index.js`), **mail-template** worker, **campaign-mail** worker (BullMQ). On Render: web + both workers + Redis per `render.yaml`.
 
 ## Ordered steps

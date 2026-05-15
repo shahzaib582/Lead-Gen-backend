@@ -660,7 +660,7 @@ paths:
                   type: string
                   maxLength: 120
               description: |
-                Role is always `user` from signup (`superadmin` is database-only). Optional profile columns require migration `sql/user_profile_and_role.sql`.
+                Role is always `user` from signup (`superadmin` is database-only). Ensure DB matches `sql/schema.sql` for profile columns.
       responses:
         '201':
           description: Created; check email for 6-digit OTP.
@@ -843,7 +843,7 @@ paths:
       security: []
       description: >-
         Same response for unknown emails (no enumeration). Email is sent only when the account has a password.
-        Apply `sql/password_reset_otp_purpose.sql` for `otp_codes.purpose`.
+        Ensure `otp_codes.purpose` exists (`sql/schema.sql`).
       requestBody:
         required: true
         content:
