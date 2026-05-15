@@ -4,6 +4,8 @@ const {
   verifyOtpValidation,
   loginValidation,
   resendOtpValidation,
+  forgotPasswordValidation,
+  resetPasswordValidation,
 } = require('../validation/authRoutesValidation');
 const authController = require('../controllers/authController');
 const { authenticate } = require('../middleware/authenticate');
@@ -21,6 +23,20 @@ router.post(
   authController.verifyOtp
 );
 router.post('/login', loginLimiter, loginValidation, validateRequest, authController.login);
+router.post(
+  '/forgot-password',
+  loginLimiter,
+  forgotPasswordValidation,
+  validateRequest,
+  authController.forgotPassword
+);
+router.post(
+  '/reset-password',
+  loginLimiter,
+  resetPasswordValidation,
+  validateRequest,
+  authController.resetPassword
+);
 router.post(
   '/resend-otp',
   authLimiter,

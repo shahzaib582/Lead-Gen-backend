@@ -802,6 +802,79 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /api/auth/forgot-password:
+    post:
+      tags: [Auth]
+      summary: Request password-reset OTP by email
+      security: []
+      description: >-
+        Same response for unknown emails (no enumeration). Email is sent only when the account has a password.
+        Apply `sql/password_reset_otp_purpose.sql` for `otp_codes.purpose`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          description: Generic acknowledgment (check inbox).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /api/auth/reset-password:
+    post:
+      tags: [Auth]
+      summary: Set new password with email + reset OTP
+      security: []
+      description: Revokes all refresh sessions then returns new JWT pair (same shape as login).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, otp, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                otp:
+                  type: string
+                  pattern: '^[0-9]{6}$'
+                password:
+                  type: string
+                  minLength: 8
+                  description: Same strength rules as signup.
+      responses:
+        '200':
+          description: Password updated; new tokens issued.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthLoginResponse'
+        '400':
+          description: Invalid or expired reset code / weak requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /api/auth/refresh:
     post:
       tags: [Auth]

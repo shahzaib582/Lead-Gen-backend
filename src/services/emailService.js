@@ -90,6 +90,52 @@ async function sendOtpEmail(to, otp) {
 }
 
 /**
+ * Password-reset OTP email (SMTP).
+ */
+async function sendPasswordResetOtpEmail(to, otp) {
+  const transport = getTransporter();
+  const minutes = process.env.OTP_EXPIRY_MINUTES || 10;
+
+  const html = `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+      <title>Reset password</title></head>
+    <body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,sans-serif;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 0;">
+        <tr><td align="center">
+          <table width="480" cellpadding="0" cellspacing="0"
+                 style="background:#ffffff;border-radius:8px;padding:40px;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+            <tr><td align="center" style="padding-bottom:24px;">
+              <h2 style="margin:0;color:#1a1a1a;font-size:22px;">Reset your password</h2></td></tr>
+            <tr><td align="center" style="padding-bottom:16px;color:#555;font-size:15px;line-height:1.6;">
+              Use this code to set a new password. Expires in <strong>${minutes} minutes</strong>.</td></tr>
+            <tr><td align="center" style="padding:20px 0;">
+              <div style="display:inline-block;background:#fff8f0;border:1px solid #f0d9c7;border-radius:8px;padding:16px 40px;">
+                <span style="font-size:36px;font-weight:bold;letter-spacing:12px;color:#d9480f;">${otp}</span>
+              </div></td></tr>
+            <tr><td align="center" style="padding-top:16px;color:#888;font-size:13px;">
+              If you did not request this, ignore this email.</td></tr>
+          </table>
+        </td></tr>
+      </table>
+    </body>
+    </html>
+  `;
+
+  const info = await transport.sendMail({
+    from: process.env.EMAIL_FROM,
+    to,
+    subject: 'Your password reset code',
+    html,
+    text: `Your password reset code is: ${otp}\nExpires in ${minutes} minutes.`,
+  });
+
+  logger.info('Password reset OTP email sent', { to, messageId: info.messageId });
+  return info;
+}
+
+/**
  * Encode a display name for a MIME From header (quoted-printable safe subset or RFC 2047).
  * @param {string} name
  */
@@ -190,4 +236,4 @@ async function sendCustomEmail(to, subject, body, html = null, accessToken, mime
   return { messageId };
 }
 
-module.exports = { sendOtpEmail, sendCustomEmail };
+module.exports = { sendOtpEmail, sendPasswordResetOtpEmail, sendCustomEmail };

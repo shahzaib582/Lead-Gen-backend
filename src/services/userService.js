@@ -59,6 +59,17 @@ async function markUserVerified(userId) {
   if (error) throw new AppError('Failed to verify user', 500);
 }
 
+async function updatePassword(userId, plainPassword) {
+  const passwordHash = await bcrypt.hash(plainPassword, BCRYPT_ROUNDS);
+
+  const { error } = await supabase
+    .from('users')
+    .update({ password_hash: passwordHash })
+    .eq('id', userId);
+
+  if (error) throw new AppError('Failed to update password.', 500);
+}
+
 // ─── Password ─────────────────────────────────────────────────────────────────
 
 async function checkPassword(plainPassword, hash) {
@@ -84,6 +95,7 @@ module.exports = {
   findUserById,
   createUser,
   markUserVerified,
+  updatePassword,
   checkPassword,
   findOrCreateGoogleUser,
   updateAuthProvider,

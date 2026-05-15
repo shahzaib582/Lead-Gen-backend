@@ -21,7 +21,7 @@ async function signup(req, res, next) {
       res,
       201,
       'Account created. Check your email for your 6-digit verification code.',
-      user
+      { email: user.email }
     );
   } catch (err) {
     next(err);
@@ -131,6 +131,66 @@ async function logoutAll(req, res, next) {
   }
 }
 
+async function forgotPassword(req, res, next) {
+  try {
+    const { email } = req.body;
+    const generic =
+      'If an account with this email exists and has a password, a reset code has been sent.';
+
+    const user = await userService.findUserByEmail(email);
+    if (!user?.password_hash) {
+      return successResponse(res, 200, generic, undefined);
+    }
+
+    const otp = await otpService.createOtp(
+      user.id,
+      user.email,
+      otpService.OTP_PURPOSE_PASSWORD_RESET
+    );
+    await emailService.sendPasswordResetOtpEmail(user.email, otp);
+
+    logger.info('Password reset OTP issued', { userId: user.id });
+    return successResponse(res, 200, generic, undefined);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function resetPassword(req, res, next) {
+  try {
+    const { email, otp, password } = req.body;
+
+    const user = await userService.findUserByEmail(email);
+    if (!user?.password_hash) {
+      throw new AppError('Invalid or expired verification code.', 400);
+    }
+
+    await otpService.verifyOtp(user.id, otp, otpService.OTP_PURPOSE_PASSWORD_RESET);
+    await userService.updatePassword(user.id, password);
+    if (!user.is_verified) {
+      await userService.markUserVerified(user.id);
+    }
+    await refreshTokenService.revokeAllUserRefreshTokens(user.id);
+
+    const { accessToken, refreshToken } = await issueTokenPair(user);
+
+    logger.info('Password reset completed', { userId: user.id });
+
+    return successResponse(res, 200, 'Password updated successfully.', {
+      accessToken,
+      refreshToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        isVerified: true,
+        createdAt: user.created_at,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function resendOtp(req, res, next) {
   try {
     const { email } = req.body;
@@ -155,4 +215,14 @@ async function resendOtp(req, res, next) {
   }
 }
 
-module.exports = { signup, verifyOtp, login, refreshTokens, logout, logoutAll, resendOtp };
+module.exports = {
+  signup,
+  verifyOtp,
+  login,
+  forgotPassword,
+  resetPassword,
+  refreshTokens,
+  logout,
+  logoutAll,
+  resendOtp,
+};

@@ -10,6 +10,9 @@ const OTP_RESEND_LIMIT = Number(process.env.OTP_RESEND_LIMIT) || 5;
 const OTP_RESEND_WINDOW = Number(process.env.OTP_RESEND_WINDOW_MINUTES) || 60;
 const BCRYPT_ROUNDS = 10;
 
+const OTP_PURPOSE_EMAIL_VERIFY = 'email_verify';
+const OTP_PURPOSE_PASSWORD_RESET = 'password_reset';
+
 // ─── Generate ─────────────────────────────────────────────────────────────────
 
 /**
@@ -55,24 +58,32 @@ async function enforceResendRateLimit(email) {
  *
  * @param {string} userId
  * @param {string} email    - Used for rate limiting
+ * @param {string} purpose  - `email_verify` | `password_reset` (requires DB column — see `sql/password_reset_otp_purpose.sql`)
  * @returns {string}        - Plaintext OTP
  */
-async function createOtp(userId, email) {
+async function createOtp(userId, email, purpose = OTP_PURPOSE_EMAIL_VERIFY) {
   await enforceResendRateLimit(email);
 
-  // Invalidate old unused OTPs for this user (mark as used)
-  await supabase.from('otp_codes').update({ used: true }).eq('user_id', userId).eq('used', false);
+  await supabase
+    .from('otp_codes')
+    .update({ used: true })
+    .eq('user_id', userId)
+    .eq('used', false)
+    .eq('purpose', purpose);
 
   const plainOtp = generateOtp();
   const codeHash = await bcrypt.hash(plainOtp, BCRYPT_ROUNDS);
   const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000).toISOString();
 
-  const { error } = await supabase
-    .from('otp_codes')
-    .insert({ user_id: userId, code_hash: codeHash, expires_at: expiresAt });
+  const { error } = await supabase.from('otp_codes').insert({
+    user_id: userId,
+    code_hash: codeHash,
+    expires_at: expiresAt,
+    purpose,
+  });
 
   if (error) {
-    logger.error('Failed to store OTP', { error });
+    logger.error('Failed to store OTP', { error, purpose });
     throw new AppError('Failed to create verification code', 500);
   }
 
@@ -88,13 +99,14 @@ async function createOtp(userId, email) {
  *
  * @param {string} userId
  * @param {string} submittedOtp  - Plaintext OTP from the user
+ * @param {string} purpose       - `email_verify` | `password_reset`
  */
-async function verifyOtp(userId, submittedOtp) {
-  // Fetch the latest valid (unused, non-expired) OTP for this user
+async function verifyOtp(userId, submittedOtp, purpose = OTP_PURPOSE_EMAIL_VERIFY) {
   const { data: otpRecord, error } = await supabase
     .from('otp_codes')
     .select('*')
     .eq('user_id', userId)
+    .eq('purpose', purpose)
     .eq('used', false)
     .gt('expires_at', new Date().toISOString())
     .order('created_at', { ascending: false })
@@ -107,7 +119,6 @@ async function verifyOtp(userId, submittedOtp) {
 
   // Check if too many failed attempts
   if (otpRecord.attempts >= OTP_MAX_ATTEMPTS) {
-    // Invalidate it
     await supabase.from('otp_codes').update({ used: true }).eq('id', otpRecord.id);
     throw new AppError('Too many incorrect attempts. Please request a new verification code.', 429);
   }
@@ -115,7 +126,6 @@ async function verifyOtp(userId, submittedOtp) {
   const isMatch = await bcrypt.compare(submittedOtp, otpRecord.code_hash);
 
   if (!isMatch) {
-    // Increment attempts
     await supabase
       .from('otp_codes')
       .update({ attempts: otpRecord.attempts + 1 })
@@ -125,10 +135,14 @@ async function verifyOtp(userId, submittedOtp) {
     throw new AppError(`Invalid verification code. ${remaining} attempt(s) remaining.`, 400);
   }
 
-  // Mark as used
   await supabase.from('otp_codes').update({ used: true }).eq('id', otpRecord.id);
 
-  logger.info('OTP verified successfully', { userId });
+  logger.info('OTP verified successfully', { userId, purpose });
 }
 
-module.exports = { createOtp, verifyOtp };
+module.exports = {
+  createOtp,
+  verifyOtp,
+  OTP_PURPOSE_EMAIL_VERIFY,
+  OTP_PURPOSE_PASSWORD_RESET,
+};

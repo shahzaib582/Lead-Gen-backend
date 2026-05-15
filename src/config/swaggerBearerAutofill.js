@@ -11,7 +11,7 @@ function swaggerBearerAutofillResponseInterceptor(res) {
       .split('?')[0]
       .replace(/\/+$/, '');
     const isTokenEndpoint =
-      /\/api\/auth\/(login|verify-otp|refresh)$/.test(url) || /\/api\/auth\/google\/token$/.test(url);
+      /\/api\/auth\/(login|verify-otp|refresh|reset-password)$/.test(url) || /\/api\/auth\/google\/token$/.test(url);
     if (!isTokenEndpoint) {
       return res;
     }
