@@ -4,6 +4,7 @@ const supabase = require('../config/supabase');
 const AppError = require('../utils/AppError');
 const { parseLeadDataId } = require('../utils/leadDataId');
 const { enqueueMailTemplateJob } = require('../jobs/mailTemplateJob');
+const { applyLeadSourceFilter, shuffleInPlace } = require('./leadPoolQuery');
 
 const VALID_STATUSES = ['pending', 'template_generated', 'sent', 'failed', 'skipped'];
 
@@ -294,12 +295,7 @@ async function assignRandomLeadsToCampaign(userId, campaignId) {
   let idsQuery = supabase.from('leads_data').select('id');
 
   const leadSource = campaign.lead_source || 'both';
-
-  if (leadSource === 'new') {
-    idsQuery = idsQuery.or('outreachStatus.is.null,outreachStatus.eq.""');
-  } else if (leadSource === 'old') {
-    idsQuery = idsQuery.not('outreachStatus', 'is', null).neq('outreachStatus', '');
-  }
+  idsQuery = applyLeadSourceFilter(idsQuery, leadSource);
 
   if (excludedIds.length > 0) {
     idsQuery = idsQuery.notIn('id', excludedIds);
@@ -315,13 +311,7 @@ async function assignRandomLeadsToCampaign(userId, campaignId) {
     throw new AppError('No available leads found.', 404);
   }
 
-  // Shuffle
-  for (let i = allLeads.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-
-    [allLeads[i], allLeads[j]] = [allLeads[j], allLeads[i]];
-  }
-
+  shuffleInPlace(allLeads);
   const randomLeads = allLeads.slice(0, targetCount);
 
   const rows = randomLeads.map((l) => ({
@@ -420,12 +410,7 @@ async function assignFilteredLeadsToCampaign(
   let idsQuery = supabase.from('leads_data').select('id');
 
   const leadSource = campaign.lead_source || 'both';
-
-  if (leadSource === 'new') {
-    idsQuery = idsQuery.or('outreachStatus.is.null,outreachStatus.eq.""');
-  } else if (leadSource === 'old') {
-    idsQuery = idsQuery.not('outreachStatus', 'is', null).neq('outreachStatus', '');
-  }
+  idsQuery = applyLeadSourceFilter(idsQuery, leadSource);
 
   if (country) idsQuery = idsQuery.ilike('country', country.trim());
   if (industry) idsQuery = idsQuery.ilike('industry', industry.trim());
@@ -453,12 +438,7 @@ async function assignFilteredLeadsToCampaign(
     );
   }
 
-  // ── Step 3: shuffle full pool, then slice to requested count ──────────────
-  for (let i = allLeads.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [allLeads[i], allLeads[j]] = [allLeads[j], allLeads[i]];
-  }
-
+  shuffleInPlace(allLeads);
   const selectedLeads = allLeads.slice(0, targetCount);
 
   // ── Step 4: upsert into campaign_leads ────────────────────────────────────

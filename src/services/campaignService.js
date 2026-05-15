@@ -1,19 +1,6 @@
 const supabase = require('../config/supabase');
 const AppError = require('../utils/AppError');
-const logger = require('../utils/logger');
-
-function isLikelyMissingCampaignColumns(dbError) {
-  const msg = `${dbError?.message || ''} ${dbError?.details || ''} ${dbError?.hint || ''}`;
-  const code = dbError?.code || '';
-  // Postgres: undefined_column; PostgREST: "schema cache" / unknown column (e.g. PGRST204)
-  return (
-    code === '42703' ||
-    (/^PGRST/.test(code) && /column|schema cache/i.test(msg)) ||
-    /Could not find the ['"]?\w+['"]? column/i.test(msg) ||
-    /column .* does not exist/i.test(msg) ||
-    /schema cache/i.test(msg)
-  );
-}
+const { throwSupabaseError } = require('../utils/supabaseErrors');
 
 // ─── Create ───────────────────────────────────────────────────────────────────
 
@@ -25,27 +12,12 @@ async function createCampaign(userId, fields) {
     .single();
 
   if (error) {
-    logger.error('[campaigns] create insert failed', {
-      userId,
-      supabaseCode: error.code,
-      message: error.message,
-      details: error.details,
-      hint: error.hint,
+    throwSupabaseError(error, {
+      logLabel: 'campaigns create',
+      fallbackMessage: 'Failed to create campaign.',
+      duplicateMessage: 'A campaign with this name already exists.',
+      schemaHint: true,
     });
-
-    if (error.code === '23505') {
-      throw new AppError('A campaign with this name already exists.', 409);
-    }
-
-    if (isLikelyMissingCampaignColumns(error)) {
-      throw new AppError(
-        'Database is missing columns the API expects on `campaigns` (e.g. `lead_source`, `sender_display_name`). Run `sql/campaign_sender_fields.sql` in the Supabase SQL editor (see repo), then retry.',
-        500,
-        'CAMPAIGN_DB_SCHEMA'
-      );
-    }
-
-    throw new AppError('Failed to create campaign.', 500, 'CAMPAIGN_CREATE_FAILED');
   }
 
   return data;
