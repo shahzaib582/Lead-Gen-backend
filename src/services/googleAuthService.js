@@ -1,12 +1,133 @@
 const { google } = require('googleapis');
 const supabase = require('../config/supabase');
+const userService = require('./userService');
 const AppError = require('../utils/AppError');
+const logger = require('../utils/logger');
 
 const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_ID,
   process.env.GOOGLE_CLIENT_SECRET,
   process.env.GOOGLE_REDIRECT_URI
 );
+
+function parseScopes(scope) {
+  if (!scope) return [];
+  if (Array.isArray(scope)) return scope;
+  return String(scope)
+    .split(/[\s,]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function buildGoogleAccountRow(userId, { email, name, avatarUrl, googleTokens, googleId }) {
+  return {
+    user_id: userId,
+    google_id: googleId,
+    email: email.toLowerCase().trim(),
+    name: name || null,
+    avatar_url: avatarUrl || null,
+    google_access_token: googleTokens.access_token,
+    google_refresh_token: googleTokens.refresh_token || null,
+    token_expires_at: googleTokens.expiry_date
+      ? new Date(googleTokens.expiry_date).toISOString()
+      : null,
+    scopes: parseScopes(googleTokens.scope),
+  };
+}
+
+async function findGoogleAccountByEmail(email) {
+  const { data, error } = await supabase
+    .from('google_accounts')
+    .select('*, users(*)')
+    .eq('email', email.toLowerCase().trim())
+    .maybeSingle();
+
+  if (error) throw new AppError('Database error', 500);
+  return data;
+}
+
+async function findGoogleAccountByUserId(userId) {
+  const { data, error } = await supabase
+    .from('google_accounts')
+    .select('*')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error) throw new AppError('Database error', 500);
+  return data;
+}
+
+async function upsertGoogleAccount(userId, { email, name, avatarUrl, googleTokens, googleId }) {
+  const row = buildGoogleAccountRow(userId, { email, name, avatarUrl, googleTokens, googleId });
+
+  const { error } = await supabase.from('google_accounts').upsert(row, { onConflict: 'user_id' });
+
+  if (error) {
+    logger.error('[google_accounts] upsert failed', { userId, message: error.message });
+    throw new AppError('Failed to save Google account.', 500);
+  }
+}
+
+async function createGoogleUser({ email, name, avatarUrl, googleTokens, googleId }) {
+  const { data: user, error: userError } = await supabase
+    .from('users')
+    .insert({
+      email: email.toLowerCase().trim(),
+      auth_provider: 'google',
+      is_verified: true,
+    })
+    .select()
+    .single();
+
+  if (userError) {
+    if (userError.code === '23505') {
+      throw new AppError('An account with this email already exists.', 409);
+    }
+    throw new AppError('Failed to create user.', 500);
+  }
+
+  await upsertGoogleAccount(user.id, { email, name, avatarUrl, googleTokens, googleId });
+  logger.info('New user registered via Google', { userId: user.id, email: user.email });
+  return user;
+}
+
+/**
+ * Find or create a user from a verified Google profile and persist OAuth tokens.
+ */
+async function resolveUserFromGoogleProfile({ email, name, avatarUrl, googleTokens, googleId }) {
+  if (!googleId) {
+    throw new AppError('Google user id (sub) is required.', 400);
+  }
+
+  const existingGoogleAccount = await findGoogleAccountByEmail(email);
+
+  if (existingGoogleAccount) {
+    const user = existingGoogleAccount.users;
+    await upsertGoogleAccount(user.id, { email, name, avatarUrl, googleTokens, googleId });
+    logger.info('Google user logged in', { userId: user.id, email });
+    return user;
+  }
+
+  const existingUser = await userService.findUserByEmail(email);
+
+  if (existingUser) {
+    if (existingUser.auth_provider !== 'email') {
+      throw new AppError('This email is already registered with a different provider.', 409);
+    }
+    await upsertGoogleAccount(existingUser.id, {
+      email,
+      name,
+      avatarUrl,
+      googleTokens,
+      googleId,
+    });
+    await userService.updateAuthProvider(existingUser.id, 'google');
+    logger.info('Google account linked to existing email user', { userId: existingUser.id });
+    return existingUser;
+  }
+
+  return createGoogleUser({ email, name, avatarUrl, googleTokens, googleId });
+}
 
 async function getValidGoogleAccessToken(userId) {
   const { data: account, error } = await supabase
@@ -25,12 +146,10 @@ async function getValidGoogleAccessToken(userId) {
 
   const isExpired = !expiresAt || Date.now() >= expiresAt - 60000;
 
-  // Current token valid
   if (!isExpired) {
     return google_access_token;
   }
 
-  // Refresh token missing
   if (!google_refresh_token) {
     throw new AppError(
       'Google refresh token missing; reconnect Gmail (GET /api/auth/google).',
@@ -62,7 +181,6 @@ async function getValidGoogleAccessToken(userId) {
     .from('google_accounts')
     .update({
       google_access_token: credentials.access_token,
-
       token_expires_at: credentials.expiry_date
         ? new Date(credentials.expiry_date).toISOString()
         : null,
@@ -74,4 +192,9 @@ async function getValidGoogleAccessToken(userId) {
 
 module.exports = {
   getValidGoogleAccessToken,
+  findGoogleAccountByEmail,
+  findGoogleAccountByUserId,
+  upsertGoogleAccount,
+  createGoogleUser,
+  resolveUserFromGoogleProfile,
 };
