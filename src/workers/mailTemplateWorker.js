@@ -163,7 +163,20 @@ worker.on('failed', (job, err) =>
 worker.on('error', (err) => logger.error('[TemplateWorker] Worker error', { error: err.message }));
 
 function start() {
-  console.log('🚀 Mail Template Worker is active and listening...');
+  logger.info('Mail template worker is active and listening for jobs');
 }
 
 module.exports = { worker, start };
+
+if (require.main === module) {
+  require('dotenv').config();
+  const { assertWorkerMailTemplateEnv } = require('../config/requiredEnv');
+  try {
+    assertWorkerMailTemplateEnv();
+  } catch (err) {
+    console.error(err.message);
+    // eslint-disable-next-line n/no-process-exit -- standalone worker bootstrap
+    process.exit(1);
+  }
+  start();
+}

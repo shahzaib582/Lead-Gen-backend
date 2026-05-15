@@ -1,29 +1,11 @@
 require('dotenv').config();
 
-// 1. Import both workers properly
-const mailTemplateWorker = require('./workers/mailTemplateWorker');
-const campaignMailWorker = require('./workers/campaignMailWorker');
+const { assertWebEnv, shouldRunWorkersInWeb } = require('./config/requiredEnv');
 
-// Validate required env vars
-const REQUIRED_ENV = [
-  'SUPABASE_URL',
-  'SUPABASE_SERVICE_ROLE_KEY',
-  'SMTP_HOST',
-  'SMTP_USER',
-  'SMTP_PASS',
-  'EMAIL_FROM',
-  'OPENAI_API_KEY',
-];
-
-const missing = REQUIRED_ENV.filter((k) => !process.env[k]);
-if (!process.env.JWT_SECRET && !process.env.JWT_ACCESS_SECRET) {
-  missing.push('JWT_SECRET or JWT_ACCESS_SECRET');
-}
-if (!process.env.REDIS_URL && !process.env.REDIS_HOST) {
-  missing.push('REDIS_URL or REDIS_HOST');
-}
-if (missing.length) {
-  console.error(`Missing required environment variables: ${missing.join(', ')}`);
+try {
+  assertWebEnv();
+} catch (err) {
+  console.error(err.message);
   process.exit(1);
 }
 
@@ -36,6 +18,14 @@ const publicBaseUrl = (process.env.PUBLIC_BASE_URL || `http://localhost:${PORT}`
   ''
 );
 
+let mailTemplateWorker;
+let campaignMailWorker;
+
+if (shouldRunWorkersInWeb()) {
+  mailTemplateWorker = require('./workers/mailTemplateWorker');
+  campaignMailWorker = require('./workers/campaignMailWorker');
+}
+
 const server = app.listen(PORT, () => {
   const env = process.env.NODE_ENV || 'development';
   logger.info(`Server running on port ${PORT} [${env}]`);
@@ -44,24 +34,30 @@ const server = app.listen(PORT, () => {
   logger.info(`Swagger UI: ${publicBaseUrl}/api/docs`);
   logger.info(`OpenAPI YAML: ${publicBaseUrl}/api/openapi.yaml`);
 
-  // 2. Start BOTH background workers
-  mailTemplateWorker.start();
-  campaignMailWorker.start();
+  if (mailTemplateWorker && campaignMailWorker) {
+    mailTemplateWorker.start();
+    campaignMailWorker.start();
+    logger.info('BullMQ workers started in web process (RUN_WORKERS_IN_WEB or non-production)');
+  } else {
+    logger.info('BullMQ workers not started in web process — use dedicated worker dynos');
+  }
 });
 
-// Graceful shutdown
 process.on('SIGTERM', () => shutdown('SIGTERM'));
-process.on('SIGINT', () => shutdown('SIGINT')); // Handle Ctrl+C
+process.on('SIGINT', () => shutdown('SIGINT'));
 
 async function shutdown(signal) {
   logger.info(`${signal} received — shutting down gracefully`);
 
   server.close(async () => {
-    // 3. Close worker connections to Redis cleanly
-    await mailTemplateWorker.worker.close();
-    await campaignMailWorker.worker.close();
+    if (mailTemplateWorker?.worker) {
+      await mailTemplateWorker.worker.close();
+    }
+    if (campaignMailWorker?.worker) {
+      await campaignMailWorker.worker.close();
+    }
 
-    logger.info('Server and workers closed');
+    logger.info('Server closed');
     process.exit(0);
   });
 }

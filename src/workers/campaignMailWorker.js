@@ -197,7 +197,20 @@ worker.on('error', (err) => {
 });
 
 function start() {
-  console.log('Campaign Mail Worker is active and listening for jobs...');
+  logger.info('Campaign mail worker is active and listening for jobs');
 }
 
 module.exports = { worker, start };
+
+if (require.main === module) {
+  require('dotenv').config();
+  const { assertWorkerCampaignMailEnv } = require('../config/requiredEnv');
+  try {
+    assertWorkerCampaignMailEnv();
+  } catch (err) {
+    console.error(err.message);
+    // eslint-disable-next-line n/no-process-exit -- standalone worker bootstrap
+    process.exit(1);
+  }
+  start();
+}
