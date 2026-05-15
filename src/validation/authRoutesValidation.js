@@ -13,6 +13,20 @@ const signupValidation = [
     .withMessage('Password must contain at least one number.')
     .matches(/[^A-Za-z0-9]/)
     .withMessage('Password must contain at least one special character.'),
+  body('role').custom((value) => {
+    if (value !== undefined) {
+      throw new Error('Role cannot be set at signup.');
+    }
+    return true;
+  }),
+  body('name').optional().trim().isLength({ max: 200 }).withMessage('Name must be at most 200 characters.'),
+  body('profile_pic')
+    .optional()
+    .trim()
+    .isLength({ max: 2048 })
+    .withMessage('profile_pic must be at most 2048 characters.'),
+  body('address').optional().trim().isLength({ max: 500 }).withMessage('address must be at most 500 characters.'),
+  body('contact').optional().trim().isLength({ max: 120 }).withMessage('contact must be at most 120 characters.'),
 ];
 
 const verifyOtpValidation = [

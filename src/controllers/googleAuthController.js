@@ -1,9 +1,11 @@
 const { getAuthUrl, exchangeCodeForProfile } = require('../config/googleOAuth');
 const googleAuthService = require('../services/googleAuthService');
+const userService = require('../services/userService');
 const { issueTokenPair } = require('../services/authTokenService');
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
 const { successResponse } = require('../utils/response');
+const { toPublicUser } = require('../utils/userPublic');
 
 function redirectToGoogle(req, res) {
   const url = getAuthUrl();
@@ -40,18 +42,13 @@ async function handleGoogleCallback(req, res, next) {
       googleId,
     });
 
-    const { accessToken, refreshToken } = await issueTokenPair(user);
+    const fresh = await userService.findUserById(user.id);
+    const { accessToken, refreshToken } = await issueTokenPair(fresh);
 
     return successResponse(res, 200, 'Google authentication successful.', {
       accessToken,
       refreshToken,
-      user: {
-        id: user.id,
-        email: user.email,
-        name,
-        avatarUrl,
-        authProvider: 'google',
-      },
+      user: { ...toPublicUser(fresh), authProvider: 'google' },
     });
   } catch (err) {
     next(err);
@@ -94,14 +91,15 @@ async function loginWithGoogleToken(req, res, next) {
       googleId,
     });
 
-    const { accessToken, refreshToken } = await issueTokenPair(user);
+    const fresh = await userService.findUserById(user.id);
+    const { accessToken, refreshToken } = await issueTokenPair(fresh);
 
     logger.info('Google token login', { userId: user.id });
 
     return successResponse(res, 200, 'Google authentication successful.', {
       accessToken,
       refreshToken,
-      user: { id: user.id, email: user.email, name, avatarUrl, authProvider: 'google' },
+      user: { ...toPublicUser(fresh), authProvider: 'google' },
     });
   } catch (err) {
     if (err.message && err.message.includes('Token used too late')) {

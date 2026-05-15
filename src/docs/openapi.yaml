@@ -155,9 +155,14 @@ components:
 
     # ─── Typed success bodies (high-traffic / integration-critical) ─────────────
 
+    UserRole:
+      type: string
+      enum: [user, superadmin]
+      description: Always `user` from signup/API; set `superadmin` only in the database.
+
     UserPublic:
       type: object
-      required: [id, email, isVerified, createdAt]
+      required: [id, email, isVerified, createdAt, role]
       properties:
         id:
           type: string
@@ -171,23 +176,32 @@ components:
           type: string
           format: date-time
           description: ISO 8601 from `users.created_at`.
-
-    MeUser:
-      type: object
-      description: Current user; `googleAccessToken` when linked — treat as secret.
-      required: [id, email, isVerified]
-      properties:
-        id:
-          type: string
-          format: uuid
-        email:
-          type: string
-          format: email
-        isVerified:
-          type: boolean
-        googleAccessToken:
+        role:
+          $ref: '#/components/schemas/UserRole'
+        name:
           type: string
           nullable: true
+        profilePic:
+          type: string
+          nullable: true
+          description: URL or path to profile image.
+        address:
+          type: string
+          nullable: true
+        contact:
+          type: string
+          nullable: true
+          description: Phone or other contact string.
+
+    MeUser:
+      allOf:
+        - $ref: '#/components/schemas/UserPublic'
+        - type: object
+          properties:
+            googleAccessToken:
+              type: string
+              nullable: true
+              description: Present when Google is linked — treat as secret.
 
     MeResponse:
       type: object
@@ -254,7 +268,7 @@ components:
           type: string
           example: Email verified successfully.
         data:
-          $ref: '#/components/schemas/AuthTokenPairData'
+          $ref: '#/components/schemas/AuthLoginData'
 
     AuthRefreshResponse:
       type: object
@@ -290,24 +304,14 @@ components:
           $ref: '#/components/schemas/SignupResponseData'
 
     AuthGoogleUser:
-      type: object
-      required: [id, email, authProvider]
-      properties:
-        id:
-          type: string
-          format: uuid
-        email:
-          type: string
-          format: email
-        name:
-          type: string
-          nullable: true
-        avatarUrl:
-          type: string
-          nullable: true
-        authProvider:
-          type: string
-          enum: [google]
+      allOf:
+        - $ref: '#/components/schemas/UserPublic'
+        - type: object
+          required: [authProvider]
+          properties:
+            authProvider:
+              type: string
+              enum: [google]
 
     AuthGoogleLoginData:
       type: object
@@ -642,6 +646,21 @@ paths:
                   minLength: 8
                   description: |
                     Required rules: ≥8 characters, at least one uppercase, one lowercase, one digit, and one special character (non-alphanumeric).
+                name:
+                  type: string
+                  maxLength: 200
+                profile_pic:
+                  type: string
+                  maxLength: 2048
+                  description: URL or storage reference for profile image.
+                address:
+                  type: string
+                  maxLength: 500
+                contact:
+                  type: string
+                  maxLength: 120
+              description: |
+                Role is always `user` from signup (`superadmin` is database-only). Optional profile columns require migration `sql/user_profile_and_role.sql`.
       responses:
         '201':
           description: Created; check email for 6-digit OTP.
@@ -700,6 +719,16 @@ paths:
                 data:
                   accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.example
                   refreshToken: a1b2c3d4e5f678901234567890abcdef0123456789abcdef0123456789abcd
+                  user:
+                    id: 11111111-2222-3333-4444-555555555555
+                    email: hamzaansari6060@gmail.com
+                    isVerified: true
+                    createdAt: '2026-05-04T11:44:20.112293+00:00'
+                    role: user
+                    name: null
+                    profilePic: null
+                    address: null
+                    contact: null
         '404':
           description: User not found
           content:
@@ -757,6 +786,11 @@ paths:
                     email: hamzaansari6060@gmail.com
                     isVerified: true
                     createdAt: '2026-05-04T11:44:20.112293+00:00'
+                    role: user
+                    name: null
+                    profilePic: null
+                    address: null
+                    contact: null
         '401':
           description: Invalid email or password
           content:
@@ -1077,8 +1111,13 @@ paths:
                   user:
                     id: 11111111-2222-3333-4444-555555555555
                     email: user@example.com
+                    isVerified: true
+                    createdAt: '2026-05-04T11:44:20.112293+00:00'
+                    role: user
                     name: Example User
-                    avatarUrl: https://lh3.googleusercontent.com/a/example
+                    profilePic: https://lh3.googleusercontent.com/a/example
+                    address: null
+                    contact: null
                     authProvider: google
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
@@ -1106,7 +1145,7 @@ paths:
     get:
       tags: [Me]
       summary: Current user (from access token)
-      description: Requires Bearer access token. Returns `data.user` from JWT payload.
+      description: Requires Bearer access token. Returns current profile from the database (not only JWT claims).
       responses:
         '200':
           description: User payload
@@ -1122,6 +1161,12 @@ paths:
                     id: 11111111-2222-3333-4444-555555555555
                     email: user@example.com
                     isVerified: true
+                    createdAt: '2026-05-04T11:44:20.112293+00:00'
+                    role: user
+                    name: null
+                    profilePic: null
+                    address: null
+                    contact: null
                     googleAccessToken: null
         '401':
           $ref: '#/components/responses/Unauthorized'

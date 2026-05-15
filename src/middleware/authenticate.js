@@ -1,6 +1,7 @@
 const { verifyAccessToken } = require('../utils/jwt');
 const userService = require('../services/userService');
 const googleAuthService = require('../services/googleAuthService');
+const { toPublicUser } = require('../utils/userPublic');
 const AppError = require('../utils/AppError');
 
 /**
@@ -24,11 +25,10 @@ async function authenticate(req, res, next) {
     if (!user) throw new AppError('User no longer exists.', 401);
     if (!user.is_verified) throw new AppError('Email not verified.', 403);
 
+    const publicUser = toPublicUser(user);
     req.user = {
-      id: user.id,
-      email: user.email,
-      isVerified: user.is_verified,
-      googleAccessToken: null, // default — populated below if linked
+      ...publicUser,
+      googleAccessToken: null,
     };
 
     // Silently attach Google access token if the user has linked their Google account.

@@ -13,6 +13,11 @@ CREATE TABLE IF NOT EXISTS users (
   email         TEXT        NOT NULL UNIQUE,
   password_hash TEXT        NOT NULL,
   is_verified   BOOLEAN     NOT NULL DEFAULT FALSE,
+  name          TEXT,
+  profile_pic   TEXT,
+  address       TEXT,
+  contact       TEXT,
+  role          TEXT        NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'superadmin')),
   created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

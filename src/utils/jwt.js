@@ -13,7 +13,8 @@ if (!ACCESS_SECRET || ACCESS_SECRET.length < 32) {
 // ─── Access Token ─────────────────────────────────────────────────────────────
 
 function generateAccessToken(user) {
-  return jwt.sign({ sub: user.id, email: user.email, type: 'access' }, ACCESS_SECRET, {
+  const role = user.role || 'user';
+  return jwt.sign({ sub: user.id, email: user.email, role, type: 'access' }, ACCESS_SECRET, {
     expiresIn: ACCESS_EXPIRES,
     algorithm: 'HS256',
   });

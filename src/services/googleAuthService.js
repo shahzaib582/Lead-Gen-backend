@@ -69,12 +69,17 @@ async function upsertGoogleAccount(userId, { email, name, avatarUrl, googleToken
 }
 
 async function createGoogleUser({ email, name, avatarUrl, googleTokens, googleId }) {
+  const safeName = name ? String(name).trim().slice(0, 200) : null;
+  const safePic = avatarUrl ? String(avatarUrl).trim().slice(0, 2048) : null;
+
   const { data: user, error: userError } = await supabase
     .from('users')
     .insert({
       email: email.toLowerCase().trim(),
       auth_provider: 'google',
       is_verified: true,
+      name: safeName || null,
+      profile_pic: safePic || null,
     })
     .select()
     .single();

@@ -6,12 +6,18 @@ const refreshTokenService = require('../services/refreshTokenService');
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
 const { successResponse } = require('../utils/response');
+const { toPublicUser } = require('../utils/userPublic');
 
 async function signup(req, res, next) {
   try {
-    const { email, password } = req.body;
+    const { email, password, name, profile_pic, address, contact } = req.body;
 
-    const user = await userService.createUser(email, password);
+    const user = await userService.createUser(email, password, {
+      name,
+      profile_pic,
+      address,
+      contact,
+    });
     const otp = await otpService.createOtp(user.id, user.email);
     await emailService.sendOtpEmail(user.email, otp);
 
@@ -39,11 +45,16 @@ async function verifyOtp(req, res, next) {
     await otpService.verifyOtp(user.id, otp);
     await userService.markUserVerified(user.id);
 
-    const { accessToken, refreshToken } = await issueTokenPair(user);
+    const freshUser = await userService.findUserById(user.id);
+    const { accessToken, refreshToken } = await issueTokenPair(freshUser);
 
     logger.info('User verified email', { userId: user.id });
 
-    return successResponse(res, 200, 'Email verified successfully.', { accessToken, refreshToken });
+    return successResponse(res, 200, 'Email verified successfully.', {
+      accessToken,
+      refreshToken,
+      user: toPublicUser(freshUser),
+    });
   } catch (err) {
     next(err);
   }
@@ -72,12 +83,7 @@ async function login(req, res, next) {
     return successResponse(res, 200, 'Login successful.', {
       accessToken,
       refreshToken,
-      user: {
-        id: user.id,
-        email: user.email,
-        isVerified: user.is_verified,
-        createdAt: user.created_at,
-      },
+      user: toPublicUser(user),
     });
   } catch (err) {
     next(err);
@@ -172,19 +178,15 @@ async function resetPassword(req, res, next) {
     }
     await refreshTokenService.revokeAllUserRefreshTokens(user.id);
 
-    const { accessToken, refreshToken } = await issueTokenPair(user);
+    const freshUser = await userService.findUserById(user.id);
+    const { accessToken, refreshToken } = await issueTokenPair(freshUser);
 
     logger.info('Password reset completed', { userId: user.id });
 
     return successResponse(res, 200, 'Password updated successfully.', {
       accessToken,
       refreshToken,
-      user: {
-        id: user.id,
-        email: user.email,
-        isVerified: true,
-        createdAt: user.created_at,
-      },
+      user: toPublicUser(freshUser),
     });
   } catch (err) {
     next(err);
