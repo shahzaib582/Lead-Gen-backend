@@ -1,20 +1,8 @@
-const { validationResult } = require('express-validator');
 const campaignMailerService = require('../services/campaignMailerService');
 const googleAuthService = require('../services/googleAuthService');
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
 const { successResponse } = require('../utils/response');
-
-function handleValidationErrors(req) {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    const messages = errors
-      .array()
-      .map((e) => e.msg)
-      .join(', ');
-    throw new AppError(messages, 422);
-  }
-}
 
 // ─── POST /campaigns/:id/leads/send-emails ────────────────────────────────────
 //
@@ -35,8 +23,6 @@ function handleValidationErrors(req) {
 
 async function sendEmails(req, res, next) {
   try {
-    handleValidationErrors(req);
-
     const campaignId = req.params.id;
     const userId = req.user.id;
     const campaignLeadId = req.body.campaign_lead_id || null;

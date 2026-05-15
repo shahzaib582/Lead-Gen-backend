@@ -1,27 +1,13 @@
-const { validationResult } = require('express-validator');
 const campaignLeadsService = require('../services/campaignLeadsService');
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
 const { successResponse, successResponsePaginated } = require('../utils/response');
-
-function handleValidationErrors(req) {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    const messages = errors
-      .array()
-      .map((e) => e.msg)
-      .join(', ');
-    throw new AppError(messages, 422);
-  }
-}
 
 // ─── POST /campaigns/:id/leads ────────────────────────────────────────────────
 // Add a single lead to a campaign.
 
 async function addLead(req, res, next) {
   try {
-    handleValidationErrors(req);
-
     const { lead_data_id, mail_template } = req.body;
     const campaignId = req.params.id;
     const userId = req.user.id;
@@ -44,8 +30,6 @@ async function addLead(req, res, next) {
 
 async function bulkAddLeads(req, res, next) {
   try {
-    handleValidationErrors(req);
-
     const { leads } = req.body;
     const campaignId = req.params.id;
     const userId = req.user.id;
@@ -75,8 +59,6 @@ async function bulkAddLeads(req, res, next) {
 
 async function listLeads(req, res, next) {
   try {
-    handleValidationErrors(req);
-
     const campaignId = req.params.id;
     const userId = req.user.id;
     const { status, page, limit } = req.query;
@@ -103,8 +85,6 @@ async function listLeads(req, res, next) {
 
 async function updateLead(req, res, next) {
   try {
-    handleValidationErrors(req);
-
     const { id: campaignId, leadId } = req.params;
     const userId = req.user.id;
 
@@ -135,8 +115,6 @@ async function updateLead(req, res, next) {
 
 async function removeLead(req, res, next) {
   try {
-    handleValidationErrors(req);
-
     const { id: campaignId, leadId } = req.params;
     const userId = req.user.id;
 
@@ -157,8 +135,6 @@ async function removeLead(req, res, next) {
 
 async function assignRandomLeads(req, res, next) {
   try {
-    handleValidationErrors(req);
-
     const campaignId = req.params.id;
     const userId = req.user.id;
 
@@ -189,8 +165,6 @@ async function assignRandomLeads(req, res, next) {
 
 async function assignFilteredLeads(req, res, next) {
   try {
-    handleValidationErrors(req);
-
     const campaignId = req.params.id;
     const userId = req.user.id;
     const { country, industry, limit } = req.body;

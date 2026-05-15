@@ -1,19 +1,6 @@
-const { validationResult } = require('express-validator');
 const mailTemplateService = require('../services/mailTemplateService');
-const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
 const { successResponse } = require('../utils/response');
-
-function handleValidationErrors(req) {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    const messages = errors
-      .array()
-      .map((e) => e.msg)
-      .join(', ');
-    throw new AppError(messages, 422);
-  }
-}
 
 // ─── POST /campaigns/:id/leads/generate-templates ────────────────────────────
 // Generates a personalised mail_template for every pending lead in the campaign
@@ -26,8 +13,6 @@ function handleValidationErrors(req) {
 
 async function generateTemplates(req, res, next) {
   try {
-    handleValidationErrors(req);
-
     const campaignId = req.params.id;
     const userId = req.user.id;
     const campaignLeadId = req.body.campaign_lead_id || null;

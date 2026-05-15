@@ -1,19 +1,7 @@
-const { validationResult } = require('express-validator');
 const leadsDataService = require('../services/leadsDataService');
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
 const { successResponse, successResponsePaginated } = require('../utils/response');
-
-function handleValidationErrors(req) {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    const messages = errors
-      .array()
-      .map((e) => e.msg)
-      .join(', ');
-    throw new AppError(messages, 422);
-  }
-}
 
 // ─── GET /leads ───────────────────────────────────────────────────────────────
 // List leads with optional filters, search, pagination and sorting.
@@ -25,8 +13,6 @@ function handleValidationErrors(req) {
 
 async function list(req, res, next) {
   try {
-    handleValidationErrors(req);
-
     const {
       search,
       emailStatus,
@@ -85,8 +71,6 @@ async function list(req, res, next) {
 
 async function getOne(req, res, next) {
   try {
-    handleValidationErrors(req);
-
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) throw new AppError('Invalid lead ID.', 400);
 

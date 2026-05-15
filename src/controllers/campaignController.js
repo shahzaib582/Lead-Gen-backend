@@ -1,4 +1,3 @@
-const { validationResult } = require('express-validator');
 const campaignService = require('../services/campaignService');
 const campaignLeadsService = require('../services/campaignLeadsService');
 const { enqueuePendingTemplateJobsForCampaign } = require('../services/campaignActivationService');
@@ -6,23 +5,10 @@ const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
 const { successResponse, successResponsePaginated } = require('../utils/response');
 
-function handleValidationErrors(req) {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    const messages = errors
-      .array()
-      .map((e) => e.msg)
-      .join(', ');
-    throw new AppError(messages, 422);
-  }
-}
-
 // ─── POST /campaigns ──────────────────────────────────────────────────────────
 
 async function create(req, res, next) {
   try {
-    handleValidationErrors(req);
-
     const {
       name,
       goal,
@@ -127,8 +113,6 @@ async function getOne(req, res, next) {
 
 async function update(req, res, next) {
   try {
-    handleValidationErrors(req);
-
     const allowed = [
       'name',
       'goal',

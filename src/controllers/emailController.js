@@ -1,28 +1,14 @@
-const { validationResult } = require('express-validator');
 const emailService = require('../services/emailService');
 const googleAuthService = require('../services/googleAuthService');
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
 const { successResponse } = require('../utils/response');
 
-function handleValidationErrors(req) {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    const messages = errors
-      .array()
-      .map((e) => e.msg)
-      .join(', ');
-    throw new AppError(messages, 422);
-  }
-}
-
 // ─── POST /emails/send ───────────────────────────────────────────────────────
 // Send a custom email via Gmail API using the user's Google OAuth access token.
 
 async function sendEmail(req, res, next) {
   try {
-    handleValidationErrors(req);
-
     const { to, subject, body, html } = req.body;
     const userId = req.user.id;
 
