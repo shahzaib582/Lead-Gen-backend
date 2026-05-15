@@ -1,7 +1,7 @@
 const { body } = require('express-validator');
 
 const signupValidation = [
-  body('email').isEmail().withMessage('Please provide a valid email address.').normalizeEmail(),
+  body('email').isEmail().withMessage('Please provide a valid email address.'),
   body('password')
     .isLength({ min: 8 })
     .withMessage('Password must be at least 8 characters.')
@@ -16,7 +16,7 @@ const signupValidation = [
 ];
 
 const verifyOtpValidation = [
-  body('userId').isUUID().withMessage('Invalid user ID.'),
+  body('email').isEmail().withMessage('Please provide a valid email address.'),
   body('otp')
     .isLength({ min: 6, max: 6 })
     .withMessage('OTP must be exactly 6 digits.')
@@ -25,11 +25,13 @@ const verifyOtpValidation = [
 ];
 
 const loginValidation = [
-  body('email').isEmail().withMessage('Please provide a valid email address.').normalizeEmail(),
+  body('email').isEmail().withMessage('Please provide a valid email address.'),
   body('password').notEmpty().withMessage('Password is required.'),
 ];
 
-const resendOtpValidation = [body('userId').isUUID().withMessage('Invalid user ID.')];
+const resendOtpValidation = [
+  body('email').isEmail().withMessage('Please provide a valid email address.'),
+];
 
 module.exports = {
   signupValidation,

@@ -21,7 +21,7 @@ async function signup(req, res, next) {
       res,
       201,
       'Account created. Check your email for your 6-digit verification code.',
-      { userId: user.id }
+      user
     );
   } catch (err) {
     next(err);
@@ -30,18 +30,18 @@ async function signup(req, res, next) {
 
 async function verifyOtp(req, res, next) {
   try {
-    const { userId, otp } = req.body;
+    const { email, otp } = req.body;
 
-    const user = await userService.findUserById(userId);
+    const user = await userService.findUserByEmail(email);
     if (!user) throw new AppError('User not found.', 404);
     if (user.is_verified) throw new AppError('Email is already verified.', 400);
 
-    await otpService.verifyOtp(userId, otp);
-    await userService.markUserVerified(userId);
+    await otpService.verifyOtp(user.id, otp);
+    await userService.markUserVerified(user.id);
 
     const { accessToken, refreshToken } = await issueTokenPair(user);
 
-    logger.info('User verified email', { userId });
+    logger.info('User verified email', { userId: user.id });
 
     return successResponse(res, 200, 'Email verified successfully.', { accessToken, refreshToken });
   } catch (err) {
@@ -133,16 +133,16 @@ async function logoutAll(req, res, next) {
 
 async function resendOtp(req, res, next) {
   try {
-    const { userId } = req.body;
+    const { email } = req.body;
 
-    const user = await userService.findUserById(userId);
+    const user = await userService.findUserByEmail(email);
     if (!user) throw new AppError('User not found.', 404);
     if (user.is_verified) throw new AppError('Email is already verified.', 400);
 
     const otp = await otpService.createOtp(user.id, user.email);
     await emailService.sendOtpEmail(user.email, otp);
 
-    logger.info('OTP resent', { userId });
+    logger.info('OTP resent', { userId: user.id });
 
     return successResponse(
       res,

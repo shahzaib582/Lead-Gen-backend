@@ -271,11 +271,11 @@ components:
 
     SignupResponseData:
       type: object
-      required: [userId]
+      required: [email]
       properties:
-        userId:
+        email:
           type: string
-          format: uuid
+          format: email
 
     SignupResponse:
       type: object
@@ -653,7 +653,7 @@ paths:
                 success: true
                 message: Account created. Check your email for your 6-digit verification code.
                 data:
-                  userId: 11111111-2222-3333-4444-555555555555
+                  email: hamzaansari6060@gmail.com
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
         '409':
@@ -676,11 +676,11 @@ paths:
           application/json:
             schema:
               type: object
-              required: [userId, otp]
+              required: [email, otp]
               properties:
-                userId:
+                email:
                   type: string
-                  format: uuid
+                  format: email
                 otp:
                   type: string
                   pattern: '^[0-9]{6}$'
@@ -785,11 +785,11 @@ paths:
           application/json:
             schema:
               type: object
-              required: [userId]
+              required: [email]
               properties:
-                userId:
+                email:
                   type: string
-                  format: uuid
+                  format: email
       responses:
         '200':
           description: OTP resent
