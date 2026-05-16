@@ -218,3 +218,29 @@ CREATE TRIGGER set_campaign_leads_updated_at
   BEFORE UPDATE ON campaign_leads
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
+
+-- ─── campaign_follow_ups (sequence / cadence per campaign) ────────────────
+
+CREATE TABLE IF NOT EXISTS campaign_follow_ups (
+  id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  campaign_id    UUID        NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+
+  name           TEXT        NOT NULL,
+  waiting_days   INT         NOT NULL CHECK (waiting_days >= 0 AND waiting_days <= 3650),
+
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_campaign_follow_ups_campaign_id ON campaign_follow_ups (campaign_id);
+
+COMMENT ON COLUMN campaign_follow_ups.waiting_days IS
+  'Days after the previous outreach (or campaign start) before this follow-up should run.';
+
+DROP TRIGGER IF EXISTS set_campaign_follow_ups_updated_at ON campaign_follow_ups;
+CREATE TRIGGER set_campaign_follow_ups_updated_at
+  BEFORE UPDATE ON campaign_follow_ups
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+-- Existing DBs without this table: run the CREATE TABLE + indexes + trigger block above for `campaign_follow_ups`.

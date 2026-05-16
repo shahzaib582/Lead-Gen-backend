@@ -24,6 +24,8 @@ tags:
     description: Campaign CRUD and listing (authenticated).
   - name: CampaignLeads
     description: Campaign leads — bulk/single add, templates, send, list, CRUD.
+  - name: CampaignFollowUps
+    description: Per-campaign follow-up cadence (name, waiting_days); CRUD under a campaign.
   - name: LeadsData
     description: Global leads pool search and fetch by id.
   - name: Me
@@ -409,6 +411,30 @@ components:
         sender_phone:
           type: string
           nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CampaignFollowUp:
+      type: object
+      description: Follow-up step for a campaign (stored snake_case).
+      properties:
+        id:
+          type: string
+          format: uuid
+        campaign_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        waiting_days:
+          type: integer
+          minimum: 0
+          maximum: 3650
+          description: Days after the previous touch before this follow-up runs.
         created_at:
           type: string
           format: date-time
@@ -1555,6 +1581,221 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /api/campaigns/{id}/follow-ups:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [CampaignFollowUps]
+      summary: List campaign follow-ups
+      responses:
+        '200':
+          description: Ordered by waiting_days then created_at
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    required: [followUps]
+                    properties:
+                      followUps:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/CampaignFollowUp'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Campaign not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+    post:
+      tags: [CampaignFollowUps]
+      summary: Create follow-up
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, waiting_days]
+              properties:
+                name:
+                  type: string
+                  maxLength: 200
+                waiting_days:
+                  type: integer
+                  minimum: 0
+                  maximum: 3650
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, message, data]
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    required: [followUp]
+                    properties:
+                      followUp:
+                        $ref: '#/components/schemas/CampaignFollowUp'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /api/campaigns/{id}/follow-ups/{followUpId}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: followUpId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [CampaignFollowUps]
+      summary: Get one follow-up
+      responses:
+        '200':
+          description: Follow-up row
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    required: [followUp]
+                    properties:
+                      followUp:
+                        $ref: '#/components/schemas/CampaignFollowUp'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Campaign or follow-up not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+    patch:
+      tags: [CampaignFollowUps]
+      summary: Update follow-up
+      description: Include at least one of `name`, `waiting_days`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              minProperties: 1
+              properties:
+                name:
+                  type: string
+                  maxLength: 200
+                waiting_days:
+                  type: integer
+                  minimum: 0
+                  maximum: 3650
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, message, data]
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    required: [followUp]
+                    properties:
+                      followUp:
+                        $ref: '#/components/schemas/CampaignFollowUp'
+        '400':
+          description: No fields to update
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Campaign or follow-up not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+    delete:
+      tags: [CampaignFollowUps]
+      summary: Delete follow-up
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Campaign or follow-up not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
 
