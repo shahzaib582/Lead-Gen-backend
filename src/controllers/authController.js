@@ -19,7 +19,7 @@ async function signup(req, res, next) {
       contact,
     });
     const otp = await otpService.createOtp(user.id, user.email);
-    await emailService.sendOtpEmail(user.email, otp);
+    emailService.sendOtpEmail(user.email, otp);
 
     logger.info('User signed up', { userId: user.id, email: user.email });
 
@@ -153,7 +153,7 @@ async function forgotPassword(req, res, next) {
       user.email,
       otpService.OTP_PURPOSE_PASSWORD_RESET
     );
-    await emailService.sendPasswordResetOtpEmail(user.email, otp);
+    emailService.sendPasswordResetOtpEmail(user.email, otp);
 
     logger.info('Password reset OTP issued', { userId: user.id });
     return successResponse(res, 200, generic, undefined);
@@ -202,7 +202,7 @@ async function resendOtp(req, res, next) {
     if (user.is_verified) throw new AppError('Email is already verified.', 400);
 
     const otp = await otpService.createOtp(user.id, user.email);
-    await emailService.sendOtpEmail(user.email, otp);
+    emailService.sendOtpEmail(user.email, otp);
 
     logger.info('OTP resent', { userId: user.id });
 
