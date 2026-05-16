@@ -18,7 +18,6 @@ const refreshLimiter = createLimiter(30, 'Too many refresh requests.');
 const googleLimiter = createLimiter(30, 'Too many Google auth requests. Please try again later.');
 const campaignLimiter = createLimiter(100, 'Too many campaign requests. Please try again later.');
 const leadsLimiter = createLimiter(200, 'Too many requests. Please try again later.');
-const emailLimiter = createLimiter(50, 'Too many email requests. Please try again later.');
 
 module.exports = {
   globalLimiter,
@@ -28,5 +27,4 @@ module.exports = {
   googleLimiter,
   campaignLimiter,
   leadsLimiter,
-  emailLimiter,
 };

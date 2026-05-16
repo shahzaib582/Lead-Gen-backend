@@ -5,8 +5,6 @@ const {
   listLeadsValidation,
   updateLeadValidation,
   removeLeadValidation,
-  assignRandomValidation,
-  assignFilteredLeadsValidation,
   generateTemplatesValidation,
   sendEmailsValidation,
 } = require('../validation/campaignLeadsRoutesValidation');
@@ -24,18 +22,6 @@ router.use(leadsLimiter);
 
 router.post('/', addLeadValidation, validateRequest, campaignLeadsController.addLead);
 router.post('/bulk', bulkAddValidation, validateRequest, campaignLeadsController.bulkAddLeads);
-router.post(
-  '/assign-random',
-  assignRandomValidation,
-  validateRequest,
-  campaignLeadsController.assignRandomLeads
-);
-router.post(
-  '/assign-filtered',
-  assignFilteredLeadsValidation,
-  validateRequest,
-  campaignLeadsController.assignFilteredLeads
-);
 router.post(
   '/generate-templates',
   generateTemplatesValidation,

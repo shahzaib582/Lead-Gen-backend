@@ -218,9 +218,3 @@ CREATE TRIGGER set_campaign_leads_updated_at
   BEFORE UPDATE ON campaign_leads
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
-
--- Existing DBs: add tone column + check (run once)
--- ALTER TABLE public.campaigns ADD COLUMN IF NOT EXISTS target_tone TEXT NOT NULL DEFAULT 'Professional';
--- ALTER TABLE public.campaigns DROP CONSTRAINT IF EXISTS campaigns_target_tone_check;
--- ALTER TABLE public.campaigns ADD CONSTRAINT campaigns_target_tone_check
---   CHECK (target_tone IN ('Friendly', 'Professional', 'Direct', 'Consultative'));

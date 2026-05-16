@@ -80,31 +80,6 @@ const updateLeadValidation = [
 
 const removeLeadValidation = [campaignIdParam, leadIdParam];
 
-const assignRandomValidation = [campaignIdParam];
-
-const assignFilteredLeadsValidation = [
-  campaignIdParam,
-  body('country')
-    .optional({ nullable: true })
-    .isString()
-    .withMessage('country must be a string.')
-    .trim()
-    .isLength({ max: 100 })
-    .withMessage('country must be under 100 characters.'),
-  body('industry')
-    .optional({ nullable: true })
-    .isString()
-    .withMessage('industry must be a string.')
-    .trim()
-    .isLength({ max: 100 })
-    .withMessage('industry must be under 100 characters.'),
-  body('limit')
-    .optional({ nullable: true })
-    .isInt({ min: 1, max: 500 })
-    .withMessage('limit must be between 1 and 500.')
-    .toInt(),
-];
-
 const generateTemplatesValidation = [
   campaignIdParam,
   body('campaign_lead_id')
@@ -133,8 +108,6 @@ module.exports = {
   listLeadsValidation,
   updateLeadValidation,
   removeLeadValidation,
-  assignRandomValidation,
-  assignFilteredLeadsValidation,
   generateTemplatesValidation,
   sendEmailsValidation,
 };

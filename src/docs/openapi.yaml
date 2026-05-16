@@ -23,9 +23,7 @@ tags:
   - name: Campaigns
     description: Campaign CRUD and listing (authenticated).
   - name: CampaignLeads
-    description: Leads attached to a campaign — assign, templates, send, CRUD.
-  - name: Emails
-    description: One-off send via user Gmail token.
+    description: Campaign leads — bulk/single add, templates, send, list, CRUD.
   - name: LeadsData
     description: Global leads pool search and fetch by id.
   - name: Me
@@ -420,7 +418,7 @@ components:
 
     AssignLeadsSummary:
       type: object
-      description: Shape from assign-random / assign-filtered; may also appear as `autoAssign` on campaign create when env opt-in is on.
+      description: Shape returned as `autoAssign` when `CAMPAIGN_ACTIVE_CREATE_AUTO_ASSIGN` is enabled on campaign create (random pool assignment).
       properties:
         inserted:
           type: array
@@ -1241,7 +1239,7 @@ paths:
       tags: [Campaigns]
       summary: Create campaign
       description: |
-        Optional `status` defaults to `draft`. When `CAMPAIGN_ACTIVE_CREATE_AUTO_ASSIGN` is `1` or `true` and you create with `status: active` and `target_leads > 0`, the server auto-assigns leads like random-assign.
+        Optional `status` defaults to `draft`. When `CAMPAIGN_ACTIVE_CREATE_AUTO_ASSIGN` is `1` or `true` and you create with `status: active` and `target_leads > 0`, the server randomly assigns up to `target_leads` from `leads_data` (respecting `lead_source`), skipping duplicates.
       requestBody:
         required: true
         content:
@@ -1679,93 +1677,6 @@ paths:
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
 
-  /api/campaigns/{id}/leads/assign-random:
-    post:
-      tags: [CampaignLeads]
-      summary: Assign random leads from pool
-      description: No request body. Uses campaign `target_leads` (and duplicate checks) server-side.
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      responses:
-        '201':
-          description: Assignment result
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessEnvelope'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '422':
-          $ref: '#/components/responses/UnprocessableEntity'
-
-  /api/campaigns/{id}/leads/assign-filtered:
-    post:
-      tags: [CampaignLeads]
-      summary: Assign leads filtered by country/industry
-      description: |
-        At least one of `country` or `industry` must be provided.
-        Results are further restricted by the campaign's `lead_source` (`new` / `old` / `both` via `leads_data.outreachStatus`), intersected with country/industry filters.
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              description: At least one of `country` or `industry` must be non-empty after trim (validated in service).
-              properties:
-                country:
-                  type: string
-                  maxLength: 100
-                  nullable: true
-                industry:
-                  type: string
-                  maxLength: 100
-                  nullable: true
-                limit:
-                  type: integer
-                  minimum: 1
-                  maximum: 500
-                  nullable: true
-      responses:
-        '201':
-          description: Assignment result
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessEnvelope'
-        '400':
-          description: Neither country nor industry provided, or invalid limit
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          description: No matching rows in `leads_data` for the filters
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '422':
-          $ref: '#/components/responses/UnprocessableEntity'
-
   /api/campaigns/{id}/leads/generate-templates:
     post:
       tags: [CampaignLeads]
@@ -1929,52 +1840,6 @@ paths:
       responses:
         '200':
           description: Removed
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessEnvelope'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '422':
-          $ref: '#/components/responses/UnprocessableEntity'
-
-  /api/emails/send:
-    post:
-      tags: [Emails]
-      summary: Send email via Gmail API (user Google token)
-      description: Requires Bearer access token. Uses the authenticated user's Google credentials unless you implement otherwise in the controller.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [to, subject, body]
-              properties:
-                to:
-                  oneOf:
-                    - type: string
-                      description: Single recipient; must contain `@`.
-                    - type: array
-                      minItems: 1
-                      items:
-                        type: string
-                        description: Each string must contain `@`.
-                subject:
-                  type: string
-                  maxLength: 200
-                body:
-                  type: string
-                  maxLength: 10000
-                html:
-                  type: string
-                  maxLength: 50000
-                  description: Optional HTML part; size capped server-side.
-      responses:
-        '200':
-          description: Sent
           content:
             application/json:
               schema:

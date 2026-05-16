@@ -128,78 +128,10 @@ async function removeLead(req, res, next) {
   }
 }
 
-// ─── POST /campaigns/:id/leads/assign-random ─────────────────────────────────
-// Reads target_leads from the campaign, picks that many random rows from
-// leads_data (skipping already-assigned ones), and inserts them into
-// campaign_leads.
-
-async function assignRandomLeads(req, res, next) {
-  try {
-    const campaignId = req.params.id;
-    const userId = req.user.id;
-
-    const result = await campaignLeadsService.assignRandomLeadsToCampaign(userId, campaignId);
-
-    logger.info('Random leads assigned to campaign', {
-      campaignId,
-      userId,
-      totalRequested: result.totalRequested,
-      totalAvailable: result.totalAvailable,
-      totalInserted: result.totalInserted,
-      totalDuplicates: result.totalDuplicates,
-    });
-
-    return successResponse(
-      res,
-      201,
-      `${result.totalInserted} lead(s) randomly assigned. ${result.totalDuplicates} duplicate(s) skipped.`,
-      result
-    );
-  } catch (err) {
-    next(err);
-  }
-}
-
-// ─── POST /campaigns/:id/leads/assign-filtered ────────────────────────────────
-// Picks leads filtered by country and/or industry and assigns them to a campaign.
-
-async function assignFilteredLeads(req, res, next) {
-  try {
-    const campaignId = req.params.id;
-    const userId = req.user.id;
-    const { country, industry, limit } = req.body;
-
-    const result = await campaignLeadsService.assignFilteredLeadsToCampaign(userId, campaignId, {
-      country,
-      industry,
-      limit,
-    });
-
-    logger.info('Filtered leads assigned to campaign', {
-      campaignId,
-      userId,
-      filters: result.filters,
-      totalInserted: result.totalInserted,
-      totalDuplicates: result.totalDuplicates,
-    });
-
-    return successResponse(
-      res,
-      201,
-      `${result.totalInserted} lead(s) assigned. ${result.totalDuplicates} duplicate(s) skipped.`,
-      result
-    );
-  } catch (err) {
-    next(err);
-  }
-}
-
 module.exports = {
   addLead,
   bulkAddLeads,
   listLeads,
   updateLead,
   removeLead,
-  assignRandomLeads,
-  assignFilteredLeads,
 };
