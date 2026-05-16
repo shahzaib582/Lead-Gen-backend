@@ -4,6 +4,7 @@ const { assertMailTemplateSamplesValid } = require('../utils/mailTemplateSamples
 const RUN_MODES = ['manual', 'scheduled', 'auto'];
 const STATUSES = ['draft', 'active', 'paused', 'completed'];
 const LEAD_SOURCES = ['new', 'old', 'both'];
+const TARGET_TONES = ['Friendly', 'Professional', 'Direct', 'Consultative'];
 
 const createValidation = [
   body('name')
@@ -37,6 +38,11 @@ const createValidation = [
   body('run_mode')
     .isIn(RUN_MODES)
     .withMessage(`Run mode must be one of: ${RUN_MODES.join(', ')}.`),
+
+  body('target_tone')
+    .optional()
+    .isIn(TARGET_TONES)
+    .withMessage(`target_tone must be one of: ${TARGET_TONES.join(', ')}.`),
 
   body('mail_training_instruction')
     .optional({ nullable: true })
@@ -126,6 +132,11 @@ const updateValidation = [
     .optional()
     .isIn(RUN_MODES)
     .withMessage(`Run mode must be one of: ${RUN_MODES.join(', ')}.`),
+
+  body('target_tone')
+    .optional()
+    .isIn(TARGET_TONES)
+    .withMessage(`target_tone must be one of: ${TARGET_TONES.join(', ')}.`),
 
   body('mail_training_instruction')
     .optional({ nullable: true })

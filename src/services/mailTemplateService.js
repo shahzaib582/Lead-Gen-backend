@@ -60,11 +60,12 @@ function buildPrompt({
   formattedSamples,
   campaignGoal,
   callToAction,
+  targetTone,
 }) {
   const sections = [];
 
   sections.push(
-    `## Campaign Context\nGoal: ${campaignGoal || 'Not specified'}\nCall to Action: ${callToAction || 'Not specified'}\n${mailTrainingInstruction ? `Instructions for tone and style:\n${mailTrainingInstruction}` : ''}`
+    `## Campaign Context\nGoal: ${campaignGoal || 'Not specified'}\nCall to Action: ${callToAction || 'Not specified'}\nTarget tone: ${targetTone || 'Professional'}\n${mailTrainingInstruction ? `Instructions for tone and style:\n${mailTrainingInstruction}` : ''}`
   );
 
   if (formattedSamples) {
@@ -126,7 +127,7 @@ function buildPrompt({
   }
 
   sections.push(
-    `## Your Task\nWrite a personalised, human-sounding cold email for this specific lead.\n\nRules:\n- Use ONLY the information provided above — do not invent facts.\n- Replace every placeholder in the template (e.g. {{firstName}}, {{company}}) with the real values.\n- Weave in 1–2 specific details from the LinkedIn profile or company intelligence to show genuine research.\n- Keep it concise (under 200 words for the body).\n- End with a clear, single call to action: "${callToAction || 'Reply to this email'}".\n- Output ONLY the final email text (subject line first, then body). No explanation, no markdown fencing.\n- Subject line format:  Subject: <your subject here>\n- Then a blank line, then the email body.`
+    `## Your Task\nWrite a personalised, human-sounding cold email for this specific lead.\n\nRules:\n- Match the **Target tone** (${targetTone || 'Professional'}) throughout subject and body.\n- Use ONLY the information provided above — do not invent facts.\n- Replace every placeholder in the template (e.g. {{firstName}}, {{company}}) with the real values.\n- Weave in 1–2 specific details from the LinkedIn profile or company intelligence to show genuine research.\n- Keep it concise (under 200 words for the body).\n- End with a clear, single call to action: "${callToAction || 'Reply to this email'}".\n- Output ONLY the final email text (subject line first, then body). No explanation, no markdown fencing.\n- Subject line format:  Subject: <your subject here>\n- Then a blank line, then the email body.`
   );
 
   return sections.join('\n\n');
@@ -143,6 +144,7 @@ async function generateEmailForLead({ lead, linkedin, web, campaign }) {
     formattedSamples,
     campaignGoal: campaign.goal,
     callToAction: campaign.call_to_action,
+    targetTone: campaign.target_tone,
   });
 
   const response = await openai.chat.completions.create({
@@ -160,7 +162,7 @@ async function generateMailTemplates(userId, campaignId, campaignLeadId = null) 
   // 1. Fetch campaign (with ownership check)
   const { data: campaign, error: campError } = await supabase
     .from('campaigns')
-    .select('id, goal, call_to_action, mail_training_instruction, mail_template_samples')
+    .select('id, goal, call_to_action, target_tone, mail_training_instruction, mail_template_samples')
     .eq('id', campaignId)
     .eq('user_id', userId)
     .single();

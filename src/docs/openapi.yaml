@@ -85,6 +85,10 @@ components:
     CampaignRunMode:
       type: string
       enum: [manual, scheduled, auto]
+    CampaignTargetTone:
+      type: string
+      enum: [Friendly, Professional, Direct, Consultative]
+      description: Voice for generated outreach emails; defaults to Professional when omitted on create.
     CampaignStatus:
       type: string
       enum: [draft, active, paused, completed]
@@ -378,6 +382,8 @@ components:
           type: string
         run_mode:
           $ref: '#/components/schemas/CampaignRunMode'
+        target_tone:
+          $ref: '#/components/schemas/CampaignTargetTone'
         mail_training_instruction:
           type: string
           nullable: true
@@ -1258,6 +1264,8 @@ paths:
                   maxLength: 200
                 run_mode:
                   $ref: '#/components/schemas/CampaignRunMode'
+                target_tone:
+                  $ref: '#/components/schemas/CampaignTargetTone'
                 mail_training_instruction:
                   type: string
                   nullable: true
@@ -1305,6 +1313,7 @@ paths:
                     target_zone: North America
                     call_to_action: Reply for a 15-min call
                     run_mode: manual
+                    target_tone: Professional
                     mail_training_instruction: null
                     mail_template_samples: []
                     target_leads: 50
@@ -1425,6 +1434,7 @@ paths:
                     target_zone: North America
                     call_to_action: Reply for a 15-min call
                     run_mode: manual
+                    target_tone: Professional
                     mail_training_instruction: null
                     mail_template_samples: []
                     target_leads: 50
@@ -1466,6 +1476,8 @@ paths:
                   maxLength: 200
                 run_mode:
                   $ref: '#/components/schemas/CampaignRunMode'
+                target_tone:
+                  $ref: '#/components/schemas/CampaignTargetTone'
                 mail_training_instruction:
                   type: string
                   nullable: true
@@ -1512,6 +1524,7 @@ paths:
                     target_zone: North America
                     call_to_action: Reply for a 15-min call
                     run_mode: manual
+                    target_tone: Professional
                     mail_training_instruction: null
                     mail_template_samples: []
                     target_leads: 50

@@ -15,6 +15,7 @@ async function create(req, res, next) {
       target_zone,
       call_to_action,
       run_mode,
+      target_tone,
       mail_training_instruction,
       mail_template_samples,
       target_leads,
@@ -32,6 +33,7 @@ async function create(req, res, next) {
       target_zone,
       call_to_action,
       run_mode,
+      target_tone: target_tone ?? 'Professional',
       mail_training_instruction: mail_training_instruction ?? null,
       mail_template_samples: mail_template_samples ?? [],
       target_leads: target_leads || 0,
@@ -119,6 +121,7 @@ async function update(req, res, next) {
       'target_zone',
       'call_to_action',
       'run_mode',
+      'target_tone',
       'mail_training_instruction',
       'mail_template_samples',
       'target_leads',
@@ -132,13 +135,13 @@ async function update(req, res, next) {
     // Only include fields the client actually sent
     const updates = {};
     for (const key of allowed) {
-    if (Object.prototype.hasOwnProperty.call(req.body, key)) {
-      let v = req.body[key];
-      if (key === 'mail_template_samples' && v === null) {
-        v = [];
+      if (Object.prototype.hasOwnProperty.call(req.body, key)) {
+        let v = req.body[key];
+        if (key === 'mail_template_samples' && v === null) {
+          v = [];
+        }
+        updates[key] = v;
       }
-      updates[key] = v;
-    }
     }
 
     if (Object.keys(updates).length === 0) {

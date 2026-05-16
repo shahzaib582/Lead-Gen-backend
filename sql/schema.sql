@@ -104,6 +104,8 @@ CREATE TABLE IF NOT EXISTS campaigns (
   goal               TEXT        NOT NULL,
   target_zone        TEXT        NOT NULL,
   call_to_action     TEXT        NOT NULL,
+  target_tone        TEXT        NOT NULL DEFAULT 'Professional'
+                       CHECK (target_tone IN ('Friendly', 'Professional', 'Direct', 'Consultative')),
   run_mode           TEXT        NOT NULL CHECK (run_mode IN ('manual', 'scheduled', 'auto')),
   mail_training_instruction TEXT,
   mail_template_samples    JSONB NOT NULL DEFAULT '[]'::jsonb,
@@ -133,6 +135,9 @@ COMMENT ON COLUMN campaigns.mail_training_instruction IS
 
 COMMENT ON COLUMN campaigns.mail_template_samples IS
   'JSON array of example emails for the model: [{ "subject"?, "body"?, "html"?, "text"? }, ...]. At least one content field per object.';
+
+COMMENT ON COLUMN campaigns.target_tone IS
+  'Outbound email tone: Friendly | Professional | Direct | Consultative.';
 
 DROP TRIGGER IF EXISTS set_campaigns_updated_at ON campaigns;
 CREATE TRIGGER set_campaigns_updated_at
@@ -213,3 +218,9 @@ CREATE TRIGGER set_campaign_leads_updated_at
   BEFORE UPDATE ON campaign_leads
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
+
+-- Existing DBs: add tone column + check (run once)
+-- ALTER TABLE public.campaigns ADD COLUMN IF NOT EXISTS target_tone TEXT NOT NULL DEFAULT 'Professional';
+-- ALTER TABLE public.campaigns DROP CONSTRAINT IF EXISTS campaigns_target_tone_check;
+-- ALTER TABLE public.campaigns ADD CONSTRAINT campaigns_target_tone_check
+--   CHECK (target_tone IN ('Friendly', 'Professional', 'Direct', 'Consultative'));
