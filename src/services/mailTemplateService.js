@@ -1,6 +1,7 @@
 const OpenAI = require('openai');
 const supabase = require('../config/supabase');
 const AppError = require('../utils/AppError');
+const { formatMailTemplateSamplesForPrompt } = require('../utils/mailTemplateSamples');
 const { parseLeadDataId } = require('../utils/leadDataId');
 const logger = require('../utils/logger');
 
@@ -55,20 +56,20 @@ function buildPrompt({
   lead,
   linkedin,
   web,
-  campaignTemplate,
+  mailTrainingInstruction,
+  formattedSamples,
   campaignGoal,
   callToAction,
-  exampleTraining,
 }) {
   const sections = [];
 
   sections.push(
-    `## Campaign Context\nGoal: ${campaignGoal || 'Not specified'}\nCall to Action: ${callToAction || 'Not specified'}\n${exampleTraining ? `Writing Style / Training Examples:\n${exampleTraining}` : ''}`
+    `## Campaign Context\nGoal: ${campaignGoal || 'Not specified'}\nCall to Action: ${callToAction || 'Not specified'}\n${mailTrainingInstruction ? `Instructions for tone and style:\n${mailTrainingInstruction}` : ''}`
   );
 
-  if (campaignTemplate) {
+  if (formattedSamples) {
     sections.push(
-      `## Email Template to Personalise\nUse this as the structural base — fill in every personalisation placeholder using the data below:\n\n${campaignTemplate}`
+      `## Reference email samples\nMatch tone, structure, and placeholder style from these examples. Personalise for the lead using only verified facts:\n\n${formattedSamples}`
     );
   }
 
@@ -132,14 +133,16 @@ function buildPrompt({
 }
 
 async function generateEmailForLead({ lead, linkedin, web, campaign }) {
+  const formattedSamples = formatMailTemplateSamplesForPrompt(campaign.mail_template_samples);
+
   const prompt = buildPrompt({
     lead,
     linkedin,
     web,
-    campaignTemplate: campaign.mail_template,
+    mailTrainingInstruction: campaign.mail_training_instruction,
+    formattedSamples,
     campaignGoal: campaign.goal,
     callToAction: campaign.call_to_action,
-    exampleTraining: campaign.example_training,
   });
 
   const response = await openai.chat.completions.create({
@@ -157,7 +160,7 @@ async function generateMailTemplates(userId, campaignId, campaignLeadId = null) 
   // 1. Fetch campaign (with ownership check)
   const { data: campaign, error: campError } = await supabase
     .from('campaigns')
-    .select('id, goal, call_to_action, mail_template, example_training')
+    .select('id, goal, call_to_action, mail_training_instruction, mail_template_samples')
     .eq('id', campaignId)
     .eq('user_id', userId)
     .single();

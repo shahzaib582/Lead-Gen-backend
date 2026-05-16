@@ -5,14 +5,14 @@ Use this in staging or local against a real Supabase project, Redis, and a test 
 ## Prerequisites
 
 1. **Env** (see `env.example`): `SUPABASE_*`, `JWT_*`, `REDIS_HOST` / `REDIS_PORT` or `REDIS_URL`, `OPENAI_API_KEY` (for templates), Google OAuth vars, optional `MAIL_DELAY_MIN_MS` / `MAIL_DELAY_MAX_MS`, optional `CAMPAIGN_ACTIVE_CREATE_AUTO_ASSIGN`.
-2. **DB**: ensure `campaigns` matches `sql/schema.sql` (`lead_source`, optional sender columns). For legacy DBs, add missing columns with ALTER to match that file.
+2. **DB**: ensure `campaigns` matches `sql/schema.sql` (`lead_source`, sender columns, `mail_training_instruction`, `mail_template_samples`). For legacy DBs, ALTER to match that file (see commented migration at the bottom of `sql/schema.sql`).
 3. **Processes**: API (`npm run dev` or `node src/index.js`), **mail-template** worker, **campaign-mail** worker (BullMQ). On Render: web + both workers + Redis per `render.yaml`.
 
 ## Ordered steps
 
 1. **Auth** — Register/login, verify email if required; obtain Bearer access token.
 2. **Link Google** — Complete `GET /api/auth/google` flow so `google_accounts` has a row for the user.
-3. **Create campaign** — `POST /api/campaigns` with required fields; default `draft`. Optionally set `sender_display_name`, `sender_address`, `sender_phone` and confirm they persist on `GET /api/campaigns/:id`.
+3. **Create campaign** — `POST /api/campaigns` with required fields; default `draft`. Optionally set `mail_training_instruction`, `mail_template_samples` (array of `{ subject?, body?, html?, text? }`), `sender_display_name`, `sender_address`, `sender_phone` and confirm they persist on `GET /api/campaigns/:id`.
 4. **Assign leads** — `POST /api/campaigns/:id/leads/assign-random` or `assign-filtered` (confirm assign-filtered respects campaign `lead_source` with `new` / `old` / `both`).
 5. **Activate** — `PATCH /api/campaigns/:id` with `{ "status": "active" }`. Confirm API logs / DB: pending leads with empty `mail_template` get template jobs (BullMQ / worker logs).
 6. **Optional auto-assign on create** — With `CAMPAIGN_ACTIVE_CREATE_AUTO_ASSIGN=1`, create a campaign with `status: active` and `target_leads > 0`; confirm `data.autoAssign` (or assigned rows) without a separate assign call.

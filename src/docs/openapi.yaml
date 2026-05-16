@@ -91,6 +91,27 @@ components:
     LeadSource:
       type: string
       enum: [new, old, both]
+    MailTemplateSample:
+      type: object
+      description: >
+        One reference email for generation (tone, structure, placeholders). At least one of subject, body, html, or text should be non-empty.
+      properties:
+        subject:
+          type: string
+          maxLength: 500
+          nullable: true
+        body:
+          type: string
+          maxLength: 50000
+          nullable: true
+        html:
+          type: string
+          maxLength: 50000
+          nullable: true
+        text:
+          type: string
+          maxLength: 50000
+          nullable: true
     CampaignLeadStatus:
       type: string
       enum: [pending, template_generated, sent, failed, skipped]
@@ -357,12 +378,16 @@ components:
           type: string
         run_mode:
           $ref: '#/components/schemas/CampaignRunMode'
-        mail_template:
+        mail_training_instruction:
           type: string
           nullable: true
-        example_training:
-          type: string
-          nullable: true
+          description: Optional instructions for tone, voice, and constraints when generating emails.
+        mail_template_samples:
+          type: array
+          maxItems: 30
+          items:
+            $ref: '#/components/schemas/MailTemplateSample'
+          description: Example emails (subject/body/html/text) the model should emulate.
         target_leads:
           type: integer
         lead_source:
@@ -1233,12 +1258,14 @@ paths:
                   maxLength: 200
                 run_mode:
                   $ref: '#/components/schemas/CampaignRunMode'
-                mail_template:
+                mail_training_instruction:
                   type: string
                   nullable: true
-                example_training:
-                  type: string
-                  nullable: true
+                mail_template_samples:
+                  type: array
+                  maxItems: 30
+                  items:
+                    $ref: '#/components/schemas/MailTemplateSample'
                 target_leads:
                   type: integer
                   minimum: 0
@@ -1278,8 +1305,8 @@ paths:
                     target_zone: North America
                     call_to_action: Reply for a 15-min call
                     run_mode: manual
-                    mail_template: null
-                    example_training: null
+                    mail_training_instruction: null
+                    mail_template_samples: []
                     target_leads: 50
                     lead_source: both
                     status: draft
@@ -1398,8 +1425,8 @@ paths:
                     target_zone: North America
                     call_to_action: Reply for a 15-min call
                     run_mode: manual
-                    mail_template: null
-                    example_training: null
+                    mail_training_instruction: null
+                    mail_template_samples: []
                     target_leads: 50
                     lead_source: both
                     status: draft
@@ -1439,12 +1466,14 @@ paths:
                   maxLength: 200
                 run_mode:
                   $ref: '#/components/schemas/CampaignRunMode'
-                mail_template:
+                mail_training_instruction:
                   type: string
                   nullable: true
-                example_training:
-                  type: string
-                  nullable: true
+                mail_template_samples:
+                  type: array
+                  maxItems: 30
+                  items:
+                    $ref: '#/components/schemas/MailTemplateSample'
                 target_leads:
                   type: integer
                   minimum: 0
@@ -1483,8 +1512,8 @@ paths:
                     target_zone: North America
                     call_to_action: Reply for a 15-min call
                     run_mode: manual
-                    mail_template: null
-                    example_training: null
+                    mail_training_instruction: null
+                    mail_template_samples: []
                     target_leads: 50
                     lead_source: both
                     status: active

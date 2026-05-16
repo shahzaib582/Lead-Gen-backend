@@ -5,7 +5,7 @@ const { successResponse } = require('../utils/response');
 // ─── POST /campaigns/:id/leads/generate-templates ────────────────────────────
 // Generates a personalised mail_template for every pending lead in the campaign
 // by combining leads_data + linkedinscrapping + webscrapping + the campaign's
-// own mail_template/example_training via Claude AI, then saves the result back
+// mail_training_instruction / mail_template_samples via OpenAI, then saves the result back
 // to campaign_leads.mail_template.
 //
 // Optional body param:

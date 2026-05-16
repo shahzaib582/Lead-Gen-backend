@@ -105,8 +105,8 @@ CREATE TABLE IF NOT EXISTS campaigns (
   target_zone        TEXT        NOT NULL,
   call_to_action     TEXT        NOT NULL,
   run_mode           TEXT        NOT NULL CHECK (run_mode IN ('manual', 'scheduled', 'auto')),
-  mail_template      TEXT,
-  example_training   TEXT,
+  mail_training_instruction TEXT,
+  mail_template_samples    JSONB NOT NULL DEFAULT '[]'::jsonb,
   target_leads       INT         NOT NULL DEFAULT 0,
 
   lead_source        TEXT        DEFAULT 'both'
@@ -127,6 +127,12 @@ CREATE INDEX IF NOT EXISTS idx_campaigns_status ON campaigns (status);
 
 COMMENT ON COLUMN campaigns.sender_display_name IS
   'Optional display name paired with Google account email for From header.';
+
+COMMENT ON COLUMN campaigns.mail_training_instruction IS
+  'Optional natural-language instructions for tone, voice, and constraints when generating per-lead emails.';
+
+COMMENT ON COLUMN campaigns.mail_template_samples IS
+  'JSON array of example emails for the model: [{ "subject"?, "body"?, "html"?, "text"? }, ...]. At least one content field per object.';
 
 DROP TRIGGER IF EXISTS set_campaigns_updated_at ON campaigns;
 CREATE TRIGGER set_campaigns_updated_at

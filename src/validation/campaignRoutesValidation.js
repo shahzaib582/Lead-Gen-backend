@@ -1,4 +1,5 @@
 const { body, param, query } = require('express-validator');
+const { assertMailTemplateSamplesValid } = require('../utils/mailTemplateSamples');
 
 const RUN_MODES = ['manual', 'scheduled', 'auto'];
 const STATUSES = ['draft', 'active', 'paused', 'completed'];
@@ -37,15 +38,19 @@ const createValidation = [
     .isIn(RUN_MODES)
     .withMessage(`Run mode must be one of: ${RUN_MODES.join(', ')}.`),
 
-  body('mail_template')
+  body('mail_training_instruction')
     .optional({ nullable: true })
     .isString()
-    .withMessage('Mail template must be a string.'),
+    .withMessage('Mail training instruction must be a string.')
+    .isLength({ max: 50_000 })
+    .withMessage('Mail training instruction must be under 50,000 characters.'),
 
-  body('example_training')
+  body('mail_template_samples')
     .optional({ nullable: true })
-    .isString()
-    .withMessage('Example training must be a string.'),
+    .custom((value) => {
+      assertMailTemplateSamplesValid(value);
+      return true;
+    }),
 
   body('target_leads')
     .optional()
@@ -122,15 +127,19 @@ const updateValidation = [
     .isIn(RUN_MODES)
     .withMessage(`Run mode must be one of: ${RUN_MODES.join(', ')}.`),
 
-  body('mail_template')
+  body('mail_training_instruction')
     .optional({ nullable: true })
     .isString()
-    .withMessage('Mail template must be a string.'),
+    .withMessage('Mail training instruction must be a string.')
+    .isLength({ max: 50_000 })
+    .withMessage('Mail training instruction must be under 50,000 characters.'),
 
-  body('example_training')
+  body('mail_template_samples')
     .optional({ nullable: true })
-    .isString()
-    .withMessage('Example training must be a string.'),
+    .custom((value) => {
+      assertMailTemplateSamplesValid(value);
+      return true;
+    }),
 
   body('target_leads')
     .optional()
