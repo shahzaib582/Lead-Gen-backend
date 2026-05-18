@@ -40,7 +40,11 @@ async function signup(req, res, next) {
       address,
       contact,
     });
-    const otp = await otpService.createOtp(user.id, user.email);
+    const otp = await otpService.createOtp(
+      user.id,
+      user.email,
+      otpService.OTP_PURPOSE_EMAIL_VERIFY
+    );
     sendOtpEmailInBackground(user.email, otp);
 
     logger.info('User signed up', { userId: user.id, email: user.email });
@@ -96,7 +100,11 @@ async function login(req, res, next) {
     if (!user || !passwordMatch) throw new AppError(INVALID_MSG, 401);
 
     if (!user.is_verified) {
-      const otp = await otpService.createOtp(user.id, user.email);
+      const otp = await otpService.createOtp(
+        user.id,
+        user.email,
+        otpService.OTP_PURPOSE_EMAIL_VERIFY
+      );
       sendOtpEmailInBackground(user.email, otp);
       logger.info('Login blocked — unverified; verification OTP sent', { userId: user.id });
       throw new AppError(
@@ -167,6 +175,7 @@ async function logoutAll(req, res, next) {
   }
 }
 
+// Password reset OTP only — resend by calling this again; purpose is server-side, not in request body.
 async function forgotPassword(req, res, next) {
   try {
     const { email } = req.body;
@@ -223,6 +232,7 @@ async function resetPassword(req, res, next) {
   }
 }
 
+// Email verification only — password reset resend uses POST /auth/forgot-password (no purpose in body).
 async function resendOtp(req, res, next) {
   try {
     const { email } = req.body;
@@ -231,7 +241,11 @@ async function resendOtp(req, res, next) {
     if (!user) throw new AppError('User not found.', 404);
     if (user.is_verified) throw new AppError('Email is already verified.', 400);
 
-    const otp = await otpService.createOtp(user.id, user.email);
+    const otp = await otpService.createOtp(
+      user.id,
+      user.email,
+      otpService.OTP_PURPOSE_EMAIL_VERIFY
+    );
     sendOtpEmailInBackground(user.email, otp);
 
     logger.info('OTP resent', { userId: user.id });

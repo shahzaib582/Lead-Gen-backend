@@ -873,7 +873,7 @@ paths:
   /api/auth/resend-otp:
     post:
       tags: [Auth]
-      summary: Resend verification OTP
+      summary: Resend email-verification OTP
       security: []
       requestBody:
         required: true
