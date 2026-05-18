@@ -1,6 +1,5 @@
 const express = require('express');
 const {
-  addLeadValidation,
   bulkAddValidation,
   listLeadsValidation,
   updateLeadValidation,
@@ -20,7 +19,6 @@ const router = express.Router({ mergeParams: true });
 router.use(authenticate);
 router.use(leadsLimiter);
 
-router.post('/', addLeadValidation, validateRequest, campaignLeadsController.addLead);
 router.post('/bulk', bulkAddValidation, validateRequest, campaignLeadsController.bulkAddLeads);
 router.post(
   '/generate-templates',

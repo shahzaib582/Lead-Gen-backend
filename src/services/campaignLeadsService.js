@@ -8,6 +8,9 @@ const { applyLeadSourceFilter, shuffleInPlace } = require('./leadPoolQuery');
 
 const VALID_STATUSES = ['pending', 'template_generated', 'sent', 'failed', 'skipped'];
 
+/** Campaign must be out of draft before leads can be assigned (bulk / auto-assign). */
+const LEAD_ADD_CAMPAIGN_STATUSES = ['active', 'paused', 'completed'];
+
 function uniqueExcludedLeadDataIds(rows) {
   const ids = (rows || []).map((r) => parseLeadDataId(r.lead_data_id)).filter((v) => v != null);
   return [...new Set(ids)];
@@ -32,54 +35,13 @@ async function assertCampaignOwnership(userId, campaignId) {
   return data;
 }
 
-// ─────────────────────────────────────────────────────────────
-// Add Single Lead
-// ─────────────────────────────────────────────────────────────
-
-async function addLeadToCampaign(userId, campaignId, { lead_data_id, mail_template }) {
-  const campaign = await assertCampaignOwnership(userId, campaignId);
-
-  // ------------------------------------
-  // Insert lead
-  // ------------------------------------
-
-  const { data, error } = await supabase
-    .from('campaign_leads')
-    .insert({
-      user_id: userId,
-
-      campaign_id: campaignId,
-
-      lead_data_id: String(lead_data_id),
-
-      mail_template: mail_template || null,
-
-      status: 'pending',
-    })
-    .select()
-    .single();
-
-  if (error) {
-    if (error.code === '23505') {
-      throw new AppError('This lead is already added to the campaign.', 409);
-    }
-
-    throw new AppError(`Failed to add lead to campaign: ${error.message}`, 500);
+function assertCampaignAllowsLeadAdd(campaign) {
+  if (!LEAD_ADD_CAMPAIGN_STATUSES.includes(campaign.status)) {
+    throw new AppError(
+      `Cannot add leads while campaign status is "${campaign.status}".`,
+      400
+    );
   }
-
-  // ------------------------------------
-  // Queue template generation
-  // ------------------------------------
-
-  if (campaign.status === 'active') {
-    await enqueueMailTemplateJob({
-      userId,
-      campaignId,
-      campaignLeadId: data.id,
-    });
-  }
-
-  return data;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -88,6 +50,7 @@ async function addLeadToCampaign(userId, campaignId, { lead_data_id, mail_templa
 
 async function bulkAddLeadsToCampaign(userId, campaignId, leads) {
   const campaign = await assertCampaignOwnership(userId, campaignId);
+  assertCampaignAllowsLeadAdd(campaign);
 
   const rows = leads.map((l) => ({
     user_id: userId,
@@ -277,6 +240,7 @@ async function removeCampaignLead(userId, campaignId, leadId) {
 
 async function assignRandomLeadsToCampaign(userId, campaignId) {
   const campaign = await assertCampaignOwnership(userId, campaignId);
+  assertCampaignAllowsLeadAdd(campaign);
 
   const targetCount = campaign.target_leads;
 
@@ -374,8 +338,6 @@ async function assignRandomLeadsToCampaign(userId, campaignId) {
 
 module.exports = {
   VALID_STATUSES,
-
-  addLeadToCampaign,
 
   bulkAddLeadsToCampaign,
 

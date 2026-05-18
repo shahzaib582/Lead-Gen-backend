@@ -3,28 +3,6 @@ const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
 const { successResponse, successResponsePaginated } = require('../utils/response');
 
-// ─── POST /campaigns/:id/leads ────────────────────────────────────────────────
-// Add a single lead to a campaign.
-
-async function addLead(req, res, next) {
-  try {
-    const { lead_data_id, mail_template } = req.body;
-    const campaignId = req.params.id;
-    const userId = req.user.id;
-
-    const lead = await campaignLeadsService.addLeadToCampaign(userId, campaignId, {
-      lead_data_id,
-      mail_template,
-    });
-
-    logger.info('Lead added to campaign', { campaignId, lead_data_id, userId });
-
-    return successResponse(res, 201, 'Lead added to campaign.', { lead });
-  } catch (err) {
-    next(err);
-  }
-}
-
 // ─── POST /campaigns/:id/leads/bulk ──────────────────────────────────────────
 // Bulk-add leads to a campaign. Silently skips duplicates and reports them.
 
@@ -129,7 +107,6 @@ async function removeLead(req, res, next) {
 }
 
 module.exports = {
-  addLead,
   bulkAddLeads,
   listLeads,
   updateLead,

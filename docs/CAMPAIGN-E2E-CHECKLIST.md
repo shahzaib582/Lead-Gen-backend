@@ -13,7 +13,7 @@ Use this in staging or local against a real Supabase project, Redis, and a test 
 1. **Auth** — Register/login, verify email if required; obtain Bearer access token.
 2. **Link Google** — Complete `GET /api/auth/google` flow so `google_accounts` has a row for the user.
 3. **Create campaign** — `POST /api/campaigns` with required fields; default `draft`. Optionally set `mail_training_instruction`, `mail_template_samples` (array of `{ subject?, body?, html?, text? }`), `sender_display_name`, `sender_address`, `sender_phone` and confirm they persist on `GET /api/campaigns/:id`.
-4. **Assign leads** — `POST /api/campaigns/:id/leads/bulk` (or single `POST .../leads`), or enable `CAMPAIGN_ACTIVE_CREATE_AUTO_ASSIGN` on create with `status: active` and `target_leads > 0` for server-side random assignment from the pool.
+4. **Assign leads** — After campaign is `active`, `paused`, or `completed` (not `draft`), `POST /api/campaigns/:id/leads/bulk` with `{ "leads": [{ "lead_data_id": "..." }] }`. Or enable `CAMPAIGN_ACTIVE_CREATE_AUTO_ASSIGN` on create with `status: active` and `target_leads > 0`.
 5. **Activate** — `PATCH /api/campaigns/:id` with `{ "status": "active" }`. Confirm API logs / DB: pending leads with empty `mail_template` get template jobs (BullMQ / worker logs).
 6. **Optional auto-assign on create** — With `CAMPAIGN_ACTIVE_CREATE_AUTO_ASSIGN=1`, create a campaign with `status: active` and `target_leads > 0`; confirm `data.autoAssign` (or assigned rows) without a separate assign call.
 7. **Templates** — Wait for template worker; `campaign_leads.status` moves to `template_generated` where appropriate.

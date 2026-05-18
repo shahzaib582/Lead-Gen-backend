@@ -23,7 +23,7 @@ tags:
   - name: Campaigns
     description: Campaign CRUD and listing (authenticated).
   - name: CampaignLeads
-    description: Campaign leads — bulk/single add, templates, send, list, CRUD.
+    description: Campaign leads — bulk add (not in draft), templates, send, list, CRUD.
   - name: CampaignFollowUps
     description: Per-campaign follow-up cadence (name, waiting_days); CRUD under a campaign.
   - name: LeadsData
@@ -1839,42 +1839,14 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
-    post:
-      tags: [CampaignLeads]
-      summary: Add one lead to campaign
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [lead_data_id]
-              properties:
-                lead_data_id:
-                  type: string
-                  description: Identifier from `leads_data` (string; not necessarily UUID).
-                mail_template:
-                  type: string
-                  nullable: true
-                  maxLength: 50000
-      responses:
-        '201':
-          description: Lead added
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessEnvelope'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '422':
-          $ref: '#/components/responses/UnprocessableEntity'
 
   /api/campaigns/{id}/leads/bulk:
     post:
       tags: [CampaignLeads]
       summary: Bulk add leads
+      description: |
+        Allowed only when campaign `status` is `active`, `paused`, or `completed` (not `draft`).
+        Use a single-item `leads` array to add one lead.
       parameters:
         - name: id
           in: path
@@ -1915,6 +1887,12 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '400':
+          description: Campaign is still `draft` (leads cannot be added)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
 

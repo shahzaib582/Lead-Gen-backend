@@ -6,21 +6,6 @@ const campaignIdParam = param('id').isUUID().withMessage('Invalid campaign ID.')
 
 const leadIdParam = param('leadId').isUUID().withMessage('Invalid campaign lead ID.');
 
-const addLeadValidation = [
-  campaignIdParam,
-  body('lead_data_id')
-    .notEmpty()
-    .withMessage('lead_data_id is required.')
-    .isString()
-    .withMessage('lead_data_id must be a string.'),
-  body('mail_template')
-    .optional({ nullable: true })
-    .isString()
-    .withMessage('mail_template must be a string.')
-    .isLength({ max: 50000 })
-    .withMessage('mail_template must be under 50,000 characters.'),
-];
-
 const bulkAddValidation = [
   campaignIdParam,
   body('leads')
@@ -103,7 +88,6 @@ const sendEmailsValidation = [
 module.exports = {
   campaignIdParam,
   leadIdParam,
-  addLeadValidation,
   bulkAddValidation,
   listLeadsValidation,
   updateLeadValidation,
