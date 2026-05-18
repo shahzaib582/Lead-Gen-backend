@@ -21,6 +21,11 @@ function getTransporter() {
     host: process.env.SMTP_HOST.trim(),
     port: Number(process.env.SMTP_PORT) || 587,
     secure: process.env.SMTP_SECURE === 'true',
+    // Render/cloud: prefer IPv4 — outbound IPv6 to Gmail often fails (ENETUNREACH).
+    family: 4,
+    connectionTimeout: 20_000,
+    greetingTimeout: 20_000,
+    socketTimeout: 30_000,
     auth: {
       user: process.env.SMTP_USER.trim(),
       pass: process.env.SMTP_PASS,
