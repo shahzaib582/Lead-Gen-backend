@@ -805,6 +805,9 @@ paths:
     post:
       tags: [Auth]
       summary: Login with email and password
+      description: |
+        If the account exists and the password is correct but email is not verified, returns **403**
+        with `code: EMAIL_NOT_VERIFIED` and sends a fresh verification OTP to the email (same as resend-otp).
       security: []
       requestBody:
         required: true
@@ -853,11 +856,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '403':
-          description: Email not verified yet
+          description: Email not verified — a new OTP was sent (see `code` EMAIL_NOT_VERIFIED)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: Email not verified. A new verification code has been sent to your email.
+                code: EMAIL_NOT_VERIFIED
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
         '429':

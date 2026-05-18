@@ -4,20 +4,41 @@ const logger = require('../utils/logger');
 
 let transporter;
 
+function assertSmtpEnv() {
+  const missing = ['SMTP_HOST', 'SMTP_USER', 'SMTP_PASS', 'EMAIL_FROM'].filter(
+    (k) => !process.env[k] || String(process.env[k]).trim() === ''
+  );
+  if (missing.length) {
+    throw new Error(`SMTP not configured (missing: ${missing.join(', ')})`);
+  }
+}
+
 function getTransporter() {
+  assertSmtpEnv();
   if (transporter) return transporter;
 
   transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
+    host: process.env.SMTP_HOST.trim(),
     port: Number(process.env.SMTP_PORT) || 587,
     secure: process.env.SMTP_SECURE === 'true',
     auth: {
-      user: process.env.SMTP_USER,
+      user: process.env.SMTP_USER.trim(),
       pass: process.env.SMTP_PASS,
     },
   });
 
   return transporter;
+}
+
+/** Call once at startup to surface bad SMTP credentials in logs (non-fatal). */
+async function verifySmtpConnection() {
+  const transport = getTransporter();
+  await transport.verify();
+  logger.info('SMTP connection verified', {
+    host: process.env.SMTP_HOST,
+    port: Number(process.env.SMTP_PORT) || 587,
+    user: process.env.SMTP_USER,
+  });
 }
 
 /**
@@ -77,16 +98,28 @@ async function sendOtpEmail(to, otp) {
     </html>
   `;
 
-  const info = await transport.sendMail({
-    from: process.env.EMAIL_FROM,
-    to,
-    subject: 'Your verification code',
-    html,
-    text: `Your verification code is: ${otp}\nIt expires in ${process.env.OTP_EXPIRY_MINUTES || 10} minutes.`,
-  });
+  try {
+    const info = await transport.sendMail({
+      from: process.env.EMAIL_FROM,
+      to,
+      subject: 'Your verification code',
+      html,
+      text: `Your verification code is: ${otp}\nIt expires in ${process.env.OTP_EXPIRY_MINUTES || 10} minutes.`,
+    });
 
-  logger.info('OTP email sent', { to, messageId: info.messageId });
-  return info;
+    logger.info('OTP email sent', { to, messageId: info.messageId });
+    return info;
+  } catch (err) {
+    logger.error('OTP email send failed', {
+      to,
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT) || 587,
+      code: err.code,
+      response: err.response,
+      message: err.message,
+    });
+    throw err;
+  }
 }
 
 /**
@@ -123,16 +156,27 @@ async function sendPasswordResetOtpEmail(to, otp) {
     </html>
   `;
 
-  const info = await transport.sendMail({
-    from: process.env.EMAIL_FROM,
-    to,
-    subject: 'Your password reset code',
-    html,
-    text: `Your password reset code is: ${otp}\nExpires in ${minutes} minutes.`,
-  });
+  try {
+    const info = await transport.sendMail({
+      from: process.env.EMAIL_FROM,
+      to,
+      subject: 'Your password reset code',
+      html,
+      text: `Your password reset code is: ${otp}\nExpires in ${minutes} minutes.`,
+    });
 
-  logger.info('Password reset OTP email sent', { to, messageId: info.messageId });
-  return info;
+    logger.info('Password reset OTP email sent', { to, messageId: info.messageId });
+    return info;
+  } catch (err) {
+    logger.error('Password reset OTP email send failed', {
+      to,
+      host: process.env.SMTP_HOST,
+      code: err.code,
+      response: err.response,
+      message: err.message,
+    });
+    throw err;
+  }
 }
 
 /**
@@ -236,4 +280,9 @@ async function sendCustomEmail(to, subject, body, html = null, accessToken, mime
   return { messageId };
 }
 
-module.exports = { sendOtpEmail, sendPasswordResetOtpEmail, sendCustomEmail };
+module.exports = {
+  sendOtpEmail,
+  sendPasswordResetOtpEmail,
+  sendCustomEmail,
+  verifySmtpConnection,
+};

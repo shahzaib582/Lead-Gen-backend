@@ -8,6 +8,28 @@ const logger = require('../utils/logger');
 const { successResponse } = require('../utils/response');
 const { toPublicUser } = require('../utils/userPublic');
 
+function logEmailFailure(label, email, err) {
+  logger.error(label, {
+    email,
+    error: err?.message || String(err),
+    code: err?.code,
+    response: err?.response,
+  });
+}
+
+/** Fire-and-forget; always attach .catch so SMTP failures do not become unhandledRejection. */
+function sendOtpEmailInBackground(email, otp) {
+  void emailService
+    .sendOtpEmail(email, otp)
+    .catch((err) => logEmailFailure('sendOtpEmail failed', email, err));
+}
+
+function sendPasswordResetOtpEmailInBackground(email, otp) {
+  void emailService
+    .sendPasswordResetOtpEmail(email, otp)
+    .catch((err) => logEmailFailure('sendPasswordResetOtpEmail failed', email, err));
+}
+
 async function signup(req, res, next) {
   try {
     const { email, password, name, profile_pic, address, contact } = req.body;
@@ -19,7 +41,7 @@ async function signup(req, res, next) {
       contact,
     });
     const otp = await otpService.createOtp(user.id, user.email);
-    emailService.sendOtpEmail(user.email, otp);
+    sendOtpEmailInBackground(user.email, otp);
 
     logger.info('User signed up', { userId: user.id, email: user.email });
 
@@ -72,8 +94,16 @@ async function login(req, res, next) {
       : await userService.checkPassword(password, dummyHash).catch(() => false);
 
     if (!user || !passwordMatch) throw new AppError(INVALID_MSG, 401);
+
     if (!user.is_verified) {
-      throw new AppError('Email not verified. Please verify your email before logging in.', 403);
+      const otp = await otpService.createOtp(user.id, user.email);
+      sendOtpEmailInBackground(user.email, otp);
+      logger.info('Login blocked — unverified; verification OTP sent', { userId: user.id });
+      throw new AppError(
+        'Email not verified. A new verification code has been sent to your email.',
+        403,
+        'EMAIL_NOT_VERIFIED'
+      );
     }
 
     const { accessToken, refreshToken } = await issueTokenPair(user);
@@ -153,7 +183,7 @@ async function forgotPassword(req, res, next) {
       user.email,
       otpService.OTP_PURPOSE_PASSWORD_RESET
     );
-    emailService.sendPasswordResetOtpEmail(user.email, otp);
+    sendPasswordResetOtpEmailInBackground(user.email, otp);
 
     logger.info('Password reset OTP issued', { userId: user.id });
     return successResponse(res, 200, generic, undefined);
@@ -202,7 +232,7 @@ async function resendOtp(req, res, next) {
     if (user.is_verified) throw new AppError('Email is already verified.', 400);
 
     const otp = await otpService.createOtp(user.id, user.email);
-    emailService.sendOtpEmail(user.email, otp);
+    sendOtpEmailInBackground(user.email, otp);
 
     logger.info('OTP resent', { userId: user.id });
 
