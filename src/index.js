@@ -1,10 +1,5 @@
 require('dotenv').config();
 
-const dns = require('dns');
-if (typeof dns.setDefaultResultOrder === 'function') {
-  dns.setDefaultResultOrder('ipv4first');
-}
-
 const { assertWebEnv, shouldRunWorkersInWeb } = require('./config/requiredEnv');
 
 try {
@@ -16,7 +11,6 @@ try {
 
 const app = require('./app');
 const logger = require('./utils/logger');
-const { verifySmtpConnection } = require('./services/emailService');
 
 const PORT = Number(process.env.PORT) || 3000;
 
@@ -27,14 +21,6 @@ if (shouldRunWorkersInWeb()) {
   mailTemplateWorker = require('./workers/mailTemplateWorker');
   campaignMailWorker = require('./workers/campaignMailWorker');
 }
-
-void verifySmtpConnection().catch((err) => {
-  logger.error('SMTP verify failed at startup — OTP emails will not send until SMTP is fixed', {
-    message: err.message,
-    code: err.code,
-    response: err.response,
-  });
-});
 
 const server = app.listen(PORT, () => {
   const env = process.env.NODE_ENV || 'development';
