@@ -2,6 +2,7 @@ const path = require('path');
 const fs = require('fs');
 const express = require('express');
 const cors = require('cors');
+const morgan = require('morgan');
 const { globalLimiter } = require('./config/rateLimits');
 const swaggerUi = require('swagger-ui-express');
 const YAML = require('yamljs');
@@ -59,6 +60,15 @@ app.use(
     origin: corsOriginCallback,
     credentials: true,
     exposedHeaders: ['X-Response-Time', 'Server-Timing'],
+  })
+);
+
+// ─── HTTP request log ─────────────────────────────────────────────────────────
+
+const morganFormat = process.env.NODE_ENV === 'production' ? 'combined' : 'dev';
+app.use(
+  morgan(morganFormat, {
+    skip: (req) => req.path === '/health',
   })
 );
 
