@@ -14,10 +14,6 @@ const logger = require('./utils/logger');
 const { verifySmtpConnection } = require('./services/emailService');
 
 const PORT = Number(process.env.PORT) || 3000;
-const publicBaseUrl = (process.env.PUBLIC_BASE_URL || `http://localhost:${PORT}`).replace(
-  /\/$/,
-  ''
-);
 
 let mailTemplateWorker;
 let campaignMailWorker;
@@ -38,10 +34,7 @@ void verifySmtpConnection().catch((err) => {
 const server = app.listen(PORT, () => {
   const env = process.env.NODE_ENV || 'development';
   logger.info(`Server running on port ${PORT} [${env}]`);
-  logger.info(`API JSON base URL: ${publicBaseUrl}/api`);
-  logger.info(`Health check: ${publicBaseUrl}/health`);
-  logger.info(`Swagger UI: ${publicBaseUrl}/api/docs`);
-  logger.info(`OpenAPI YAML: ${publicBaseUrl}/api/openapi.yaml`);
+  logger.info(`Swagger UI: ${(process.env.PUBLIC_BASE_URL || `http://localhost:${PORT}`).replace(/\/$/, '')}/api/docs`);
 
   if (mailTemplateWorker && campaignMailWorker) {
     mailTemplateWorker.start();
