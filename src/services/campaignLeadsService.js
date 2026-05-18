@@ -59,8 +59,6 @@ async function bulkAddLeadsToCampaign(userId, campaignId, leads) {
 
     lead_data_id: String(l.lead_data_id),
 
-    mail_template: l.mail_template || null,
-
     status: 'pending',
   }));
 

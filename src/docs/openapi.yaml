@@ -1879,10 +1879,6 @@ paths:
                     properties:
                       lead_data_id:
                         type: string
-                      mail_template:
-                        type: string
-                        nullable: true
-                        maxLength: 50000
       responses:
         '201':
           description: Bulk result

@@ -16,10 +16,6 @@ const bulkAddValidation = [
     .withMessage('Each lead must have a lead_data_id.')
     .isString()
     .withMessage('lead_data_id must be a string.'),
-  body('leads.*.mail_template')
-    .optional({ nullable: true })
-    .isString()
-    .withMessage('mail_template must be a string.'),
 ];
 
 const listLeadsValidation = [
