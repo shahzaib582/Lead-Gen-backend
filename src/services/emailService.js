@@ -1,8 +1,40 @@
+const dns = require('dns');
+const net = require('net');
 const { google } = require('googleapis');
 const nodemailer = require('nodemailer');
 const logger = require('../utils/logger');
 
 let transporter;
+
+function smtpHost() {
+  return process.env.SMTP_HOST.trim();
+}
+
+/** TLS SNI hostname when connecting to a resolved IPv4 address. */
+function smtpTlsServername(host) {
+  const override = process.env.SMTP_TLS_SERVERNAME?.trim();
+  if (override) return override;
+  if (!net.isIP(host)) return host;
+  return 'smtp.gmail.com';
+}
+
+/**
+ * Nodemailer DNS lookup — IPv4 only. Render often has no outbound IPv6 (ENETUNREACH).
+ * `family: 4` alone is not always honored by the underlying stack.
+ */
+function smtpIpv4Lookup(hostname, _options, callback) {
+  dns.lookup(hostname, { family: 4, hints: dns.ADDRCONFIG }, (err, address, family) => {
+    if (!err) {
+      return callback(null, address, family);
+    }
+    dns.resolve4(hostname, (resolveErr, addresses) => {
+      if (resolveErr || !addresses?.length) {
+        return callback(resolveErr || err);
+      }
+      callback(null, addresses[0], 4);
+    });
+  });
+}
 
 function assertSmtpEnv() {
   const missing = ['SMTP_HOST', 'SMTP_USER', 'SMTP_PASS', 'EMAIL_FROM'].filter(
@@ -17,15 +49,20 @@ function getTransporter() {
   assertSmtpEnv();
   if (transporter) return transporter;
 
+  const host = smtpHost();
+
   transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST.trim(),
+    host,
     port: Number(process.env.SMTP_PORT) || 587,
     secure: process.env.SMTP_SECURE === 'true',
-    // Render/cloud: prefer IPv4 — outbound IPv6 to Gmail often fails (ENETUNREACH).
     family: 4,
+    lookup: smtpIpv4Lookup,
     connectionTimeout: 20_000,
     greetingTimeout: 20_000,
     socketTimeout: 30_000,
+    tls: {
+      servername: smtpTlsServername(host),
+    },
     auth: {
       user: process.env.SMTP_USER.trim(),
       pass: process.env.SMTP_PASS,

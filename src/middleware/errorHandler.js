@@ -9,6 +9,18 @@ const { errorResponse } = require('../utils/response');
 function errorHandler(err, req, res, next) {
   const isProduction = process.env.NODE_ENV === 'production';
 
+  if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+    return errorResponse(res, 400, 'Invalid JSON in request body.');
+  }
+
+  if (err.type === 'entity.parse.failed') {
+    return errorResponse(res, 400, 'Invalid JSON in request body.');
+  }
+
+  if (err.type === 'entity.too.large') {
+    return errorResponse(res, 413, 'Request body is too large.');
+  }
+
   // Operational errors: safe to expose message
   if (err.isOperational) {
     const extras = {};
