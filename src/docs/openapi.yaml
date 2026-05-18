@@ -434,7 +434,14 @@ components:
           type: integer
           minimum: 0
           maximum: 3650
-          description: Days after the previous touch before this follow-up runs.
+          description: Calendar days after initial campaign email sent_at before this follow-up is due.
+        body_template:
+          type: string
+          maxLength: 50000
+          nullable: true
+          description: |
+            Plain-text email body. Optional leading `Subject:` line.
+            Placeholders `{{firstName}}`, `{{fullName}}`, `{{email}}`.
         created_at:
           type: string
           format: date-time
@@ -1643,7 +1650,7 @@ paths:
           application/json:
             schema:
               type: object
-              required: [name, waiting_days]
+              required: [name, waiting_days, body_template]
               properties:
                 name:
                   type: string
@@ -1652,6 +1659,15 @@ paths:
                   type: integer
                   minimum: 0
                   maximum: 3650
+                body_template:
+                  type: string
+                  maxLength: 50000
+                  example: |
+                    Subject: Quick follow-up
+
+                    Hi {{firstName}},
+
+                    Just checking in after my last note.
       responses:
         '201':
           description: Created
@@ -1729,7 +1745,7 @@ paths:
     patch:
       tags: [CampaignFollowUps]
       summary: Update follow-up
-      description: Include at least one of `name`, `waiting_days`.
+      description: Include at least one of `name`, `waiting_days`, `body_template`.
       requestBody:
         required: true
         content:
@@ -1745,6 +1761,10 @@ paths:
                   type: integer
                   minimum: 0
                   maximum: 3650
+                body_template:
+                  type: string
+                  nullable: true
+                  maxLength: 50000
       responses:
         '200':
           description: Updated

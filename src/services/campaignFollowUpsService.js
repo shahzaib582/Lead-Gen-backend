@@ -31,7 +31,7 @@ async function getFollowUpById(userId, campaignId, followUpId) {
   return data;
 }
 
-async function createFollowUp(userId, campaignId, { name, waiting_days }) {
+async function createFollowUp(userId, campaignId, { name, waiting_days, body_template }) {
   await campaignService.getCampaignById(userId, campaignId);
 
   const { data, error } = await supabase
@@ -40,6 +40,7 @@ async function createFollowUp(userId, campaignId, { name, waiting_days }) {
       campaign_id: campaignId,
       name: name.trim(),
       waiting_days,
+      body_template: body_template != null ? String(body_template) : null,
     })
     .select()
     .single();
@@ -54,6 +55,10 @@ async function updateFollowUp(userId, campaignId, followUpId, updates) {
   const payload = {};
   if (updates.name !== undefined) payload.name = String(updates.name).trim();
   if (updates.waiting_days !== undefined) payload.waiting_days = updates.waiting_days;
+  if (updates.body_template !== undefined) {
+    payload.body_template =
+      updates.body_template === null ? null : String(updates.body_template);
+  }
 
   if (Object.keys(payload).length === 0) {
     throw new AppError('No valid fields provided for update.', 400);

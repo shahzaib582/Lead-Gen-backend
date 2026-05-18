@@ -227,6 +227,7 @@ CREATE TABLE IF NOT EXISTS campaign_follow_ups (
 
   name           TEXT        NOT NULL,
   waiting_days   INT         NOT NULL CHECK (waiting_days >= 0 AND waiting_days <= 3650),
+  body_template  TEXT,
 
   created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -235,7 +236,9 @@ CREATE TABLE IF NOT EXISTS campaign_follow_ups (
 CREATE INDEX IF NOT EXISTS idx_campaign_follow_ups_campaign_id ON campaign_follow_ups (campaign_id);
 
 COMMENT ON COLUMN campaign_follow_ups.waiting_days IS
-  'Days after the previous outreach (or campaign start) before this follow-up should run.';
+  'Calendar days after the initial campaign_leads.sent_at before this follow-up is due.';
+COMMENT ON COLUMN campaign_follow_ups.body_template IS
+  'Plain-text email template. Optional Subject: first line; supports {{firstName}}, {{fullName}}, {{email}}.';
 
 DROP TRIGGER IF EXISTS set_campaign_follow_ups_updated_at ON campaign_follow_ups;
 CREATE TRIGGER set_campaign_follow_ups_updated_at
@@ -243,4 +246,34 @@ CREATE TRIGGER set_campaign_follow_ups_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
--- Existing DBs without this table: run the CREATE TABLE + indexes + trigger block above for `campaign_follow_ups`.
+-- ─── campaign_lead_follow_ups (per-lead follow-up send tracking) ───────────
+
+CREATE TABLE IF NOT EXISTS campaign_lead_follow_ups (
+  id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  campaign_lead_id UUID        NOT NULL REFERENCES campaign_leads(id) ON DELETE CASCADE,
+  follow_up_id     UUID        NOT NULL REFERENCES campaign_follow_ups(id) ON DELETE CASCADE,
+  status           TEXT        NOT NULL DEFAULT 'pending'
+                     CHECK (status IN ('pending', 'sent', 'failed')),
+  sent_at          TIMESTAMPTZ,
+  error_message    TEXT,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (campaign_lead_id, follow_up_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_campaign_lead_follow_ups_campaign_lead_id
+  ON campaign_lead_follow_ups (campaign_lead_id);
+CREATE INDEX IF NOT EXISTS idx_campaign_lead_follow_ups_follow_up_id
+  ON campaign_lead_follow_ups (follow_up_id);
+CREATE INDEX IF NOT EXISTS idx_campaign_lead_follow_ups_status
+  ON campaign_lead_follow_ups (status);
+
+DROP TRIGGER IF EXISTS set_campaign_lead_follow_ups_updated_at ON campaign_lead_follow_ups;
+CREATE TRIGGER set_campaign_lead_follow_ups_updated_at
+  BEFORE UPDATE ON campaign_lead_follow_ups
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+-- Existing DBs: run ALTER + CREATE blocks below if tables/columns are missing.
+-- ALTER TABLE campaign_follow_ups ADD COLUMN IF NOT EXISTS body_template TEXT;
+-- (then run the campaign_lead_follow_ups CREATE TABLE block above)

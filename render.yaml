@@ -74,6 +74,34 @@ services:
         sync: false
 
   - type: worker
+    name: follow-up-scheduler-worker
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node src/workers/followUpSchedulerWorker.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+      - key: REDIS_HOST
+        fromService:
+          type: redis
+          name: leadgen-redis
+          property: host
+
+      - key: REDIS_PORT
+        fromService:
+          type: redis
+          name: leadgen-redis
+          property: port
+
+      - key: SUPABASE_URL
+        sync: false
+
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+
+  - type: worker
     name: mail-template-worker
     runtime: node
     plan: free

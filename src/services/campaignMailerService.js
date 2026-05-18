@@ -5,35 +5,14 @@ const AppError = require('../utils/AppError');
 const { parseLeadDataId } = require('../utils/leadDataId');
 const logger = require('../utils/logger');
 const { randomDelayMs } = require('../config/mailDelay');
-
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const DAILY_SEND_LIMIT = 500;
+const { parseMailTemplate } = require('../utils/parseMailTemplate');
+const { DAILY_SEND_LIMIT, getTodaySentCount } = require('./mailSendLimitService');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function randomDelay() {
   const ms = randomDelayMs();
   return new Promise((resolve) => setTimeout(() => resolve(ms), ms));
-}
-
-async function getTodaySentCount(userId) {
-  const todayStart = new Date();
-  todayStart.setUTCHours(0, 0, 0, 0);
-
-  const { count, error } = await supabase
-    .from('campaign_leads')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .eq('status', 'sent')
-    .gte('sent_at', todayStart.toISOString());
-
-  if (error) {
-    logger.warn('Failed to fetch today sent count', { userId, error: error.message });
-    return 0;
-  }
-
-  return count || 0;
 }
 
 async function ensureFreshToken(userId, currentToken) {
@@ -65,34 +44,6 @@ async function getLeadEmail(leadDataId) {
 
   if (error || !data) return null;
   return data;
-}
-
-function parseTemplate(template) {
-  if (!template) return { subject: 'Hello', body: '' };
-
-  const lines = template.split('\n');
-  let subject = null;
-  let bodyStart = 0;
-
-  for (let i = 0; i < lines.length; i++) {
-    const trimmed = lines[i].trim();
-    if (trimmed.toLowerCase().startsWith('subject:')) {
-      subject = trimmed.slice('subject:'.length).trim();
-      bodyStart = i + 1;
-      break;
-    }
-  }
-
-  while (bodyStart < lines.length && lines[bodyStart].trim() === '') {
-    bodyStart++;
-  }
-
-  const body = lines.slice(bodyStart).join('\n').trim();
-
-  return {
-    subject: subject || 'Reaching out',
-    body,
-  };
 }
 
 function appendCampaignSignature(body, campaign) {
@@ -215,7 +166,7 @@ async function sendCampaignEmails(
     }
 
     // ── a. Parse template ─────────────────────────────────────────────────
-    const { subject, body: rawBody } = parseTemplate(cl.mail_template);
+    const { subject, body: rawBody } = parseMailTemplate(cl.mail_template);
     const body = appendCampaignSignature(rawBody, campaign);
 
     // ── b. Get lead email ─────────────────────────────────────────────────
@@ -327,4 +278,4 @@ async function sendCampaignEmails(
   return summary;
 }
 
-module.exports = { sendCampaignEmails, DAILY_SEND_LIMIT };
+module.exports = { sendCampaignEmails, DAILY_SEND_LIMIT, getTodaySentCount };

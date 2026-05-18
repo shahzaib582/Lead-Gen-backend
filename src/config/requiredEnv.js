@@ -40,6 +40,8 @@ const WORKER_MAIL_TEMPLATE_KEYS = [
 
 const WORKER_CAMPAIGN_MAIL_KEYS = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'];
 
+const WORKER_FOLLOW_UP_SCHEDULER_KEYS = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'];
+
 function assertWebEnv() {
   assertKeys(WEB_KEYS, 'web');
   assertJwtSecret();
@@ -56,6 +58,11 @@ function assertWorkerCampaignMailEnv() {
   assertRedis();
 }
 
+function assertWorkerFollowUpSchedulerEnv() {
+  assertKeys(WORKER_FOLLOW_UP_SCHEDULER_KEYS, 'follow-up-scheduler-worker');
+  assertRedis();
+}
+
 function shouldRunWorkersInWeb() {
   const flag = process.env.RUN_WORKERS_IN_WEB;
   if (flag === '1' || flag === 'true') return true;
@@ -67,5 +74,6 @@ module.exports = {
   assertWebEnv,
   assertWorkerMailTemplateEnv,
   assertWorkerCampaignMailEnv,
+  assertWorkerFollowUpSchedulerEnv,
   shouldRunWorkersInWeb,
 };

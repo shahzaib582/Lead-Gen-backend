@@ -21,6 +21,13 @@ const createValidation = [
     .isInt({ min: WAITING_DAYS_MIN, max: WAITING_DAYS_MAX })
     .withMessage(`waiting_days must be an integer between ${WAITING_DAYS_MIN} and ${WAITING_DAYS_MAX}.`)
     .toInt(),
+  body('body_template')
+    .notEmpty()
+    .withMessage('body_template is required.')
+    .isString()
+    .withMessage('body_template must be a string.')
+    .isLength({ max: 50000 })
+    .withMessage('body_template must be under 50,000 characters.'),
 ];
 
 const getOneValidation = [campaignIdParam, followUpIdParam];
@@ -40,6 +47,12 @@ const updateValidation = [
     .isInt({ min: WAITING_DAYS_MIN, max: WAITING_DAYS_MAX })
     .withMessage(`waiting_days must be an integer between ${WAITING_DAYS_MIN} and ${WAITING_DAYS_MAX}.`)
     .toInt(),
+  body('body_template')
+    .optional({ nullable: true })
+    .isString()
+    .withMessage('body_template must be a string.')
+    .isLength({ max: 50000 })
+    .withMessage('body_template must be under 50,000 characters.'),
 ];
 
 const deleteValidation = [campaignIdParam, followUpIdParam];

@@ -31,11 +31,12 @@ async function create(req, res, next) {
   try {
     const campaignId = req.params.id;
     const userId = req.user.id;
-    const { name, waiting_days } = req.body;
+    const { name, waiting_days, body_template } = req.body;
 
     const followUp = await campaignFollowUpsService.createFollowUp(userId, campaignId, {
       name,
       waiting_days,
+      body_template,
     });
 
     return successResponse(res, 201, 'Follow-up created.', { followUp });
@@ -49,7 +50,7 @@ async function update(req, res, next) {
     const { id: campaignId, followUpId } = req.params;
     const userId = req.user.id;
 
-    const allowed = ['name', 'waiting_days'];
+    const allowed = ['name', 'waiting_days', 'body_template'];
     const updates = {};
     for (const key of allowed) {
       if (Object.prototype.hasOwnProperty.call(req.body, key)) {
