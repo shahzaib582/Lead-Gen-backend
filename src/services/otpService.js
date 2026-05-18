@@ -136,8 +136,6 @@ async function verifyOtp(userId, submittedOtp, purpose = OTP_PURPOSE_EMAIL_VERIF
   }
 
   await supabase.from('otp_codes').update({ used: true }).eq('id', otpRecord.id);
-
-  logger.info('OTP verified successfully', { userId, purpose });
 }
 
 module.exports = {

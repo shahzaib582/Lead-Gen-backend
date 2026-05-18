@@ -239,10 +239,6 @@ async function generateMailTemplates(userId, campaignId, campaignLeadId = null) 
       });
 
       processed++;
-      logger.info('Mail template generated', {
-        campaignLeadId: cl.id,
-        lead_data_id: cl.lead_data_id,
-      });
     } catch (err) {
       failed++;
       logger.error('Failed to generate template for lead', {

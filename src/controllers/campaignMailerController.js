@@ -1,7 +1,6 @@
 const campaignMailerService = require('../services/campaignMailerService');
 const googleAuthService = require('../services/googleAuthService');
 const AppError = require('../utils/AppError');
-const logger = require('../utils/logger');
 const { successResponse } = require('../utils/response');
 
 // ─── POST /campaigns/:id/leads/send-emails ────────────────────────────────────
@@ -45,13 +44,6 @@ async function sendEmails(req, res, next) {
         );
       }
     }
-
-    logger.info('Campaign email send requested', {
-      campaignId,
-      userId,
-      campaignLeadId,
-      hasToken: !!accessToken,
-    });
 
     const result = await campaignMailerService.sendCampaignEmails(
       userId,

@@ -1,6 +1,5 @@
 const campaignLeadsService = require('../services/campaignLeadsService');
 const AppError = require('../utils/AppError');
-const logger = require('../utils/logger');
 const { successResponse, successResponsePaginated } = require('../utils/response');
 
 // ─── POST /campaigns/:id/leads/bulk ──────────────────────────────────────────
@@ -13,13 +12,6 @@ async function bulkAddLeads(req, res, next) {
     const userId = req.user.id;
 
     const result = await campaignLeadsService.bulkAddLeadsToCampaign(userId, campaignId, leads);
-
-    logger.info('Bulk leads added to campaign', {
-      campaignId,
-      userId,
-      totalInserted: result.totalInserted,
-      totalDuplicates: result.totalDuplicates,
-    });
 
     return successResponse(
       res,
@@ -80,8 +72,6 @@ async function updateLead(req, res, next) {
 
     const lead = await campaignLeadsService.updateCampaignLead(userId, campaignId, leadId, updates);
 
-    logger.info('Campaign lead updated', { campaignId, leadId, userId, updates });
-
     return successResponse(res, 200, 'Campaign lead updated.', { lead });
   } catch (err) {
     next(err);
@@ -97,8 +87,6 @@ async function removeLead(req, res, next) {
     const userId = req.user.id;
 
     await campaignLeadsService.removeCampaignLead(userId, campaignId, leadId);
-
-    logger.info('Campaign lead removed', { campaignId, leadId, userId });
 
     return successResponse(res, 200, 'Lead removed from campaign.', undefined);
   } catch (err) {

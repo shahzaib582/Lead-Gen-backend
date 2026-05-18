@@ -109,7 +109,6 @@ async function streamCampaignEvents(req, res, next) {
 
   try {
     await sub.subscribe(channel);
-    logger.info('[SSE] client subscribed', { channel, campaignId });
   } catch (err) {
     await cleanup();
     return next(err);

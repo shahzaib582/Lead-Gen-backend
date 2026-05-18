@@ -81,16 +81,6 @@ async function enqueuePendingTemplateJobsForCampaign(userId, campaignId, { previ
     }
   }
 
-  logger.info('[Activation] Enqueued pending template jobs after campaign activation', {
-    campaignId,
-    userId,
-    examined,
-    enqueued,
-    skippedDuplicate,
-    skippedWrongState,
-    previousStatus: previousStatus ?? null,
-  });
-
   await publishCampaignEvent(campaignId, {
     type: 'campaign_progress',
     campaignId,

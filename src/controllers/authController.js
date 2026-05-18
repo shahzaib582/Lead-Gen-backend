@@ -47,8 +47,6 @@ async function signup(req, res, next) {
     );
     sendOtpEmailInBackground(user.email, otp);
 
-    logger.info('User signed up', { userId: user.id, email: user.email });
-
     return successResponse(
       res,
       201,
@@ -73,8 +71,6 @@ async function verifyOtp(req, res, next) {
 
     const freshUser = await userService.findUserById(user.id);
     const { accessToken, refreshToken } = await issueTokenPair(freshUser);
-
-    logger.info('User verified email', { userId: user.id });
 
     return successResponse(res, 200, 'Email verified successfully.', {
       accessToken,
@@ -106,7 +102,6 @@ async function login(req, res, next) {
         otpService.OTP_PURPOSE_EMAIL_VERIFY
       );
       sendOtpEmailInBackground(user.email, otp);
-      logger.info('Login blocked — unverified; verification OTP sent', { userId: user.id });
       throw new AppError(
         'Email not verified. A new verification code has been sent to your email.',
         403,
@@ -115,8 +110,6 @@ async function login(req, res, next) {
     }
 
     const { accessToken, refreshToken } = await issueTokenPair(user);
-
-    logger.info('User logged in', { userId: user.id });
 
     return successResponse(res, 200, 'Login successful.', {
       accessToken,
@@ -141,8 +134,6 @@ async function refreshTokens(req, res, next) {
     await refreshTokenService.deleteRefreshToken(record.id);
     const { accessToken, refreshToken: newRefreshToken } = await issueTokenPair(user);
 
-    logger.info('Tokens refreshed', { userId: user.id });
-
     return successResponse(res, 200, 'Tokens refreshed successfully.', {
       accessToken,
       refreshToken: newRefreshToken,
@@ -158,7 +149,6 @@ async function logout(req, res, next) {
     if (refreshToken) {
       await refreshTokenService.revokeRefreshToken(refreshToken);
     }
-    logger.info('User logged out', { userId: req.user?.id });
     return successResponse(res, 200, 'Logged out successfully.', undefined);
   } catch (err) {
     next(err);
@@ -168,7 +158,6 @@ async function logout(req, res, next) {
 async function logoutAll(req, res, next) {
   try {
     await refreshTokenService.revokeAllUserRefreshTokens(req.user.id);
-    logger.info('User logged out from all devices', { userId: req.user.id });
     return successResponse(res, 200, 'Logged out from all devices.', undefined);
   } catch (err) {
     next(err);
@@ -194,7 +183,6 @@ async function forgotPassword(req, res, next) {
     );
     sendPasswordResetOtpEmailInBackground(user.email, otp);
 
-    logger.info('Password reset OTP issued', { userId: user.id });
     return successResponse(res, 200, generic, undefined);
   } catch (err) {
     next(err);
@@ -219,8 +207,6 @@ async function resetPassword(req, res, next) {
 
     const freshUser = await userService.findUserById(user.id);
     const { accessToken, refreshToken } = await issueTokenPair(freshUser);
-
-    logger.info('Password reset completed', { userId: user.id });
 
     return successResponse(res, 200, 'Password updated successfully.', {
       accessToken,
@@ -247,8 +233,6 @@ async function resendOtp(req, res, next) {
       otpService.OTP_PURPOSE_EMAIL_VERIFY
     );
     sendOtpEmailInBackground(user.email, otp);
-
-    logger.info('OTP resent', { userId: user.id });
 
     return successResponse(
       res,

@@ -92,7 +92,6 @@ async function createGoogleUser({ email, name, avatarUrl, googleTokens, googleId
   }
 
   await upsertGoogleAccount(user.id, { email, name, avatarUrl, googleTokens, googleId });
-  logger.info('New user registered via Google', { userId: user.id, email: user.email });
   return user;
 }
 
@@ -109,7 +108,6 @@ async function resolveUserFromGoogleProfile({ email, name, avatarUrl, googleToke
   if (existingGoogleAccount) {
     const user = existingGoogleAccount.users;
     await upsertGoogleAccount(user.id, { email, name, avatarUrl, googleTokens, googleId });
-    logger.info('Google user logged in', { userId: user.id, email });
     return user;
   }
 
@@ -127,7 +125,6 @@ async function resolveUserFromGoogleProfile({ email, name, avatarUrl, googleToke
       googleId,
     });
     await userService.updateAuthProvider(existingUser.id, 'google');
-    logger.info('Google account linked to existing email user', { userId: existingUser.id });
     return existingUser;
   }
 

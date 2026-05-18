@@ -39,11 +39,6 @@ function getTransporter() {
 async function verifySmtpConnection() {
   const transport = getTransporter();
   await transport.verify();
-  logger.info('SMTP connection verified', {
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT) || 587,
-    user: process.env.SMTP_USER,
-  });
 }
 
 /**
@@ -112,7 +107,6 @@ async function sendOtpEmail(to, otp) {
       text: `Your verification code is: ${otp}\nIt expires in ${process.env.OTP_EXPIRY_MINUTES || 10} minutes.`,
     });
 
-    logger.info('OTP email sent', { to, messageId: info.messageId });
     return info;
   } catch (err) {
     logger.error('OTP email send failed', {
@@ -170,7 +164,6 @@ async function sendPasswordResetOtpEmail(to, otp) {
       text: `Your password reset code is: ${otp}\nExpires in ${minutes} minutes.`,
     });
 
-    logger.info('Password reset OTP email sent', { to, messageId: info.messageId });
     return info;
   } catch (err) {
     logger.error('Password reset OTP email send failed', {
@@ -274,15 +267,7 @@ async function sendCustomEmail(to, subject, body, html = null, accessToken, mime
     requestBody: { raw },
   });
 
-  const messageId = result.data.id;
-
-  logger.info('Custom email sent via Gmail API', {
-    to: Array.isArray(to) ? to : [to],
-    subject,
-    messageId,
-  });
-
-  return { messageId };
+  return { messageId: result.data.id };
 }
 
 module.exports = {

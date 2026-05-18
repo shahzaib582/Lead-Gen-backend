@@ -1,5 +1,4 @@
 const mailTemplateService = require('../services/mailTemplateService');
-const logger = require('../utils/logger');
 const { successResponse } = require('../utils/response');
 
 // ─── POST /campaigns/:id/leads/generate-templates ────────────────────────────
@@ -17,20 +16,11 @@ async function generateTemplates(req, res, next) {
     const userId = req.user.id;
     const campaignLeadId = req.body.campaign_lead_id || null;
 
-    logger.info('Starting mail template generation', { campaignId, userId, campaignLeadId });
-
     const result = await mailTemplateService.generateMailTemplates(
       userId,
       campaignId,
       campaignLeadId
     );
-
-    logger.info('Mail template generation complete', {
-      campaignId,
-      userId,
-      processed: result.processed,
-      failed: result.failed,
-    });
 
     return successResponse(
       res,

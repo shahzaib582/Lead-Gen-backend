@@ -45,10 +45,6 @@ async function ensureFreshToken(userId, currentToken) {
     const freshToken = await googleAuthService.getValidGoogleAccessToken(userId);
     const refreshed = freshToken !== currentToken;
 
-    if (refreshed) {
-      logger.info('[TokenRefresh] Access token refreshed automatically', { userId });
-    }
-
     return { token: freshToken, refreshed, errorCode: undefined };
   } catch (err) {
     logger.warn('[TokenRefresh] Failed to refresh access token — using existing token', {
@@ -154,12 +150,6 @@ async function sendCampaignEmails(
   const remaining = DAILY_SEND_LIMIT - alreadySentToday;
 
   if (remaining <= 0) {
-    logger.info('Daily send limit reached — no emails sent', {
-      userId,
-      campaignId,
-      alreadySentToday,
-      limit: DAILY_SEND_LIMIT,
-    });
     return {
       sent: 0,
       failed: 0,
@@ -206,14 +196,6 @@ async function sendCampaignEmails(
   let tokensRefreshed = 0;
   const results = [];
 
-  logger.info('Starting campaign email send', {
-    campaignId,
-    userId,
-    totalToSend: leads.length,
-    alreadySentToday,
-    remainingBudget: remaining,
-  });
-
   let activeToken = accessToken;
   let googleAuthError = null;
 
@@ -225,11 +207,6 @@ async function sendCampaignEmails(
       const { token, refreshed, errorCode } = await ensureFreshToken(userId, activeToken);
       if (refreshed) {
         tokensRefreshed++;
-        logger.info('Access token auto-refreshed before send', {
-          campaignId,
-          userId,
-          sendIndex: i,
-        });
       }
       if (errorCode && !refreshed) {
         googleAuthError = { code: errorCode, message: 'Google token could not be refreshed; using caller token.' };
@@ -291,16 +268,6 @@ async function sendCampaignEmails(
 
       sent++;
 
-      logger.info('Email sent', {
-        campaignLeadId: cl.id,
-        lead_data_id: cl.lead_data_id,
-        to: leadInfo.email,
-        subject,
-        messageId,
-        sendNumber: sent,
-        totalBudget: leads.length,
-      });
-
       results.push({
         campaignLeadId: cl.id,
         status: 'sent',
@@ -339,8 +306,7 @@ async function sendCampaignEmails(
 
     // ── e. Random delay before next send ──────────────────────────────────
     if (i < leads.length - 1) {
-      const delayMs = await randomDelay();
-      logger.debug('Inter-send delay', { delayMs, nextLeadIndex: i + 1 });
+      await randomDelay();
     }
   }
 
@@ -357,8 +323,6 @@ async function sendCampaignEmails(
     results,
     ...(googleAuthError ? { googleError: googleAuthError } : {}),
   };
-
-  logger.info('Campaign email send complete', { campaignId, userId, ...summary });
 
   return summary;
 }

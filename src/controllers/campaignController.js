@@ -44,8 +44,6 @@ async function create(req, res, next) {
       sender_phone: sender_phone || null,
     });
 
-    logger.info('Campaign created', { campaignId: campaign.id, userId: req.user.id });
-
     let autoAssignSummary = null;
     const autoAssign =
       process.env.CAMPAIGN_ACTIVE_CREATE_AUTO_ASSIGN === '1' ||
@@ -56,10 +54,6 @@ async function create(req, res, next) {
           req.user.id,
           campaign.id
         );
-        logger.info('Campaign create auto-assign (CAMPAIGN_ACTIVE_CREATE_AUTO_ASSIGN)', {
-          campaignId: campaign.id,
-          ...autoAssignSummary,
-        });
       } catch (err) {
         logger.warn('Campaign create auto-assign failed', {
           campaignId: campaign.id,
@@ -161,12 +155,6 @@ async function update(req, res, next) {
       }
     }
 
-    logger.info('Campaign updated', {
-      campaignId: campaign.id,
-      userId: req.user.id,
-      ...(activationSummary ? { activationSummary } : {}),
-    });
-
     return successResponse(res, 200, 'Campaign updated successfully.', {
       campaign,
       ...(activationSummary ? { activation: activationSummary } : {}),
@@ -181,8 +169,6 @@ async function update(req, res, next) {
 async function remove(req, res, next) {
   try {
     await campaignService.deleteCampaign(req.user.id, req.params.id);
-
-    logger.info('Campaign deleted', { campaignId: req.params.id, userId: req.user.id });
 
     return successResponse(res, 200, 'Campaign deleted successfully.', undefined);
   } catch (err) {

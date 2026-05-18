@@ -1,6 +1,5 @@
 const leadsDataService = require('../services/leadsDataService');
 const AppError = require('../utils/AppError');
-const logger = require('../utils/logger');
 const { successResponse, successResponsePaginated } = require('../utils/response');
 
 // ─── GET /leads ───────────────────────────────────────────────────────────────
@@ -47,12 +46,6 @@ async function list(req, res, next) {
       sortOrder,
       page: parseInt(page || '1', 10),
       limit: Math.min(parseInt(limit || '20', 10), 100),
-    });
-
-    logger.info('Leads fetched', {
-      userId: req.user.id,
-      total: result.total,
-      page: result.page,
     });
 
     return successResponsePaginated(res, 200, undefined, result.leads, {

@@ -23,13 +23,6 @@ const worker = new Worker(
     const attemptsLeft = MAX_ATTEMPTS - attemptNumber;
     const isFinalAttempt = attemptNumber >= MAX_ATTEMPTS;
 
-    logger.info('[CampaignMailWorker] Started processing', {
-      campaignLeadId,
-      jobId: job.id,
-      attemptNumber,
-      isFinalAttempt,
-    });
-
     try {
       // 1. Fetch lead
       const { data: lead, error: fetchError } = await supabase
@@ -81,11 +74,6 @@ const worker = new Worker(
 
       // 3. Send email
       await sendCampaignEmails(userId, campaignId, accessToken, campaignLeadId);
-
-      logger.info('[CampaignMailWorker] Successfully sent', {
-        campaignLeadId,
-        attemptNumber,
-      });
 
       await publishCampaignEvent(campaignId, {
         type: 'mail_sent',
@@ -175,13 +163,6 @@ async function chainNextLead({ userId, campaignId }) {
       { userId, campaignId, campaignLeadId: nextLead.id },
       { delay: delayMs }
     );
-    logger.info('[CampaignMailWorker] Next lead queued with delay', {
-      nextCampaignLeadId: nextLead.id,
-      delayMs,
-      delaySeconds: Math.round(delayMs / 1000),
-    });
-  } else {
-    logger.info('[CampaignMailWorker] No more pending leads for campaign', { campaignId });
   }
 
   await publishCampaignEvent(campaignId, {
@@ -196,9 +177,7 @@ worker.on('error', (err) => {
   logger.error('[CampaignMailWorker] Critical Worker Error', { error: err.message });
 });
 
-function start() {
-  logger.info('Campaign mail worker is active and listening for jobs');
-}
+function start() {}
 
 module.exports = { worker, start };
 

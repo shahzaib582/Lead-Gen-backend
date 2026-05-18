@@ -3,7 +3,6 @@ const googleAuthService = require('../services/googleAuthService');
 const userService = require('../services/userService');
 const { issueTokenPair } = require('../services/authTokenService');
 const AppError = require('../utils/AppError');
-const logger = require('../utils/logger');
 const { successResponse } = require('../utils/response');
 const { toPublicUser } = require('../utils/userPublic');
 
@@ -93,8 +92,6 @@ async function loginWithGoogleToken(req, res, next) {
 
     const fresh = await userService.findUserById(user.id);
     const { accessToken, refreshToken } = await issueTokenPair(fresh);
-
-    logger.info('Google token login', { userId: user.id });
 
     return successResponse(res, 200, 'Google authentication successful.', {
       accessToken,

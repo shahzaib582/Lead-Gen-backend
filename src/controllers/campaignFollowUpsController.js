@@ -1,5 +1,4 @@
 const campaignFollowUpsService = require('../services/campaignFollowUpsService');
-const logger = require('../utils/logger');
 const { successResponse } = require('../utils/response');
 
 async function list(req, res, next) {
@@ -39,8 +38,6 @@ async function create(req, res, next) {
       waiting_days,
     });
 
-    logger.info('Campaign follow-up created', { campaignId, followUpId: followUp.id, userId });
-
     return successResponse(res, 201, 'Follow-up created.', { followUp });
   } catch (err) {
     next(err);
@@ -67,8 +64,6 @@ async function update(req, res, next) {
       updates
     );
 
-    logger.info('Campaign follow-up updated', { campaignId, followUpId, userId });
-
     return successResponse(res, 200, 'Follow-up updated.', { followUp });
   } catch (err) {
     next(err);
@@ -81,8 +76,6 @@ async function remove(req, res, next) {
     const userId = req.user.id;
 
     await campaignFollowUpsService.deleteFollowUp(userId, campaignId, followUpId);
-
-    logger.info('Campaign follow-up deleted', { campaignId, followUpId, userId });
 
     return successResponse(res, 200, 'Follow-up deleted.', undefined);
   } catch (err) {

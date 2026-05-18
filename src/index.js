@@ -45,12 +45,10 @@ const server = app.listen(PORT, () => {
   }
 });
 
-process.on('SIGTERM', () => shutdown('SIGTERM'));
-process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown());
+process.on('SIGINT', () => shutdown());
 
-async function shutdown(signal) {
-  logger.info(`${signal} received — shutting down gracefully`);
-
+async function shutdown() {
   server.close(async () => {
     if (mailTemplateWorker?.worker) {
       await mailTemplateWorker.worker.close();
@@ -58,8 +56,6 @@ async function shutdown(signal) {
     if (campaignMailWorker?.worker) {
       await campaignMailWorker.worker.close();
     }
-
-    logger.info('Server closed');
     process.exit(0);
   });
 }

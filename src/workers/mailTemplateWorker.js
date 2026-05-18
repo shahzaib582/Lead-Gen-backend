@@ -18,13 +18,6 @@ const worker = new Worker(
     const attemptsLeft = MAX_ATTEMPTS - attemptNumber;
     const isFinalAttempt = attemptNumber >= MAX_ATTEMPTS;
 
-    logger.info('[TemplateWorker] Started', {
-      jobId: job.id,
-      campaignLeadId,
-      attemptNumber,
-      isFinalAttempt,
-    });
-
     await publishCampaignEvent(campaignId, {
       type: 'template_started',
       campaignLeadId,
@@ -82,20 +75,6 @@ const worker = new Worker(
 
       if (activeChain === 0) {
         await enqueueCampaignMailJob({ userId, campaignId, campaignLeadId }, { delay: 0 });
-        logger.info('[TemplateWorker] No active chain — kicked off mail chain', {
-          campaignLeadId,
-          attemptNumber,
-        });
-      } else {
-        // Chain is already running; campaignMailWorker will pick this lead
-        // up via the DB query after it finishes the current send.
-        logger.info(
-          '[TemplateWorker] Mail chain already active — lead will be picked up automatically',
-          {
-            campaignLeadId,
-            activeChain,
-          }
-        );
       }
 
       await publishCampaignEvent(campaignId, {
@@ -156,15 +135,12 @@ const worker = new Worker(
   }
 );
 
-worker.on('completed', (job) => logger.info('[TemplateWorker] Job completed', { jobId: job.id }));
 worker.on('failed', (job, err) =>
   logger.error('[TemplateWorker] Job failed', { jobId: job?.id, error: err.message })
 );
 worker.on('error', (err) => logger.error('[TemplateWorker] Worker error', { error: err.message }));
 
-function start() {
-  logger.info('Mail template worker is active and listening for jobs');
-}
+function start() {}
 
 module.exports = { worker, start };
 
