@@ -34,6 +34,14 @@ function throwSupabaseError(error, opts) {
     throw new AppError(duplicateMessage, 409);
   }
 
+  if (error.code === '23514' && /campaigns_lead_source_check/i.test(`${error.message} ${error.details}`)) {
+    throw new AppError(
+      'Invalid lead_source for this database. Allowed values: new, old, both. If "old" fails, run sql/migrations/20260519_campaigns_lead_source_allow_old.sql in Supabase.',
+      400,
+      'INVALID_LEAD_SOURCE'
+    );
+  }
+
   if (schemaHint && isLikelyMissingCampaignColumns(error)) {
     throw new AppError(
       'Database is missing columns the API expects on `campaigns` (e.g. `lead_source`, `sender_display_name`, `mail_template_samples`, `mail_training_instruction`, `target_tone`). Align `campaigns` with `sql/schema.sql` in the Supabase SQL editor, then retry.',
