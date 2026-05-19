@@ -4,6 +4,7 @@ const AppError = require('../utils/AppError');
 const { formatMailTemplateSamplesForPrompt } = require('../utils/mailTemplateSamples');
 const { applySenderPlaceholders } = require('../utils/senderSignature');
 const { resolveCampaignSenderForUser } = require('../utils/resolveCampaignSender');
+const { maybeKickoffCampaignMailChain } = require('./campaignMailKickoffService');
 const { parseLeadDataId } = require('../utils/leadDataId');
 const logger = require('../utils/logger');
 
@@ -248,6 +249,12 @@ async function generateMailTemplates(userId, campaignId, campaignLeadId = null) 
         });
       }
 
+      const mailKickoff = await maybeKickoffCampaignMailChain({
+        userId,
+        campaignId,
+        campaignLeadId: cl.id,
+      });
+
       results.push({
         campaignLeadId: cl.id,
         lead_data_id: cl.lead_data_id,
@@ -255,6 +262,7 @@ async function generateMailTemplates(userId, campaignId, campaignLeadId = null) 
         status: 'template_generated',
         templatePreview:
           generatedTemplate.slice(0, 120) + (generatedTemplate.length > 120 ? '…' : ''),
+        mailKickoff,
       });
 
       processed++;

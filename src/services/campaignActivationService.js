@@ -1,8 +1,7 @@
 const supabase = require('../config/supabase');
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
-const { enqueueMailTemplateJob } = require('../jobs/mailTemplateJob');
-const mailTemplateQueue = require('../queues/mailTemplateQueue');
+const { ensureMailTemplateJob } = require('../jobs/mailTemplateJob');
 const { publishCampaignEvent, getCampaignProgressSnapshot } = require('./campaignEventsPublisher');
 const { needsTemplateJob } = require('./campaignActivationRules');
 
@@ -46,38 +45,25 @@ async function enqueuePendingTemplateJobsForCampaign(userId, campaignId, { previ
       continue;
     }
 
-    const jobId = `template-${lead.id}`;
     try {
-      const existing = await mailTemplateQueue.getJob(jobId);
-      if (existing) {
-        const state = await existing.getState();
-        if (['waiting', 'delayed', 'active', 'prioritized'].includes(state)) {
-          skippedDuplicate += 1;
-          continue;
-        }
-      }
-    } catch {
-      // getJob failed — fall through to enqueue
-    }
-
-    try {
-      await enqueueMailTemplateJob({
+      const result = await ensureMailTemplateJob({
         userId,
         campaignId,
         campaignLeadId: lead.id,
       });
-      enqueued += 1;
-    } catch (err) {
-      const msg = err && err.message ? err.message : String(err);
-      if (/already exists|duplicate job id|Job id already exists/i.test(msg)) {
+      if (result.queued) {
+        enqueued += 1;
+      } else if (result.reason === 'already_queued') {
         skippedDuplicate += 1;
       } else {
-        logger.warn('[Activation] enqueue template job failed', {
-          campaignId,
-          campaignLeadId: lead.id,
-          error: msg,
-        });
+        skippedDuplicate += 1;
       }
+    } catch (err) {
+      logger.warn('[Activation] enqueue template job failed', {
+        campaignId,
+        campaignLeadId: lead.id,
+        error: err.message,
+      });
     }
   }
 
