@@ -81,6 +81,8 @@ const sendEmailsValidation = [
     .withMessage('access_token must be a string.'),
 ];
 
+const runOutreachValidation = [campaignIdParam];
+
 module.exports = {
   campaignIdParam,
   leadIdParam,
@@ -90,4 +92,5 @@ module.exports = {
   removeLeadValidation,
   generateTemplatesValidation,
   sendEmailsValidation,
+  runOutreachValidation,
 };

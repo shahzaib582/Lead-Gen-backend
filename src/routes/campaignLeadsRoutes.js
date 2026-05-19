@@ -6,10 +6,12 @@ const {
   removeLeadValidation,
   generateTemplatesValidation,
   sendEmailsValidation,
+  runOutreachValidation,
 } = require('../validation/campaignLeadsRoutesValidation');
 const campaignLeadsController = require('../controllers/campaignLeadsController');
 const mailTemplateController = require('../controllers/mailTemplateController');
 const campaignMailerController = require('../controllers/campaignMailerController');
+const campaignManualRunController = require('../controllers/campaignManualRunController');
 const { authenticate } = require('../middleware/authenticate');
 const validateRequest = require('../middleware/validateRequest');
 const { leadsLimiter } = require('../config/rateLimits');
@@ -31,6 +33,12 @@ router.post(
   sendEmailsValidation,
   validateRequest,
   campaignMailerController.sendEmails
+);
+router.post(
+  '/run',
+  runOutreachValidation,
+  validateRequest,
+  campaignManualRunController.runOutreach
 );
 router.get('/', listLeadsValidation, validateRequest, campaignLeadsController.listLeads);
 router.patch('/:leadId', updateLeadValidation, validateRequest, campaignLeadsController.updateLead);

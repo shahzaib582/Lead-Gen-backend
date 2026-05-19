@@ -18,12 +18,22 @@ async function enqueuePendingTemplateJobsForCampaign(userId, campaignId, { previ
 
   const { data: campaign, error: cErr } = await supabase
     .from('campaigns')
-    .select('id, status')
+    .select('id, status, run_mode')
     .eq('id', campaignId)
     .eq('user_id', userId)
     .single();
 
   if (cErr || !campaign) throw new AppError('Campaign not found.', 404);
+
+  if (campaign.run_mode !== 'auto') {
+    return {
+      enqueued: 0,
+      skippedDuplicate: 0,
+      skippedWrongState: 0,
+      examined: 0,
+      note: 'manual_run_mode',
+    };
+  }
 
   const { data: rows, error: lErr } = await supabase
     .from('campaign_leads')

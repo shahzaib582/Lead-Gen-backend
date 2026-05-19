@@ -173,7 +173,8 @@ async function generateEmailForLead({ lead, linkedin, web, campaign }) {
 
 // ─── Main exported function ───────────────────────────────────────────────────
 
-async function generateMailTemplates(userId, campaignId, campaignLeadId = null) {
+async function generateMailTemplates(userId, campaignId, campaignLeadId = null, options = {}) {
+  const { skipMailKickoff = false } = options;
   // 1. Fetch campaign (with ownership check)
   const { data: campaign, error: campError } = await supabase
     .from('campaigns')
@@ -249,11 +250,13 @@ async function generateMailTemplates(userId, campaignId, campaignLeadId = null) 
         });
       }
 
-      const mailKickoff = await maybeKickoffCampaignMailChain({
-        userId,
-        campaignId,
-        campaignLeadId: cl.id,
-      });
+      const mailKickoff = skipMailKickoff
+        ? { started: false, reason: 'skipped_for_manual_run' }
+        : await maybeKickoffCampaignMailChain({
+            userId,
+            campaignId,
+            campaignLeadId: cl.id,
+          });
 
       results.push({
         campaignLeadId: cl.id,

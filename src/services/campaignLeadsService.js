@@ -4,6 +4,7 @@ const supabase = require('../config/supabase');
 const AppError = require('../utils/AppError');
 const { parseLeadDataId } = require('../utils/leadDataId');
 const { ensureMailTemplateJob } = require('../jobs/mailTemplateJob');
+const { shouldAutoEnqueuePipeline } = require('./campaignPipelineRules');
 const { applyLeadSourceFilter, shuffleInPlace } = require('./leadPoolQuery');
 
 const VALID_STATUSES = ['pending', 'template_generated', 'sent', 'failed', 'skipped'];
@@ -79,7 +80,7 @@ async function bulkAddLeadsToCampaign(userId, campaignId, leads) {
   // Queue template jobs
   // ------------------------------------
 
-  if (campaign.status === 'active') {
+  if (shouldAutoEnqueuePipeline(campaign)) {
     for (const lead of data || []) {
       await ensureMailTemplateJob({
         userId,
@@ -303,7 +304,7 @@ async function assignRandomLeadsToCampaign(userId, campaignId) {
   // Queue template generation
   // ------------------------------------
 
-  if (campaign.status === 'active') {
+  if (shouldAutoEnqueuePipeline(campaign)) {
     for (const lead of inserted || []) {
       await ensureMailTemplateJob({
         userId,

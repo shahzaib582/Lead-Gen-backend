@@ -11,13 +11,17 @@ const logger = require('../utils/logger');
 async function maybeKickoffCampaignMailChain({ userId, campaignId, campaignLeadId }) {
   const { data: campaign, error: campErr } = await supabase
     .from('campaigns')
-    .select('id, status')
+    .select('id, status, run_mode')
     .eq('id', campaignId)
     .eq('user_id', userId)
     .single();
 
   if (campErr || !campaign) {
     return { started: false, reason: 'campaign_not_found' };
+  }
+
+  if (campaign.run_mode !== 'auto') {
+    return { started: false, reason: 'manual_run_mode' };
   }
 
   if (!isCampaignActiveForSend(campaign)) {

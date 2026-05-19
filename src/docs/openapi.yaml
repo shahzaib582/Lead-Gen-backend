@@ -1956,6 +1956,51 @@ paths:
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
 
+  /api/campaigns/{id}/leads/run:
+    post:
+      tags: [CampaignLeads]
+      summary: Run manual campaign outreach (templates + send)
+      description: |
+        For **`run_mode: manual`** campaigns that are **`active`** only.
+        Authenticated user must own the campaign.
+        Processes each lead with status `pending` or `template_generated` in `created_at` order:
+        generates an AI template when needed, then sends one Gmail per lead with the same delay policy as `send-emails`.
+        Returns **400** with `code: CAMPAIGN_NOT_MANUAL` for auto campaigns (they run via workers on bulk add).
+        Returns **400** with `code: CAMPAIGN_NOT_ACTIVE` when the campaign is not active.
+        Requires a linked Google account (`GET /api/auth/google`).
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Outreach summary (templates + sends per lead)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Campaign not found or no pending leads
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '400':
+          description: Not manual, not active, or Google not linked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
   /api/campaigns/{id}/leads/send-emails:
     post:
       tags: [CampaignLeads]
