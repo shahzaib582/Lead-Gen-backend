@@ -7,6 +7,7 @@ const { sendCampaignEmails } = require('../services/campaignMailerService');
 const { enqueueCampaignMailJob } = require('../jobs/campaignMailJob');
 const { randomDelayMs } = require('../config/mailDelay');
 const { publishCampaignEvent, getCampaignProgressSnapshot } = require('../services/campaignEventsPublisher');
+const { isCampaignActiveForSend } = require('../services/campaignSendRules');
 
 function calcNextDelay() {
   return randomDelayMs();
@@ -33,6 +34,32 @@ const worker = new Worker(
 
       if (fetchError || !lead) {
         throw new Error(`Lead ${campaignLeadId} not found in database`);
+      }
+
+      const { data: campaign, error: campaignError } = await supabase
+        .from('campaigns')
+        .select('id, status')
+        .eq('id', campaignId)
+        .eq('user_id', userId)
+        .single();
+
+      if (campaignError || !campaign) {
+        throw new Error(`Campaign ${campaignId} not found`);
+      }
+
+      if (!isCampaignActiveForSend(campaign)) {
+        logger.warn('[CampaignMailWorker] Campaign not active — skipping send', {
+          campaignId,
+          status: campaign.status,
+          campaignLeadId,
+        });
+        return {
+          success: true,
+          skipped: true,
+          reason: 'campaign_not_active',
+          status: campaign.status,
+          leadId: campaignLeadId,
+        };
       }
 
       // Guard: skip if already sent (prevents double-send on BullMQ retries)
@@ -145,6 +172,21 @@ const worker = new Worker(
 // ─── Helper ───────────────────────────────────────────────────────────────────
 
 async function chainNextLead({ userId, campaignId }) {
+  const { data: campaign } = await supabase
+    .from('campaigns')
+    .select('status')
+    .eq('id', campaignId)
+    .eq('user_id', userId)
+    .single();
+
+  if (!isCampaignActiveForSend(campaign)) {
+    await publishCampaignEvent(campaignId, {
+      type: 'campaign_progress',
+      ...(await getCampaignProgressSnapshot(userId, campaignId)),
+    });
+    return;
+  }
+
   const { data: nextLead } = await supabase
     .from('campaign_leads')
     .select('id')

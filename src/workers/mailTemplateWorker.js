@@ -6,6 +6,7 @@ const { generateMailTemplates } = require('../services/mailTemplateService');
 const campaignMailQueue = require('../queues/campaignMailQueue');
 const { enqueueCampaignMailJob } = require('../jobs/campaignMailJob');
 const { publishCampaignEvent, getCampaignProgressSnapshot } = require('../services/campaignEventsPublisher');
+const { isCampaignActiveForSend } = require('../services/campaignSendRules');
 
 const MAX_ATTEMPTS = 3; // must match attempts in mailTemplateQueue.js
 
@@ -70,11 +71,24 @@ const worker = new Worker(
       //    waiting/delayed/active for this campaign.
       //    campaignMailWorker handles all subsequent delays via chaining —
       //    we must NOT enqueue every lead here or they all fire at once.
+      const { data: campaign } = await supabase
+        .from('campaigns')
+        .select('status')
+        .eq('id', campaignId)
+        .eq('user_id', userId)
+        .single();
+
       const counts = await campaignMailQueue.getJobCounts('waiting', 'delayed', 'active');
       const activeChain = counts.waiting + counts.delayed + counts.active;
 
-      if (activeChain === 0) {
+      if (isCampaignActiveForSend(campaign) && activeChain === 0) {
         await enqueueCampaignMailJob({ userId, campaignId, campaignLeadId }, { delay: 0 });
+      } else if (!isCampaignActiveForSend(campaign)) {
+        logger.warn('[TemplateWorker] Campaign not active — mail chain not started', {
+          campaignId,
+          status: campaign?.status,
+          campaignLeadId,
+        });
       }
 
       await publishCampaignEvent(campaignId, {

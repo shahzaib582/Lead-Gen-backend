@@ -7,6 +7,7 @@ const logger = require('../utils/logger');
 const { randomDelayMs } = require('../config/mailDelay');
 const { parseMailTemplate } = require('../utils/parseMailTemplate');
 const { DAILY_SEND_LIMIT, getTodaySentCount } = require('./mailSendLimitService');
+const { assertCampaignActiveForSend } = require('./campaignSendRules');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -70,12 +71,13 @@ async function sendCampaignEmails(
   // 1. Ownership check
   const { data: campaign, error: campError } = await supabase
     .from('campaigns')
-    .select('id, name, sender_display_name, sender_address, sender_phone')
+    .select('id, name, status, sender_display_name, sender_address, sender_phone')
     .eq('id', campaignId)
     .eq('user_id', userId)
     .single();
 
   if (campError || !campaign) throw new AppError('Campaign not found.', 404);
+  assertCampaignActiveForSend(campaign);
 
   const { data: googleAcct } = await supabase
     .from('google_accounts')

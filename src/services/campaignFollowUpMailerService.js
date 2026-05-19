@@ -7,6 +7,7 @@ const { parseMailTemplate } = require('../utils/parseMailTemplate');
 const { applyTemplatePlaceholders } = require('../utils/templatePlaceholders');
 const logger = require('../utils/logger');
 const { DAILY_SEND_LIMIT, getTodaySentCount } = require('./mailSendLimitService');
+const { assertCampaignActiveForSend } = require('./campaignSendRules');
 
 function appendCampaignSignature(body, campaign) {
   const lines = [];
@@ -126,7 +127,7 @@ async function sendFollowUpEmail({ userId, campaignId, campaignLeadId, followUpI
 
   const { data: campaign, error: campErr } = await supabase
     .from('campaigns')
-    .select('id, sender_display_name, sender_address, sender_phone')
+    .select('id, status, sender_display_name, sender_address, sender_phone')
     .eq('id', campaignId)
     .eq('user_id', userId)
     .single();
@@ -134,6 +135,7 @@ async function sendFollowUpEmail({ userId, campaignId, campaignLeadId, followUpI
   if (campErr || !campaign) {
     throw new AppError('Campaign not found.', 404);
   }
+  assertCampaignActiveForSend(campaign);
 
   const alreadySentToday = await getTodaySentCount(userId);
   if (alreadySentToday >= DAILY_SEND_LIMIT) {
