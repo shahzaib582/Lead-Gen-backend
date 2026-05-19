@@ -9,6 +9,9 @@ services:
       - key: NODE_ENV
         value: production
 
+      - key: LOG_LEVEL
+        value: info
+
       - key: TRUST_PROXY
         value: '1'
 
