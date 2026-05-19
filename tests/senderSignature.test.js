@@ -31,4 +31,40 @@ describe('senderSignature', () => {
     assert.match(out, /Hamza Ansari/);
     assert.match(out, /Codex, Lahore/);
   });
+
+  it('finalizeOutboundBody does not duplicate an existing signature block', () => {
+    const alreadySigned = [
+      'Hi there,',
+      '',
+      'Quick note about your product.',
+      '',
+      'Hamza Ansari',
+      'Codex, Lahore',
+      '+92 300 1234567',
+    ].join('\n');
+
+    const out = finalizeOutboundBody(alreadySigned, campaign);
+    assert.equal((out.match(/Hamza Ansari/g) || []).length, 1);
+    assert.equal((out.match(/Codex, Lahore/g) || []).length, 1);
+    assert.doesNotMatch(out, /\n--\n/);
+  });
+
+  it('finalizeOutboundBody strips duplicate -- signature from stored templates', () => {
+    const doubled = [
+      'Hi there,',
+      '',
+      'Hamza Ansari',
+      'Codex, Lahore',
+      '+92 300 1234567',
+      '',
+      '--',
+      'Hamza Ansari',
+      'Codex, Lahore',
+      '+92 300 1234567',
+    ].join('\n');
+
+    const out = finalizeOutboundBody(doubled, campaign);
+    assert.equal((out.match(/Hamza Ansari/g) || []).length, 1);
+    assert.doesNotMatch(out, /\n--\n/);
+  });
 });
