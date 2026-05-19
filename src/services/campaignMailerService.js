@@ -7,6 +7,7 @@ const logger = require('../utils/logger');
 const { randomDelayMs } = require('../config/mailDelay');
 const { parseMailTemplate } = require('../utils/parseMailTemplate');
 const { finalizeOutboundBody } = require('../utils/senderSignature');
+const { resolveCampaignSenderForUser } = require('../utils/resolveCampaignSender');
 const { DAILY_SEND_LIMIT, getTodaySentCount } = require('./mailSendLimitService');
 const { assertCampaignActiveForSend } = require('./campaignSendRules');
 
@@ -68,6 +69,8 @@ async function sendCampaignEmails(
   if (campError || !campaign) throw new AppError('Campaign not found.', 404);
   assertCampaignActiveForSend(campaign);
 
+  const senderCampaign = await resolveCampaignSenderForUser(campaign, userId);
+
   const { data: googleAcct } = await supabase
     .from('google_accounts')
     .select('email')
@@ -77,7 +80,9 @@ async function sendCampaignEmails(
   const googleSendEmail = googleAcct && googleAcct.email ? String(googleAcct.email).trim() : null;
 
   const mimeOptions = {};
-  const displayName = campaign.sender_display_name ? String(campaign.sender_display_name).trim() : '';
+  const displayName = senderCampaign.sender_display_name
+    ? String(senderCampaign.sender_display_name).trim()
+    : '';
   if (displayName && googleSendEmail) {
     mimeOptions.fromDisplayName = displayName;
     mimeOptions.fromEmail = googleSendEmail;
@@ -158,7 +163,7 @@ async function sendCampaignEmails(
 
     // ── a. Parse template ─────────────────────────────────────────────────
     const { subject, body: rawBody } = parseMailTemplate(cl.mail_template);
-    const body = finalizeOutboundBody(rawBody, campaign);
+    const body = finalizeOutboundBody(rawBody, senderCampaign);
 
     // ── b. Get lead email ─────────────────────────────────────────────────
     const leadInfo = await getLeadEmail(cl.lead_data_id);

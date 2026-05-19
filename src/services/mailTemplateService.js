@@ -3,6 +3,7 @@ const supabase = require('../config/supabase');
 const AppError = require('../utils/AppError');
 const { formatMailTemplateSamplesForPrompt } = require('../utils/mailTemplateSamples');
 const { applySenderPlaceholders } = require('../utils/senderSignature');
+const { resolveCampaignSenderForUser } = require('../utils/resolveCampaignSender');
 const { parseLeadDataId } = require('../utils/leadDataId');
 const logger = require('../utils/logger');
 
@@ -184,6 +185,8 @@ async function generateMailTemplates(userId, campaignId, campaignLeadId = null) 
 
   if (campError || !campaign) throw new AppError('Campaign not found.', 404);
 
+  const senderCampaign = await resolveCampaignSenderForUser(campaign, userId);
+
   // 2. Fetch the campaign_leads to process
   // FIX: only fetch 'pending' leads (not template_generated/sent/failed)
   let clQuery = supabase
@@ -221,8 +224,8 @@ async function generateMailTemplates(userId, campaignId, campaignLeadId = null) 
         fetchWebData(lead.domain),
       ]);
 
-      let generatedTemplate = await generateEmailForLead({ lead, linkedin, web, campaign });
-      generatedTemplate = applySenderPlaceholders(generatedTemplate, campaign);
+      let generatedTemplate = await generateEmailForLead({ lead, linkedin, web, campaign: senderCampaign });
+      generatedTemplate = applySenderPlaceholders(generatedTemplate, senderCampaign);
 
       // Save template
       const { error: updateError } = await supabase

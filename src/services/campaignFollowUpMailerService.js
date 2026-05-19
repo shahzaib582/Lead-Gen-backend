@@ -6,6 +6,7 @@ const { parseLeadDataId } = require('../utils/leadDataId');
 const { parseMailTemplate } = require('../utils/parseMailTemplate');
 const { applyTemplatePlaceholders } = require('../utils/templatePlaceholders');
 const { finalizeOutboundBody } = require('../utils/senderSignature');
+const { resolveCampaignSenderForUser } = require('../utils/resolveCampaignSender');
 const logger = require('../utils/logger');
 const { DAILY_SEND_LIMIT, getTodaySentCount } = require('./mailSendLimitService');
 const { assertCampaignActiveForSend } = require('./campaignSendRules');
@@ -126,6 +127,8 @@ async function sendFollowUpEmail({ userId, campaignId, campaignLeadId, followUpI
   }
   assertCampaignActiveForSend(campaign);
 
+  const senderCampaign = await resolveCampaignSenderForUser(campaign, userId);
+
   const alreadySentToday = await getTodaySentCount(userId);
   if (alreadySentToday >= DAILY_SEND_LIMIT) {
     return { status: 'skipped', reason: 'daily_limit_reached' };
@@ -153,7 +156,9 @@ async function sendFollowUpEmail({ userId, campaignId, campaignLeadId, followUpI
 
   const googleSendEmail = googleAcct?.email ? String(googleAcct.email).trim() : null;
   const mimeOptions = {};
-  const displayName = campaign.sender_display_name ? String(campaign.sender_display_name).trim() : '';
+  const displayName = senderCampaign.sender_display_name
+    ? String(senderCampaign.sender_display_name).trim()
+    : '';
   if (displayName && googleSendEmail) {
     mimeOptions.fromDisplayName = displayName;
     mimeOptions.fromEmail = googleSendEmail;
@@ -162,7 +167,7 @@ async function sendFollowUpEmail({ userId, campaignId, campaignLeadId, followUpI
   const templated = applyTemplatePlaceholders(bodyTemplate, leadInfo);
   const { subject: rawSubject, body: rawBody } = parseMailTemplate(templated);
   const subject = applyTemplatePlaceholders(rawSubject, leadInfo);
-  const body = finalizeOutboundBody(applyTemplatePlaceholders(rawBody, leadInfo), campaign);
+  const body = finalizeOutboundBody(applyTemplatePlaceholders(rawBody, leadInfo), senderCampaign);
 
   try {
     const hasMime = Object.keys(mimeOptions).length > 0;

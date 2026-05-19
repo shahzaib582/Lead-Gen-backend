@@ -1318,18 +1318,18 @@ paths:
                   description: Optional; non-negative integer.
                 lead_source:
                   $ref: '#/components/schemas/LeadSource'
-                sender_display_name:
-                  type: string
-                  maxLength: 120
-                  description: Optional display name for MIME From (paired with linked Gmail address).
-                sender_address:
-                  type: string
-                  maxLength: 500
-                  description: Optional line appended to message body as a signature block.
-                sender_phone:
-                  type: string
-                  maxLength: 80
-                  description: Optional line appended to message body as a signature block.
+        sender_display_name:
+          type: string
+          maxLength: 120
+          description: Optional display name for MIME From and sign-off. Falls back to `users.name` when omitted.
+        sender_address:
+          type: string
+          maxLength: 500
+          description: Optional signature line in email body. Falls back to `users.address` when omitted.
+        sender_phone:
+          type: string
+          maxLength: 80
+          description: Optional signature line in email body. Falls back to `users.contact` when omitted.
                 status:
                   $ref: '#/components/schemas/CampaignStatus'
       responses:
