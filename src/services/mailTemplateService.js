@@ -2,6 +2,7 @@ const OpenAI = require('openai');
 const supabase = require('../config/supabase');
 const AppError = require('../utils/AppError');
 const { formatMailTemplateSamplesForPrompt } = require('../utils/mailTemplateSamples');
+const { applySenderPlaceholders } = require('../utils/senderSignature');
 const { parseLeadDataId } = require('../utils/leadDataId');
 const logger = require('../utils/logger');
 
@@ -61,11 +62,20 @@ function buildPrompt({
   campaignGoal,
   callToAction,
   targetTone,
+  senderDisplayName,
+  senderAddress,
+  senderPhone,
 }) {
   const sections = [];
 
+  const senderLines = [
+    senderDisplayName && `Sender name (use for sign-off): ${senderDisplayName}`,
+    senderAddress && `Sender address/company line: ${senderAddress}`,
+    senderPhone && `Sender phone: ${senderPhone}`,
+  ].filter(Boolean);
+
   sections.push(
-    `## Campaign Context\nGoal: ${campaignGoal || 'Not specified'}\nCall to Action: ${callToAction || 'Not specified'}\nTarget tone: ${targetTone || 'Professional'}\n${mailTrainingInstruction ? `Instructions for tone and style:\n${mailTrainingInstruction}` : ''}`
+    `## Campaign Context\nGoal: ${campaignGoal || 'Not specified'}\nCall to Action: ${callToAction || 'Not specified'}\nTarget tone: ${targetTone || 'Professional'}\n${mailTrainingInstruction ? `Instructions for tone and style:\n${mailTrainingInstruction}` : ''}${senderLines.length ? `\n\n## Sender (sign the email — do NOT use placeholders like [Your Name])\n${senderLines.join('\n')}` : ''}`
   );
 
   if (formattedSamples) {
@@ -127,7 +137,7 @@ function buildPrompt({
   }
 
   sections.push(
-    `## Your Task\nWrite a personalised, human-sounding cold email for this specific lead.\n\nRules:\n- Match the **Target tone** (${targetTone || 'Professional'}) throughout subject and body.\n- Use ONLY the information provided above — do not invent facts.\n- Replace every placeholder in the template (e.g. {{firstName}}, {{company}}) with the real values.\n- Weave in 1–2 specific details from the LinkedIn profile or company intelligence to show genuine research.\n- Keep it concise (under 200 words for the body).\n- End with a clear, single call to action: "${callToAction || 'Reply to this email'}".\n- Output ONLY the final email text (subject line first, then body). No explanation, no markdown fencing.\n- Subject line format:  Subject: <your subject here>\n- Then a blank line, then the email body.`
+    `## Your Task\nWrite a personalised, human-sounding cold email for this specific lead.\n\nRules:\n- Match the **Target tone** (${targetTone || 'Professional'}) throughout subject and body.\n- Use ONLY the information provided above — do not invent facts.\n- Replace every placeholder in the template (e.g. {{firstName}}, {{company}}) with the real values.\n- Weave in 1–2 specific details from the LinkedIn profile or company intelligence to show genuine research.\n- Keep it concise (under 200 words for the body).\n- End with a clear, single call to action: "${callToAction || 'Reply to this email'}".\n- Sign off with the real **Sender name** from Campaign Context (never write [Your Name] or similar placeholders).\n- Do not add a separate address/phone footer; the system appends sender contact lines after the body.\n- Output ONLY the final email text (subject line first, then body). No explanation, no markdown fencing.\n- Subject line format:  Subject: <your subject here>\n- Then a blank line, then the email body.`
   );
 
   return sections.join('\n\n');
@@ -145,6 +155,9 @@ async function generateEmailForLead({ lead, linkedin, web, campaign }) {
     campaignGoal: campaign.goal,
     callToAction: campaign.call_to_action,
     targetTone: campaign.target_tone,
+    senderDisplayName: campaign.sender_display_name,
+    senderAddress: campaign.sender_address,
+    senderPhone: campaign.sender_phone,
   });
 
   const response = await openai.chat.completions.create({
@@ -162,7 +175,9 @@ async function generateMailTemplates(userId, campaignId, campaignLeadId = null) 
   // 1. Fetch campaign (with ownership check)
   const { data: campaign, error: campError } = await supabase
     .from('campaigns')
-    .select('id, goal, call_to_action, target_tone, mail_training_instruction, mail_template_samples')
+    .select(
+      'id, goal, call_to_action, target_tone, mail_training_instruction, mail_template_samples, sender_display_name, sender_address, sender_phone'
+    )
     .eq('id', campaignId)
     .eq('user_id', userId)
     .single();
@@ -206,7 +221,8 @@ async function generateMailTemplates(userId, campaignId, campaignLeadId = null) 
         fetchWebData(lead.domain),
       ]);
 
-      const generatedTemplate = await generateEmailForLead({ lead, linkedin, web, campaign });
+      let generatedTemplate = await generateEmailForLead({ lead, linkedin, web, campaign });
+      generatedTemplate = applySenderPlaceholders(generatedTemplate, campaign);
 
       // Save template
       const { error: updateError } = await supabase

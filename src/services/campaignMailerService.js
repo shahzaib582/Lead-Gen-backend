@@ -6,6 +6,7 @@ const { parseLeadDataId } = require('../utils/leadDataId');
 const logger = require('../utils/logger');
 const { randomDelayMs } = require('../config/mailDelay');
 const { parseMailTemplate } = require('../utils/parseMailTemplate');
+const { finalizeOutboundBody } = require('../utils/senderSignature');
 const { DAILY_SEND_LIMIT, getTodaySentCount } = require('./mailSendLimitService');
 const { assertCampaignActiveForSend } = require('./campaignSendRules');
 
@@ -45,18 +46,6 @@ async function getLeadEmail(leadDataId) {
 
   if (error || !data) return null;
   return data;
-}
-
-function appendCampaignSignature(body, campaign) {
-  const lines = [];
-  if (campaign.sender_address && String(campaign.sender_address).trim()) {
-    lines.push(String(campaign.sender_address).trim());
-  }
-  if (campaign.sender_phone && String(campaign.sender_phone).trim()) {
-    lines.push(String(campaign.sender_phone).trim());
-  }
-  if (lines.length === 0) return body;
-  return `${body}\n\n--\n${lines.join('\n')}`;
 }
 
 // ─── Main exported function ───────────────────────────────────────────────────
@@ -169,7 +158,7 @@ async function sendCampaignEmails(
 
     // ── a. Parse template ─────────────────────────────────────────────────
     const { subject, body: rawBody } = parseMailTemplate(cl.mail_template);
-    const body = appendCampaignSignature(rawBody, campaign);
+    const body = finalizeOutboundBody(rawBody, campaign);
 
     // ── b. Get lead email ─────────────────────────────────────────────────
     const leadInfo = await getLeadEmail(cl.lead_data_id);

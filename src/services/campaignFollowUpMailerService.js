@@ -5,21 +5,10 @@ const AppError = require('../utils/AppError');
 const { parseLeadDataId } = require('../utils/leadDataId');
 const { parseMailTemplate } = require('../utils/parseMailTemplate');
 const { applyTemplatePlaceholders } = require('../utils/templatePlaceholders');
+const { finalizeOutboundBody } = require('../utils/senderSignature');
 const logger = require('../utils/logger');
 const { DAILY_SEND_LIMIT, getTodaySentCount } = require('./mailSendLimitService');
 const { assertCampaignActiveForSend } = require('./campaignSendRules');
-
-function appendCampaignSignature(body, campaign) {
-  const lines = [];
-  if (campaign.sender_address && String(campaign.sender_address).trim()) {
-    lines.push(String(campaign.sender_address).trim());
-  }
-  if (campaign.sender_phone && String(campaign.sender_phone).trim()) {
-    lines.push(String(campaign.sender_phone).trim());
-  }
-  if (lines.length === 0) return body;
-  return `${body}\n\n--\n${lines.join('\n')}`;
-}
 
 async function getLeadEmail(leadDataId) {
   const { data, error } = await supabase
@@ -173,7 +162,7 @@ async function sendFollowUpEmail({ userId, campaignId, campaignLeadId, followUpI
   const templated = applyTemplatePlaceholders(bodyTemplate, leadInfo);
   const { subject: rawSubject, body: rawBody } = parseMailTemplate(templated);
   const subject = applyTemplatePlaceholders(rawSubject, leadInfo);
-  const body = appendCampaignSignature(applyTemplatePlaceholders(rawBody, leadInfo), campaign);
+  const body = finalizeOutboundBody(applyTemplatePlaceholders(rawBody, leadInfo), campaign);
 
   try {
     const hasMime = Object.keys(mimeOptions).length > 0;
@@ -227,5 +216,4 @@ async function markFollowUpFailed(deliveryId, message) {
 module.exports = {
   sendFollowUpEmail,
   claimFollowUpDelivery,
-  appendCampaignSignature,
 };
