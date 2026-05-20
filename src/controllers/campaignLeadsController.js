@@ -2,6 +2,30 @@ const campaignLeadsService = require('../services/campaignLeadsService');
 const AppError = require('../utils/AppError');
 const { successResponse, successResponsePaginated } = require('../utils/response');
 
+function bulkAddLeadsMessage({ totalInserted, totalDuplicates }) {
+  if (totalInserted === 0 && totalDuplicates > 0) {
+    return totalDuplicates === 1
+      ? 'This lead is already on the campaign.'
+      : 'These leads are already on the campaign.';
+  }
+  if (totalInserted === 1 && totalDuplicates === 0) {
+    return 'Lead added successfully.';
+  }
+  if (totalInserted > 0 && totalDuplicates === 0) {
+    return `${totalInserted} leads added to campaign.`;
+  }
+  if (totalInserted > 0 && totalDuplicates > 0) {
+    const added =
+      totalInserted === 1 ? '1 lead added to campaign' : `${totalInserted} leads added to campaign`;
+    const skipped =
+      totalDuplicates === 1
+        ? '1 was already on the campaign'
+        : `${totalDuplicates} were already on the campaign`;
+    return `${added}. ${skipped}.`;
+  }
+  return 'No leads were added.';
+}
+
 // ─── POST /campaigns/:id/leads/bulk ──────────────────────────────────────────
 // Bulk-add leads to a campaign. Silently skips duplicates and reports them.
 
@@ -16,7 +40,7 @@ async function bulkAddLeads(req, res, next) {
     return successResponse(
       res,
       201,
-      `${result.totalInserted} lead(s) added. ${result.totalDuplicates} duplicate(s) skipped.`,
+      bulkAddLeadsMessage(result),
       result
     );
   } catch (err) {
