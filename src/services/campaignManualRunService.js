@@ -11,10 +11,10 @@ function sleep(ms) {
 }
 
 /**
- * Manual active campaigns: generate templates then send Gmail for each pending lead, one at a time.
- * Auto campaigns use workers on bulk add; this endpoint returns 400 for them.
+ * Fast checks before starting background outreach (HTTP returns immediately after this).
+ * @returns {Promise<{ leadCount: number }>}
  */
-async function runManualCampaignOutreach(userId, campaignId) {
+async function validateManualCampaignRunStart(userId, campaignId) {
   const { data: campaign, error: campError } = await supabase
     .from('campaigns')
     .select('id, status, run_mode')
@@ -38,6 +38,40 @@ async function runManualCampaignOutreach(userId, campaignId) {
 
   const { data: leads, error: leadsError } = await supabase
     .from('campaign_leads')
+    .select('id')
+    .eq('campaign_id', campaignId)
+    .eq('user_id', userId)
+    .in('status', ['pending', 'template_generated']);
+
+  if (leadsError) {
+    throw new AppError('Failed to fetch campaign leads.', 500);
+  }
+
+  if (!leads || leads.length === 0) {
+    throw new AppError('No pending leads to process.', 404);
+  }
+
+  try {
+    await googleAuthService.getValidGoogleAccessToken(userId);
+  } catch (err) {
+    throw new AppError(
+      err.message ||
+        'No Google account linked. Visit GET /api/auth/google to connect Gmail before sending.',
+      err.statusCode || 400,
+      err.code || 'GOOGLE_NOT_LINKED'
+    );
+  }
+
+  return { leadCount: leads.length };
+}
+
+/**
+ * Manual active campaigns: generate templates then send Gmail for each pending lead, one at a time.
+ * Auto campaigns use workers on bulk add; this endpoint returns 400 for them.
+ */
+async function runManualCampaignOutreach(userId, campaignId) {
+  const { data: leads, error: leadsError } = await supabase
+    .from('campaign_leads')
     .select('id, status')
     .eq('campaign_id', campaignId)
     .eq('user_id', userId)
@@ -49,20 +83,19 @@ async function runManualCampaignOutreach(userId, campaignId) {
   }
 
   if (!leads || leads.length === 0) {
-    throw new AppError('No pending leads to process.', 404);
+    return {
+      examined: 0,
+      templatesGenerated: 0,
+      templateFailures: 0,
+      sent: 0,
+      sendFailed: 0,
+      sendSkipped: 0,
+      dailyLimitReached: false,
+      results: [],
+    };
   }
 
-  let accessToken;
-  try {
-    accessToken = await googleAuthService.getValidGoogleAccessToken(userId);
-  } catch (err) {
-    throw new AppError(
-      err.message ||
-        'No Google account linked. Visit GET /api/auth/google to connect Gmail before sending.',
-      err.statusCode || 400,
-      err.code || 'GOOGLE_NOT_LINKED'
-    );
-  }
+  const accessToken = await googleAuthService.getValidGoogleAccessToken(userId);
 
   const summary = {
     examined: leads.length,
@@ -131,4 +164,7 @@ async function runManualCampaignOutreach(userId, campaignId) {
   return summary;
 }
 
-module.exports = { runManualCampaignOutreach };
+module.exports = {
+  validateManualCampaignRunStart,
+  runManualCampaignOutreach,
+};

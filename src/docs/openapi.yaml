@@ -2351,12 +2351,12 @@ paths:
   /api/campaigns/{id}/leads/run:
     post:
       tags: [CampaignLeads]
-      summary: Run manual campaign outreach (templates + send)
+      summary: Start manual campaign outreach (async)
       description: |
         For **`run_mode: manual`** campaigns that are **`active`** only.
-        Authenticated user must own the campaign.
-        Processes each lead with status `pending` or `template_generated` in `created_at` order:
-        generates an AI template when needed, then sends one Gmail per lead with the same delay policy as `send-emails`.
+        Validates the request, then starts template generation and Gmail sends **in the background**
+        and returns **202** immediately so the client is not blocked (sends use the same delay policy as `send-emails`).
+        Poll campaign leads or SSE for progress. Final counts are logged server-side only.
         Returns **400** with `code: CAMPAIGN_NOT_MANUAL` for auto campaigns (they run via workers on bulk add).
         Returns **400** with `code: CAMPAIGN_NOT_ACTIVE` when the campaign is not active.
         Requires a linked Google account (`GET /api/auth/google`).
@@ -2368,12 +2368,19 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
-          description: Outreach summary (templates + sends per lead)
+        '202':
+          description: Outreach accepted and running in the background
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
+              example:
+                success: true
+                message: Campaign outreach started.
+                data:
+                  campaignId: 11111111-2222-3333-4444-555555555555
+                  status: processing
+                  leadsQueued: 12
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
