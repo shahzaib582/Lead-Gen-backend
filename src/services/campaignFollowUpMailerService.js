@@ -11,6 +11,7 @@ const logger = require('../utils/logger');
 const { DAILY_SEND_LIMIT, getTodaySentCount } = require('./mailSendLimitService');
 const { assertCampaignActiveForSend } = require('./campaignSendRules');
 const { safeThreadHasLeadReply } = require('./gmailThreadService');
+const { maybeCreateThankYouDraft } = require('./thankYouDraftService');
 const { buildReplySubject } = require('../utils/gmailThread');
 
 async function getLeadEmail(leadDataId) {
@@ -85,6 +86,40 @@ async function markLeadReplyReceived(campaignLeadId, userId) {
     })
     .eq('id', campaignLeadId)
     .eq('user_id', userId);
+
+  const { data: row } = await supabase
+    .from('campaign_leads')
+    .select(
+      'id, campaign_id, lead_data_id, reply_received, gmail_thread_id, gmail_message_id, gmail_subject, gmail_rfc_message_id, thank_you_draft_gmail_id'
+    )
+    .eq('id', campaignLeadId)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (!row?.gmail_thread_id) return;
+
+  try {
+    const accessToken = await googleAuthService.getValidGoogleAccessToken(userId);
+    const { data: googleAcct } = await supabase
+      .from('google_accounts')
+      .select('email')
+      .eq('user_id', userId)
+      .maybeSingle();
+    const userEmail = googleAcct?.email ? String(googleAcct.email).trim() : null;
+    if (!userEmail) return;
+
+    await maybeCreateThankYouDraft({
+      userId,
+      campaignLead: row,
+      accessToken,
+      userEmail,
+    });
+  } catch (err) {
+    logger.warn('[ThankYouDraft] Failed after markLeadReplyReceived', {
+      campaignLeadId,
+      error: err.message,
+    });
+  }
 }
 
 async function sendFollowUpEmail({ userId, campaignId, campaignLeadId, followUpId }) {

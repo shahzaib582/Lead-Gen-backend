@@ -4,6 +4,8 @@ const {
   getHeaderFromGmailMessage,
   normalizeMessageId,
   isInboundFromLead,
+  threadHasUserReplyAfterLeadFromMessages,
+  findLatestLeadReplyFromMessages,
 } = require('../utils/gmailThread');
 
 function createGmailClient(accessToken) {
@@ -94,9 +96,66 @@ async function safeThreadHasLeadReply(params) {
   }
 }
 
+async function fetchThreadMessages(accessToken, threadId) {
+  const gmail = createGmailClient(accessToken);
+  const { data: thread } = await gmail.users.threads.get({
+    userId: 'me',
+    id: threadId,
+    format: 'metadata',
+    metadataHeaders: ['From', 'Message-ID'],
+  });
+  return thread.messages || [];
+}
+
+async function threadHasUserReplyAfterLead(params) {
+  const messages = await fetchThreadMessages(params.accessToken, params.threadId);
+  return threadHasUserReplyAfterLeadFromMessages(
+    messages,
+    params.leadEmail,
+    params.userEmail,
+    params.outboundGmailMessageId,
+  );
+}
+
+async function getLatestLeadReplyInThread(params) {
+  const messages = await fetchThreadMessages(params.accessToken, params.threadId);
+  return findLatestLeadReplyFromMessages(
+    messages,
+    params.leadEmail,
+    params.userEmail,
+    params.outboundGmailMessageId,
+  );
+}
+
+async function safeThreadHasUserReplyAfterLead(params) {
+  try {
+    return await threadHasUserReplyAfterLead(params);
+  } catch (err) {
+    logger.warn('[GmailThread] Failed to check user reply after lead', {
+      threadId: params.threadId,
+      error: err.message,
+    });
+    return true;
+  }
+}
+
+async function safeGetLatestLeadReplyInThread(params) {
+  try {
+    return await getLatestLeadReplyInThread(params);
+  } catch (err) {
+    logger.warn('[GmailThread] Failed to load latest lead reply headers', {
+      threadId: params.threadId,
+      error: err.message,
+    });
+    return null;
+  }
+}
+
 module.exports = {
   fetchGmailMessageMetadata,
   threadHasLeadReply,
   safeFetchGmailMessageMetadata,
   safeThreadHasLeadReply,
+  safeThreadHasUserReplyAfterLead,
+  safeGetLatestLeadReplyInThread,
 };

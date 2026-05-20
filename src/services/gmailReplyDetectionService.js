@@ -1,8 +1,12 @@
 const supabase = require('../config/supabase');
 const googleAuthService = require('./googleAuthService');
 const { safeThreadHasLeadReply } = require('./gmailThreadService');
+const { maybeCreateThankYouDraft } = require('./thankYouDraftService');
 const { parseLeadDataId } = require('../utils/leadDataId');
 const logger = require('../utils/logger');
+
+const REPLY_SCAN_SELECT =
+  'id, campaign_id, lead_data_id, gmail_thread_id, gmail_message_id, gmail_subject, gmail_rfc_message_id, reply_received, thank_you_draft_gmail_id';
 
 /**
  * Check Gmail threads for lead replies and set campaign_leads.reply_received.
@@ -30,7 +34,7 @@ async function syncReplyFlagsForUser(userId) {
 
   const { data: leads, error } = await supabase
     .from('campaign_leads')
-    .select('id, lead_data_id, gmail_thread_id, gmail_message_id, reply_received')
+    .select(REPLY_SCAN_SELECT)
     .eq('user_id', userId)
     .eq('status', 'sent')
     .eq('reply_received', false)
@@ -84,6 +88,13 @@ async function syncReplyFlagsForUser(userId) {
         logger.info('[ReplyDetection] Lead replied — follow-ups will be skipped', {
           campaignLeadId: lead.id,
           leadEmail,
+        });
+
+        await maybeCreateThankYouDraft({
+          userId,
+          campaignLead: { ...lead, reply_received: true },
+          accessToken,
+          userEmail,
         });
       }
     } catch (err) {

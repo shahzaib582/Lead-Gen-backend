@@ -21,6 +21,7 @@ function createOAuthClient() {
  *  - gmail.readonly → read inbox / labels (optional — remove if not needed)
  *  - calendar.events → create/update Lead Gen meetings on Google Calendar
  *  - calendar.events.readonly → read calendar link status
+ *  - gmail.compose → create thank-you drafts (not auto-send)
  */
 const GOOGLE_SCOPES = [
   'openid',
@@ -28,6 +29,7 @@ const GOOGLE_SCOPES = [
   'profile',
   'https://www.googleapis.com/auth/gmail.send',
   'https://www.googleapis.com/auth/gmail.readonly',
+  'https://www.googleapis.com/auth/gmail.compose',
   'https://www.googleapis.com/auth/calendar.events',
   'https://www.googleapis.com/auth/calendar.events.readonly',
 ];

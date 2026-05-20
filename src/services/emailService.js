@@ -145,9 +145,53 @@ async function sendCustomEmail(
   };
 }
 
+/**
+ * Create a Gmail draft (not sent). Requires gmail.compose scope.
+ * @returns {Promise<{ draftId: string, messageId: string|null }>}
+ */
+async function createGmailDraft(accessToken, { to, subject, body, mimeOptions, threading }) {
+  if (!accessToken) {
+    throw new Error('Google access token is required to create a Gmail draft.');
+  }
+
+  const auth = new google.auth.OAuth2();
+  auth.setCredentials({ access_token: accessToken });
+
+  const gmail = google.gmail({ version: 'v1', auth });
+
+  const mergedMime = { ...(mimeOptions || {}) };
+  if (threading?.inReplyTo) {
+    mergedMime.inReplyTo = threading.inReplyTo;
+    mergedMime.references = threading.references || threading.inReplyTo;
+  }
+
+  const rawMime = buildMimeMessage(to, subject, body, null, mergedMime);
+  const raw = Buffer.from(rawMime)
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+
+  const message = { raw };
+  if (threading?.threadId) {
+    message.threadId = threading.threadId;
+  }
+
+  const { data } = await gmail.users.drafts.create({
+    userId: 'me',
+    requestBody: { message },
+  });
+
+  return {
+    draftId: data.id,
+    messageId: data.message?.id || null,
+  };
+}
+
 module.exports = {
   sendOtpEmail,
   sendPasswordResetOtpEmail,
   sendCustomEmail,
+  createGmailDraft,
   buildMimeMessage,
 };

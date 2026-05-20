@@ -2,6 +2,7 @@ const supabase = require('../config/supabase');
 const { isFollowUpDue } = require('../utils/followUpDueDate');
 const { sendFollowUpEmail } = require('./campaignFollowUpMailerService');
 const { syncReplyFlagsBeforeFollowUps } = require('./gmailReplyDetectionService');
+const { syncThankYouDraftsBeforeFollowUps } = require('./thankYouDraftService');
 const { randomDelayMs } = require('../config/mailDelay');
 const logger = require('../utils/logger');
 
@@ -121,6 +122,7 @@ function randomDelay() {
  */
 async function processDueFollowUps() {
   await syncReplyFlagsBeforeFollowUps();
+  await syncThankYouDraftsBeforeFollowUps();
 
   const dueItems = await findDueFollowUpItems();
   const summary = {
