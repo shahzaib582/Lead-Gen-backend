@@ -76,9 +76,10 @@ async function create(req, res, next) {
 
 async function list(req, res, next) {
   try {
-    const { status, page, limit } = req.query;
+    const { status, search, page, limit } = req.query;
     const result = await campaignService.getCampaigns(req.user.id, {
       status,
+      search,
       page: parseInt(page || '1', 10),
       limit: parseInt(limit || '20', 10),
     });

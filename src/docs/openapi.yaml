@@ -1246,7 +1246,18 @@ paths:
     get:
       tags: [Campaigns]
       summary: List campaigns (paginated)
+      description: |
+        Returns a slim campaign summary per row: `id`, `name`, `goal`, `run_mode`, `target_leads`, `status`,
+        `sent_count`, `reply_rate` (0–1), and `reply_rate_percent` (0–100).
+        Reply metrics are based on `campaign_leads` with `status=sent` and `reply_received=true`.
+        Optional `search` matches campaign `name` or `goal` (case-insensitive).
       parameters:
+        - in: query
+          name: search
+          schema:
+            type: string
+            maxLength: 200
+          description: Filter by campaign name or goal (partial match).
         - in: query
           name: status
           schema:

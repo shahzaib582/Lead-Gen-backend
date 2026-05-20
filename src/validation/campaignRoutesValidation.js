@@ -190,6 +190,11 @@ const updateValidation = [
 const idValidation = [param('id').isUUID().withMessage('Invalid campaign ID.')];
 
 const listValidation = [
+  query('search')
+    .optional()
+    .trim()
+    .isLength({ max: 200 })
+    .withMessage('Search term must be under 200 characters.'),
   query('status')
     .optional()
     .isIn(STATUSES)
