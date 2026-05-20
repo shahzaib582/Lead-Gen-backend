@@ -58,7 +58,7 @@ async function updateLead(req, res, next) {
     const { id: campaignId, leadId } = req.params;
     const userId = req.user.id;
 
-    const ALLOWED = ['status', 'sent_at', 'mail_template', 'error_message'];
+    const ALLOWED = ['status', 'sent_at', 'mail_template', 'error_message', 'reply_received'];
     const updates = {};
     for (const key of ALLOWED) {
       if (Object.prototype.hasOwnProperty.call(req.body, key)) {

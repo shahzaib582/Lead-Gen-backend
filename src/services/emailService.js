@@ -5,6 +5,7 @@ const {
   buildVerificationEmail,
   buildPasswordResetEmail,
 } = require('../emails/otpTemplates');
+const { normalizeMessageId } = require('../utils/gmailThread');
 
 function otpExpiryMinutes() {
   return Number(process.env.OTP_EXPIRY_MINUTES) || 10;
@@ -62,6 +63,17 @@ function buildMimeMessage(to, subject, body, html, mimeOptions) {
     lines.push(`Reply-To: ${opts.replyTo}`);
   }
 
+  if (opts.inReplyTo) {
+    lines.push(`In-Reply-To: ${normalizeMessageId(opts.inReplyTo)}`);
+  }
+  if (opts.references) {
+    const refs = Array.isArray(opts.references) ? opts.references : [opts.references];
+    const normalized = refs.filter(Boolean).map((r) => normalizeMessageId(r));
+    if (normalized.length) {
+      lines.push(`References: ${normalized.join(' ')}`);
+    }
+  }
+
   lines.push(`To: ${recipients}`, `Subject: ${subject}`, 'MIME-Version: 1.0');
 
   if (html) {
@@ -79,7 +91,21 @@ function buildMimeMessage(to, subject, body, html, mimeOptions) {
   return lines.join('\r\n');
 }
 
-async function sendCustomEmail(to, subject, body, html = null, accessToken, mimeOptions = undefined) {
+/**
+ * @param {object} [threading]
+ * @param {string} [threading.threadId] Gmail thread to append to
+ * @param {string} [threading.inReplyTo] RFC Message-ID of parent
+ * @param {string|string[]} [threading.references] RFC References chain
+ */
+async function sendCustomEmail(
+  to,
+  subject,
+  body,
+  html = null,
+  accessToken,
+  mimeOptions = undefined,
+  threading = undefined
+) {
   if (!accessToken) {
     throw new Error('Google access token is required to send email via Gmail API.');
   }
@@ -88,7 +114,14 @@ async function sendCustomEmail(to, subject, body, html = null, accessToken, mime
   auth.setCredentials({ access_token: accessToken });
 
   const gmail = google.gmail({ version: 'v1', auth });
-  const rawMime = buildMimeMessage(to, subject, body, html, mimeOptions);
+
+  const mergedMime = { ...(mimeOptions || {}) };
+  if (threading?.inReplyTo) {
+    mergedMime.inReplyTo = threading.inReplyTo;
+    mergedMime.references = threading.references || threading.inReplyTo;
+  }
+
+  const rawMime = buildMimeMessage(to, subject, body, html, mergedMime);
 
   const raw = Buffer.from(rawMime)
     .toString('base64')
@@ -96,16 +129,25 @@ async function sendCustomEmail(to, subject, body, html = null, accessToken, mime
     .replace(/\//g, '_')
     .replace(/=+$/, '');
 
+  const requestBody = { raw };
+  if (threading?.threadId) {
+    requestBody.threadId = threading.threadId;
+  }
+
   const result = await gmail.users.messages.send({
     userId: 'me',
-    requestBody: { raw },
+    requestBody,
   });
 
-  return { messageId: result.data.id };
+  return {
+    messageId: result.data.id,
+    threadId: result.data.threadId || threading?.threadId || null,
+  };
 }
 
 module.exports = {
   sendOtpEmail,
   sendPasswordResetOtpEmail,
   sendCustomEmail,
+  buildMimeMessage,
 };

@@ -1,6 +1,6 @@
 const { body, param, query } = require('express-validator');
 
-const VALID_STATUSES = ['pending', 'sent', 'failed', 'skipped'];
+const VALID_STATUSES = ['pending', 'template_generated', 'sent', 'failed', 'skipped'];
 
 const campaignIdParam = param('id').isUUID().withMessage('Invalid campaign ID.');
 
@@ -57,6 +57,11 @@ const updateLeadValidation = [
     .optional({ nullable: true })
     .isString()
     .withMessage('error_message must be a string.'),
+  body('reply_received')
+    .optional()
+    .isBoolean()
+    .withMessage('reply_received must be a boolean.')
+    .toBoolean(),
 ];
 
 const removeLeadValidation = [campaignIdParam, leadIdParam];

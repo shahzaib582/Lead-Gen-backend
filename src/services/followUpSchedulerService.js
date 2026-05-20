@@ -1,6 +1,7 @@
 const supabase = require('../config/supabase');
 const { isFollowUpDue } = require('../utils/followUpDueDate');
 const { sendFollowUpEmail } = require('./campaignFollowUpMailerService');
+const { syncReplyFlagsBeforeFollowUps } = require('./gmailReplyDetectionService');
 const { randomDelayMs } = require('../config/mailDelay');
 const logger = require('../utils/logger');
 
@@ -59,10 +60,11 @@ async function findDueFollowUpItems(now = new Date()) {
 
     const { data: leads, error: leadsErr } = await supabase
       .from('campaign_leads')
-      .select('id, sent_at')
+      .select('id, sent_at, reply_received')
       .eq('campaign_id', campaign.id)
       .eq('user_id', campaign.user_id)
       .eq('status', 'sent')
+      .eq('reply_received', false)
       .not('sent_at', 'is', null);
 
     if (leadsErr) {
@@ -88,6 +90,8 @@ async function findDueFollowUpItems(now = new Date()) {
     );
 
     for (const lead of leads) {
+      if (lead.reply_received) continue;
+
       for (const followUp of followUps) {
         if (sentSet.has(deliveryKey(lead.id, followUp.id))) continue;
         if (!isFollowUpDue(lead.sent_at, followUp.waiting_days, now)) continue;
@@ -116,6 +120,8 @@ function randomDelay() {
  * Scan for due follow-ups and send plain-text emails sequentially with inter-send delay.
  */
 async function processDueFollowUps() {
+  await syncReplyFlagsBeforeFollowUps();
+
   const dueItems = await findDueFollowUpItems();
   const summary = {
     examined: dueItems.length,

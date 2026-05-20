@@ -169,7 +169,16 @@ async function getCampaignLeadById(userId, campaignId, leadId) {
 // ─────────────────────────────────────────────────────────────
 
 async function updateCampaignLead(userId, campaignId, leadId, updates) {
-  const existing = await getCampaignLeadById(userId, campaignId, leadId);
+  await getCampaignLeadById(userId, campaignId, leadId);
+
+  if (Object.prototype.hasOwnProperty.call(updates, 'reply_received')) {
+    if (updates.reply_received === true && !updates.reply_received_at) {
+      updates.reply_received_at = new Date().toISOString();
+    }
+    if (updates.reply_received === false) {
+      updates.reply_received_at = null;
+    }
+  }
 
   const { data, error } = await supabase
     .from('campaign_leads')
@@ -208,7 +217,7 @@ async function updateCampaignLead(userId, campaignId, leadId, updates) {
     await supabase
       .from('leads_data')
       .update(leadsDataUpdate)
-      .eq('id', parseLeadDataId(existing.lead_data_id));
+      .eq('id', parseLeadDataId(data.lead_data_id));
   }
 
   return data;

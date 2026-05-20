@@ -10,6 +10,8 @@ const { resolveCampaignSenderForUser } = require('../utils/resolveCampaignSender
 const logger = require('../utils/logger');
 const { DAILY_SEND_LIMIT, getTodaySentCount } = require('./mailSendLimitService');
 const { assertCampaignActiveForSend } = require('./campaignSendRules');
+const { safeThreadHasLeadReply } = require('./gmailThreadService');
+const { buildReplySubject } = require('../utils/gmailThread');
 
 async function getLeadEmail(leadDataId) {
   const { data, error } = await supabase
@@ -74,17 +76,23 @@ async function claimFollowUpDelivery(campaignLeadId, followUpId) {
  * Send one plain-text follow-up email. Idempotent when delivery row is already `sent`.
  * @param {{ userId: string, campaignId: string, campaignLeadId: string, followUpId: string }} params
  */
+async function markLeadReplyReceived(campaignLeadId, userId) {
+  await supabase
+    .from('campaign_leads')
+    .update({
+      reply_received: true,
+      reply_received_at: new Date().toISOString(),
+    })
+    .eq('id', campaignLeadId)
+    .eq('user_id', userId);
+}
+
 async function sendFollowUpEmail({ userId, campaignId, campaignLeadId, followUpId }) {
-  const claim = await claimFollowUpDelivery(campaignLeadId, followUpId);
-  if (!claim.claimed) {
-    return { status: 'skipped', reason: claim.reason };
-  }
-
-  const deliveryId = claim.id;
-
   const { data: campaignLead, error: clErr } = await supabase
     .from('campaign_leads')
-    .select('id, lead_data_id, status, sent_at')
+    .select(
+      'id, lead_data_id, status, sent_at, reply_received, gmail_thread_id, gmail_message_id, gmail_subject, gmail_rfc_message_id'
+    )
     .eq('id', campaignLeadId)
     .eq('campaign_id', campaignId)
     .eq('user_id', userId)
@@ -94,9 +102,19 @@ async function sendFollowUpEmail({ userId, campaignId, campaignLeadId, followUpI
     throw new AppError('Campaign lead not found.', 404);
   }
   if (campaignLead.status !== 'sent' || !campaignLead.sent_at) {
-    await markFollowUpFailed(deliveryId, 'Initial email was not sent.');
     return { status: 'skipped', reason: 'lead_not_sent' };
   }
+
+  if (campaignLead.reply_received) {
+    return { status: 'skipped', reason: 'reply_received' };
+  }
+
+  const claim = await claimFollowUpDelivery(campaignLeadId, followUpId);
+  if (!claim.claimed) {
+    return { status: 'skipped', reason: claim.reason };
+  }
+
+  const deliveryId = claim.id;
 
   const { data: followUp, error: fuErr } = await supabase
     .from('campaign_follow_ups')
@@ -155,6 +173,21 @@ async function sendFollowUpEmail({ userId, campaignId, campaignLeadId, followUpI
     .maybeSingle();
 
   const googleSendEmail = googleAcct?.email ? String(googleAcct.email).trim() : null;
+
+  if (campaignLead.gmail_thread_id && leadInfo.email && googleSendEmail) {
+    const hasReply = await safeThreadHasLeadReply({
+      accessToken,
+      threadId: campaignLead.gmail_thread_id,
+      leadEmail: leadInfo.email,
+      userEmail: googleSendEmail,
+      outboundGmailMessageId: campaignLead.gmail_message_id,
+    });
+    if (hasReply) {
+      await markLeadReplyReceived(campaignLeadId, userId);
+      await markFollowUpFailed(deliveryId, 'Lead replied; follow-up skipped.');
+      return { status: 'skipped', reason: 'reply_received' };
+    }
+  }
   const mimeOptions = {};
   const displayName = senderCampaign.sender_display_name
     ? String(senderCampaign.sender_display_name).trim()
@@ -166,18 +199,34 @@ async function sendFollowUpEmail({ userId, campaignId, campaignLeadId, followUpI
 
   const templated = applyTemplatePlaceholders(bodyTemplate, leadInfo);
   const { subject: rawSubject, body: rawBody } = parseMailTemplate(templated);
-  const subject = applyTemplatePlaceholders(rawSubject, leadInfo);
+  const templateSubject = applyTemplatePlaceholders(rawSubject, leadInfo);
+  const anchorSubject = campaignLead.gmail_subject || templateSubject;
+  const subject = campaignLead.gmail_thread_id
+    ? buildReplySubject(anchorSubject)
+    : templateSubject;
   const body = finalizeOutboundBody(applyTemplatePlaceholders(rawBody, leadInfo), senderCampaign);
+
+  const threading =
+    campaignLead.gmail_thread_id && campaignLead.gmail_rfc_message_id
+      ? {
+          threadId: campaignLead.gmail_thread_id,
+          inReplyTo: campaignLead.gmail_rfc_message_id,
+          references: campaignLead.gmail_rfc_message_id,
+        }
+      : campaignLead.gmail_thread_id
+        ? { threadId: campaignLead.gmail_thread_id }
+        : undefined;
 
   try {
     const hasMime = Object.keys(mimeOptions).length > 0;
-    const { messageId } = await sendCustomEmail(
+    const sendResult = await sendCustomEmail(
       leadInfo.email,
       subject,
       body,
       null,
       accessToken,
-      hasMime ? mimeOptions : undefined
+      hasMime ? mimeOptions : undefined,
+      threading
     );
 
     const sentAt = new Date().toISOString();
@@ -190,7 +239,8 @@ async function sendFollowUpEmail({ userId, campaignId, campaignLeadId, followUpI
       status: 'sent',
       to: leadInfo.email,
       subject,
-      messageId,
+      messageId: sendResult.messageId,
+      threadId: sendResult.threadId,
       followUpName: followUp.name,
     };
   } catch (sendErr) {

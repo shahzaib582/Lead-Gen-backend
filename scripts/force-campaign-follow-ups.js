@@ -48,10 +48,11 @@ async function main() {
 
   const { data: leads, error: leadsErr } = await supabase
     .from('campaign_leads')
-    .select('id, sent_at, status')
+    .select('id, sent_at, status, reply_received')
     .eq('campaign_id', CAMPAIGN_ID)
     .eq('user_id', campaign.user_id)
     .eq('status', 'sent')
+    .eq('reply_received', false)
     .not('sent_at', 'is', null);
 
   if (leadsErr) {
@@ -79,6 +80,8 @@ async function main() {
   const summary = { sent: 0, failed: 0, skipped: 0, results: [] };
 
   for (const lead of leads) {
+    if (lead.reply_received) continue;
+
     for (const followUp of followUps) {
       if (sentSet.has(deliveryKey(lead.id, followUp.id))) {
         summary.skipped++;

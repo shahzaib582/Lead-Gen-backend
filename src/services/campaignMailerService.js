@@ -10,6 +10,7 @@ const { finalizeOutboundBody } = require('../utils/senderSignature');
 const { resolveCampaignSenderForUser } = require('../utils/resolveCampaignSender');
 const { DAILY_SEND_LIMIT, getTodaySentCount } = require('./mailSendLimitService');
 const { assertCampaignActiveForSend } = require('./campaignSendRules');
+const { safeFetchGmailMessageMetadata } = require('./gmailThreadService');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -187,7 +188,7 @@ async function sendCampaignEmails(
     // ── c. Send via Gmail API ─────────────────────────────────────────────
     try {
       const hasMime = Object.keys(mimeOptions).length > 0;
-      const { messageId } = await sendCustomEmail(
+      const sendResult = await sendCustomEmail(
         leadInfo.email,
         subject,
         body,
@@ -196,12 +197,22 @@ async function sendCampaignEmails(
         hasMime ? mimeOptions : undefined
       );
 
-      // ── d. Update status → sent ────────────────────────────────────────
+      const meta = await safeFetchGmailMessageMetadata(activeToken, sendResult.messageId);
+
+      // ── d. Update status → sent (+ Gmail thread for follow-ups) ─────────
       const sentAt = new Date().toISOString();
 
       await supabase
         .from('campaign_leads')
-        .update({ status: 'sent', sent_at: sentAt, error_message: null })
+        .update({
+          status: 'sent',
+          sent_at: sentAt,
+          error_message: null,
+          gmail_message_id: sendResult.messageId,
+          gmail_thread_id: sendResult.threadId,
+          gmail_subject: meta.subject || subject,
+          gmail_rfc_message_id: meta.rfcMessageId,
+        })
         .eq('id', cl.id);
 
       await supabase
@@ -220,7 +231,8 @@ async function sendCampaignEmails(
         status: 'sent',
         to: leadInfo.email,
         subject,
-        messageId,
+        messageId: sendResult.messageId,
+        threadId: sendResult.threadId,
       });
     } catch (sendErr) {
       failed++;
