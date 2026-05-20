@@ -1508,8 +1508,9 @@ paths:
       tags: [Dashboard]
       summary: Dashboard KPI summary
       description: |
-        Aggregate metrics for the authenticated user: total campaigns, total emails sent,
-        reply rate, and `meeting_booking_count` (scheduled meetings in the `meetings` table only).
+        Aggregate metrics for the authenticated user: total campaigns, **`total_leads`** (all rows in
+        `campaign_leads` across the user's campaigns), total emails sent, reply rate, and
+        `meeting_booking_count` (scheduled meetings in the `meetings` table only).
       responses:
         '200':
           description: Summary metrics

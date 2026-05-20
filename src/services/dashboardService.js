@@ -96,6 +96,7 @@ async function getDashboardSummary(userId) {
 
   return {
     total_campaigns: totalCampaigns ?? 0,
+    total_leads: leadRows.length,
     total_emails_sent: sentCount,
     reply_rate: reply.reply_rate,
     reply_rate_percent: reply.reply_rate_percent,
