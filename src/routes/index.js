@@ -4,8 +4,8 @@ const googleRoutes = require('./googleAuthRoutes');
 const campaignRoutes = require('./campaignRoutes');
 const dashboardRoutes = require('./dashboardRoutes');
 const leadsDataRoutes = require('./leadsDataRoutes');
-const { authenticate } = require('../middleware/authenticate');
-const { successResponse } = require('../utils/response');
+const userRoutes = require('./userRoutes');
+const meetingsRoutes = require('./meetingsRoutes');
 
 const router = express.Router();
 
@@ -15,9 +15,7 @@ router.use('/auth/google', googleRoutes);
 router.use('/campaigns', campaignRoutes);
 router.use('/dashboard', dashboardRoutes);
 router.use('/leads', leadsDataRoutes);
-
-router.get('/me', authenticate, (req, res) => {
-  return successResponse(res, 200, 'User fetched successfully.', { user: req.user });
-});
+router.use('/user', userRoutes);
+router.use('/meetings', meetingsRoutes);
 
 module.exports = router;

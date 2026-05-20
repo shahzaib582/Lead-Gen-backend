@@ -1,5 +1,6 @@
 const { getAuthUrl, exchangeCodeForProfile } = require('../config/googleOAuth');
 const googleAuthService = require('../services/googleAuthService');
+const { accountHasCalendarScope } = require('../services/googleCalendarService');
 const userService = require('../services/userService');
 const { issueTokenPair } = require('../services/authTokenService');
 const AppError = require('../utils/AppError');
@@ -110,11 +111,15 @@ async function getGoogleStatus(req, res, next) {
   try {
     const account = await googleAuthService.findGoogleAccountByUserId(req.user.id);
     if (!account) {
-      return successResponse(res, 200, undefined, { linked: false });
+      return successResponse(res, 200, undefined, {
+        linked: false,
+        calendarLinked: false,
+      });
     }
 
     return successResponse(res, 200, undefined, {
       linked: true,
+      calendarLinked: accountHasCalendarScope(account.scopes),
       email: account.email,
       name: account.name,
       avatarUrl: account.avatar_url,

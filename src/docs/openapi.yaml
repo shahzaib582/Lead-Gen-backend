@@ -30,8 +30,10 @@ tags:
     description: Per-campaign follow-up cadence (name, waiting_days); CRUD under a campaign.
   - name: LeadsData
     description: Global leads pool search and fetch by id.
-  - name: Me
-    description: Current user from access JWT.
+  - name: User
+    description: Current user profile (GET / PATCH).
+  - name: Meetings
+    description: Lead Gen meetings stored in the database (not personal Google Calendar events).
 
 security:
   - bearerAuth: []
@@ -219,6 +221,55 @@ components:
           type: string
           nullable: true
           description: Phone or other contact string.
+        timezone:
+          type: string
+          nullable: true
+          description: Optional IANA timezone (e.g. America/New_York). Used when syncing meetings to Google Calendar; defaults to UTC when unset.
+
+    MeetingPublic:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        campaignId:
+          type: string
+          format: uuid
+          nullable: true
+        campaignLeadId:
+          type: string
+          format: uuid
+          nullable: true
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        attendeeEmail:
+          type: string
+          format: email
+          nullable: true
+        startAt:
+          type: string
+          format: date-time
+        endAt:
+          type: string
+          format: date-time
+        meetLink:
+          type: string
+          nullable: true
+        googleEventId:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [scheduled, cancelled, completed]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
 
     MeUser:
       allOf:
@@ -1212,37 +1263,245 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
 
-  /api/me:
+  /api/user:
     get:
-      tags: [Me]
-      summary: Current user (from access token)
-      description: Requires Bearer access token. Returns current profile from the database (not only JWT claims).
+      tags: [User]
+      summary: Current user profile
+      description: |
+        Requires Bearer access token. Returns profile from the database plus Google link status.
+        `googleAccessToken` is included when Google is linked (treat as secret).
       responses:
         '200':
-          description: User payload
+          description: User and Google status
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MeResponse'
-              example:
-                success: true
-                message: User fetched successfully.
-                data:
-                  user:
-                    id: 11111111-2222-3333-4444-555555555555
-                    email: user@example.com
-                    isVerified: true
-                    createdAt: '2026-05-04T11:44:20.112293+00:00'
-                    role: user
-                    name: null
-                    profilePic: null
-                    address: null
-                    contact: null
-                    googleAccessToken: null
+                $ref: '#/components/schemas/SuccessEnvelope'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+    patch:
+      tags: [User]
+      summary: Update current user profile
+      description: |
+        Update `name`, `profilePic` / `profile_pic`, `address`, `contact`, or `timezone`.
+        Email, password, and role cannot be changed here. Set `timezone` to `null` to clear.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  nullable: true
+                profilePic:
+                  type: string
+                  nullable: true
+                address:
+                  type: string
+                  nullable: true
+                contact:
+                  type: string
+                  nullable: true
+                timezone:
+                  type: string
+                  nullable: true
+                  description: IANA timezone (e.g. America/New_York) or null to clear.
+      responses:
+        '200':
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /api/meetings:
+    get:
+      tags: [Meetings]
+      summary: List Lead Gen meetings (database only)
+      description: |
+        Returns meetings created through this API. Personal Google Calendar events are not included.
+        Dashboard metrics use the same `meetings` table.
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [scheduled, cancelled, completed]
+        - in: query
+          name: campaign_id
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: from
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: to
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        '200':
+          description: Paginated meetings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [Meetings]
+      summary: Book a meeting (DB + optional Google Calendar)
+      description: |
+        Inserts a row in `meetings` (used for dashboard counts). When `sync_google` is true (default)
+        and the user has granted `calendar.events`, creates a Google Calendar event with optional Meet link.
+        Link a lead via `campaign_lead_id` to tie the booking to a campaign. Scheduling uses the user's
+        `timezone` when set, otherwise UTC.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, start_at, end_at]
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                start_at:
+                  type: string
+                  format: date-time
+                end_at:
+                  type: string
+                  format: date-time
+                attendee_email:
+                  type: string
+                  format: email
+                campaign_id:
+                  type: string
+                  format: uuid
+                campaign_lead_id:
+                  type: string
+                  format: uuid
+                sync_google:
+                  type: boolean
+                  default: true
+                add_google_meet:
+                  type: boolean
+                  default: true
+      responses:
+        '201':
+          description: Meeting created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /api/meetings/{id}:
+    get:
+      tags: [Meetings]
+      summary: Get one meeting
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Meeting
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Meetings]
+      summary: Update a meeting
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                start_at:
+                  type: string
+                  format: date-time
+                end_at:
+                  type: string
+                  format: date-time
+                attendee_email:
+                  type: string
+                  format: email
+                status:
+                  type: string
+                  enum: [scheduled, completed]
+      responses:
+        '200':
+          description: Updated
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Meetings]
+      summary: Cancel a meeting
+      description: Sets status to `cancelled` and removes the Google event when linked.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Cancelled
+        '404':
+          $ref: '#/components/responses/NotFound'
 
   /api/dashboard/summary:
     get:
@@ -1250,7 +1509,7 @@ paths:
       summary: Dashboard KPI summary
       description: |
         Aggregate metrics for the authenticated user: total campaigns, total emails sent,
-        reply rate, and `meeting_booking_count` (reserved — returns `0` until bookings flow exists).
+        reply rate, and `meeting_booking_count` (scheduled meetings in the `meetings` table only).
       responses:
         '200':
           description: Summary metrics
@@ -1266,7 +1525,7 @@ paths:
       tags: [Dashboard]
       summary: Campaign performance time series (chart)
       description: |
-        Triple-line chart data: `sent`, `replies`, and `bookings` (bookings are `0` until integrated).
+        Triple-line chart data: `sent`, `replies`, and `bookings` (scheduled meetings by `start_at` from DB).
         One row per UTC day in the selected range.
       parameters:
         - in: query

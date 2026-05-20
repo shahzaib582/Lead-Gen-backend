@@ -13,6 +13,7 @@ function toPublicUser(row) {
     profilePic: row.profile_pic ?? null,
     address: row.address ?? null,
     contact: row.contact ?? null,
+    timezone: row.timezone ?? null,
     role: row.role || 'user',
   };
 }

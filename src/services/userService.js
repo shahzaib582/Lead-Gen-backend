@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const supabase = require('../config/supabase');
 const AppError = require('../utils/AppError');
+const { isValidIanaTimezone } = require('../utils/timezone');
 
 const BCRYPT_ROUNDS = 12; // higher than OTP hashing — passwords deserve extra rounds
 
@@ -64,8 +65,6 @@ async function createUser(email, password, profile = {}) {
   const { data, error } = await supabase.from('users').insert(row).select().single();
 
   if (error) {
-    console.log('Supabase createUser error:', error); // 👈 DEBUG
-
     if (error.code === '23505') {
       throw new AppError('An account with this email already exists.', 409);
     }
@@ -115,6 +114,52 @@ async function updateAuthProvider(userId, provider) {
   if (error) throw new AppError('Failed to update auth provider', 500);
 }
 
+/**
+ * Update profile fields (not email, password, or role).
+ * @param {string} userId
+ * @param {{ name?: string|null, profile_pic?: string|null, address?: string|null, contact?: string|null, timezone?: string|null }} fields
+ */
+async function updateUserProfile(userId, fields) {
+  const patch = {};
+
+  if (Object.prototype.hasOwnProperty.call(fields, 'name')) {
+    patch.name = trimProfileField(fields.name, PROFILE_MAX.name);
+  }
+  if (Object.prototype.hasOwnProperty.call(fields, 'profile_pic')) {
+    patch.profile_pic = trimProfileField(fields.profile_pic, PROFILE_MAX.profile_pic);
+  }
+  if (Object.prototype.hasOwnProperty.call(fields, 'address')) {
+    patch.address = trimProfileField(fields.address, PROFILE_MAX.address);
+  }
+  if (Object.prototype.hasOwnProperty.call(fields, 'contact')) {
+    patch.contact = trimProfileField(fields.contact, PROFILE_MAX.contact);
+  }
+  if (Object.prototype.hasOwnProperty.call(fields, 'timezone')) {
+    const tz = fields.timezone;
+    if (tz == null || tz === '') {
+      patch.timezone = null;
+    } else if (!isValidIanaTimezone(tz)) {
+      throw new AppError('Invalid timezone. Use an IANA name such as America/New_York.', 422);
+    } else {
+      patch.timezone = String(tz).trim();
+    }
+  }
+
+  if (Object.keys(patch).length === 0) {
+    throw new AppError('No valid fields to update.', 422);
+  }
+
+  const { data, error } = await supabase
+    .from('users')
+    .update(patch)
+    .eq('id', userId)
+    .select()
+    .single();
+
+  if (error) throw new AppError('Failed to update profile.', 500);
+  return data;
+}
+
 module.exports = {
   findUserByEmail,
   findUserById,
@@ -124,4 +169,5 @@ module.exports = {
   checkPassword,
   findOrCreateGoogleUser,
   updateAuthProvider,
+  updateUserProfile,
 };

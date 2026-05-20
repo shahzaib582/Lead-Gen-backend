@@ -8,9 +8,10 @@ const {
   countByUtcDateKey,
   buildTimeSeries,
 } = require('../utils/dashboardDateRange');
-
-/** Reserved for future meetings integration. */
-const MEETING_BOOKING_COUNT = 0;
+const {
+  countScheduledMeetings,
+  loadMeetingRowsInRange,
+} = require('./meetingsService');
 
 async function loadUserLeadRows(
   userId,
@@ -72,13 +73,15 @@ function computeProgressPercent(sentCount, totalLeads) {
 // ─── 1. Summary ───────────────────────────────────────────────────────────────
 
 async function getDashboardSummary(userId) {
-  const [{ count: totalCampaigns, error: campErr }, leadRows] = await Promise.all([
-    supabase
-      .from('campaigns')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', userId),
-    loadUserLeadRows(userId, { columns: 'status, reply_received' }),
-  ]);
+  const [{ count: totalCampaigns, error: campErr }, leadRows, meetingBookingCount] =
+    await Promise.all([
+      supabase
+        .from('campaigns')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', userId),
+      loadUserLeadRows(userId, { columns: 'status, reply_received' }),
+      countScheduledMeetings(userId),
+    ]);
 
   if (campErr) throw new AppError('Failed to load dashboard summary.', 500);
 
@@ -96,7 +99,7 @@ async function getDashboardSummary(userId) {
     total_emails_sent: sentCount,
     reply_rate: reply.reply_rate,
     reply_rate_percent: reply.reply_rate_percent,
-    meeting_booking_count: MEETING_BOOKING_COUNT,
+    meeting_booking_count: meetingBookingCount,
   };
 }
 
@@ -107,7 +110,7 @@ async function getDashboardPerformance(userId, periodOptions) {
   const fromIso = range.from.toISOString();
   const toIso = range.to.toISOString();
 
-  const [sentRows, replyRows] = await Promise.all([
+  const [sentRows, replyRows, meetingRows] = await Promise.all([
     loadUserLeadRows(userId, {
       columns: 'sent_at',
       extraFilter: (q) =>
@@ -127,12 +130,13 @@ async function getDashboardPerformance(userId, periodOptions) {
           .gte('reply_received_at', fromIso)
           .lte('reply_received_at', toIso),
     }),
+    loadMeetingRowsInRange(userId, fromIso, toIso),
   ]);
 
   const dateKeys = buildUtcDateKeys(range.from, range.to);
   const sentCounts = countByUtcDateKey(sentRows.map((r) => r.sent_at));
   const replyCounts = countByUtcDateKey(replyRows.map((r) => r.reply_received_at));
-  const bookingCounts = new Map();
+  const bookingCounts = countByUtcDateKey(meetingRows.map((r) => r.start_at));
 
   const { series, totals } = buildTimeSeries(dateKeys, sentCounts, replyCounts, bookingCounts);
 
