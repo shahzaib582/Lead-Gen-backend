@@ -17,6 +17,51 @@ function uniqueExcludedLeadDataIds(rows) {
   return [...new Set(ids)];
 }
 
+function leadDisplayName(leadRow) {
+  if (!leadRow) return null;
+  const full = leadRow.fullName != null ? String(leadRow.fullName).trim() : '';
+  const first = leadRow.firstName != null ? String(leadRow.firstName).trim() : '';
+  const email = leadRow.email != null ? String(leadRow.email).trim() : '';
+  return full || first || email || null;
+}
+
+async function fetchLeadsDataMap(leadDataIds) {
+  const parsedIds = [...new Set((leadDataIds || []).map(parseLeadDataId).filter((v) => v != null))];
+  const map = new Map();
+  if (parsedIds.length === 0) return map;
+
+  const { data: rows, error } = await supabase
+    .from('leads_data')
+    .select('id, fullName, firstName, email, company')
+    .in('id', parsedIds);
+
+  if (error) {
+    throw new AppError('Failed to load lead details.', 500);
+  }
+
+  for (const row of rows || []) {
+    map.set(String(row.id), row);
+  }
+  return map;
+}
+
+function enrichCampaignLeadRow(campaignLead, leadsDataMap) {
+  const key = String(parseLeadDataId(campaignLead.lead_data_id) ?? campaignLead.lead_data_id);
+  const leadRow = leadsDataMap.get(key) || null;
+  return {
+    ...campaignLead,
+    lead_name: leadDisplayName(leadRow),
+    lead_email: leadRow?.email ?? null,
+    lead_company: leadRow?.company ?? null,
+  };
+}
+
+async function enrichCampaignLeadsWithLeadData(leads) {
+  if (!leads?.length) return leads || [];
+  const map = await fetchLeadsDataMap(leads.map((l) => l.lead_data_id));
+  return leads.map((cl) => enrichCampaignLeadRow(cl, map));
+}
+
 // ─────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────
@@ -133,8 +178,10 @@ async function getCampaignLeads(userId, campaignId, { status, page = 1, limit = 
     throw new AppError('Failed to fetch campaign leads.', 500);
   }
 
+  const leads = await enrichCampaignLeadsWithLeadData(data);
+
   return {
-    leads: data,
+    leads,
     total: count,
     page,
     limit,
@@ -161,7 +208,8 @@ async function getCampaignLeadById(userId, campaignId, leadId) {
     throw new AppError('Campaign lead not found.', 404);
   }
 
-  return data;
+  const [enriched] = await enrichCampaignLeadsWithLeadData([data]);
+  return enriched;
 }
 
 // ─────────────────────────────────────────────────────────────

@@ -1837,6 +1837,9 @@ paths:
     get:
       tags: [CampaignLeads]
       summary: List campaign leads (paginated)
+      description: |
+        Each item includes `lead_name`, `lead_email`, and `lead_company` from `leads_data`
+        (`lead_name` is `fullName`, then `firstName`, then `email`).
       parameters:
         - in: query
           name: status
