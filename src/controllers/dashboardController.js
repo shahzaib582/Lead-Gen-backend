@@ -63,9 +63,19 @@ async function recentActivity(req, res, next) {
   }
 }
 
+async function meetingStats(req, res, next) {
+  try {
+    const data = await dashboardService.getMeetingStats(req.user.id);
+    return successResponse(res, 200, undefined, data);
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   summary,
   performance,
   activeCampaigns,
   recentActivity,
+  meetingStats,
 };

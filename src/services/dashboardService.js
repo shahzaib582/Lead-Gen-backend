@@ -344,7 +344,10 @@ async function getDashboardRecentActivity(userId, { page = 1, limit = 20 } = {})
   };
 }
 
+const { getMeetingStats } = require('./meetingStatsService');
+
 module.exports = {
+  getMeetingStats,
   getDashboardSummary,
   getDashboardPerformance,
   getDashboardActiveCampaigns,

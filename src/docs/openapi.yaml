@@ -1521,6 +1521,37 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /api/dashboard/meeting-stats:
+    get:
+      tags: [Dashboard]
+      summary: Meeting stats (week, month, conversion)
+      description: |
+        KPIs from the `meetings` table (non-cancelled, by `created_at`) and conversion vs campaign emails sent (`sent_at`).
+        - **meetings_this_week** — count for current UTC week (Monday–Sunday) and **vs_last_week** (absolute change vs prior week).
+        - **meetings_this_month** — count for current UTC calendar month and **vs_last_month_percent** (relative % change).
+        - **conversion_rate** — meetings ÷ emails sent in the same month, as a percent (one decimal), and **vs_last_month_points** (percentage-point change vs prior month).
+      responses:
+        '200':
+          description: Meeting stats
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+              example:
+                success: true
+                data:
+                  meetings_this_week:
+                    count: 8
+                    vs_last_week: 3
+                  meetings_this_month:
+                    count: 37
+                    vs_last_month_percent: 12
+                  conversion_rate:
+                    percent: 4.4
+                    vs_last_month_points: 0.6
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /api/dashboard/performance:
     get:
       tags: [Dashboard]
