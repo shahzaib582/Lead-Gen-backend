@@ -2,6 +2,8 @@
 
 const supabase = require('../config/supabase');
 const AppError = require('../utils/AppError');
+const logger = require('../utils/logger');
+const { throwSupabaseError } = require('../utils/supabaseErrors');
 const { parseLeadDataId } = require('../utils/leadDataId');
 const { ensureMailTemplateJob } = require('../jobs/mailTemplateJob');
 const { shouldAutoEnqueuePipeline } = require('./campaignPipelineRules');
@@ -193,7 +195,7 @@ async function getCampaignLeads(userId, campaignId, { status, page = 1, limit = 
 // Get Single Lead
 // ─────────────────────────────────────────────────────────────
 
-async function getCampaignLeadById(userId, campaignId, leadId) {
+async function getCampaignLeadRow(userId, campaignId, leadId) {
   await assertCampaignOwnership(userId, campaignId);
 
   const { data, error } = await supabase
@@ -204,11 +206,23 @@ async function getCampaignLeadById(userId, campaignId, leadId) {
     .eq('user_id', userId)
     .single();
 
-  if (error || !data) {
+  if (error?.code === 'PGRST116' || !data) {
     throw new AppError('Campaign lead not found.', 404);
   }
+  if (error) {
+    throwSupabaseError(error, {
+      logLabel: 'campaign_leads get row',
+      fallbackMessage: 'Failed to fetch campaign lead.',
+      campaignLeadSchemaHint: true,
+    });
+  }
 
-  const [enriched] = await enrichCampaignLeadsWithLeadData([data]);
+  return data;
+}
+
+async function getCampaignLeadById(userId, campaignId, leadId) {
+  const row = await getCampaignLeadRow(userId, campaignId, leadId);
+  const [enriched] = await enrichCampaignLeadsWithLeadData([row]);
   return enriched;
 }
 
@@ -217,20 +231,22 @@ async function getCampaignLeadById(userId, campaignId, leadId) {
 // ─────────────────────────────────────────────────────────────
 
 async function updateCampaignLead(userId, campaignId, leadId, updates) {
-  await getCampaignLeadById(userId, campaignId, leadId);
+  await getCampaignLeadRow(userId, campaignId, leadId);
 
-  if (Object.prototype.hasOwnProperty.call(updates, 'reply_received')) {
-    if (updates.reply_received === true && !updates.reply_received_at) {
-      updates.reply_received_at = new Date().toISOString();
+  const payload = { ...updates };
+
+  if (Object.prototype.hasOwnProperty.call(payload, 'reply_received')) {
+    if (payload.reply_received === true && !payload.reply_received_at) {
+      payload.reply_received_at = new Date().toISOString();
     }
-    if (updates.reply_received === false) {
-      updates.reply_received_at = null;
+    if (payload.reply_received === false) {
+      payload.reply_received_at = null;
     }
   }
 
   const { data, error } = await supabase
     .from('campaign_leads')
-    .update(updates)
+    .update(payload)
     .eq('id', leadId)
     .eq('campaign_id', campaignId)
     .eq('user_id', userId)
@@ -238,11 +254,15 @@ async function updateCampaignLead(userId, campaignId, leadId, updates) {
     .single();
 
   if (error) {
-    throw new AppError('Failed to update campaign lead.', 500);
+    throwSupabaseError(error, {
+      logLabel: 'campaign_leads update',
+      fallbackMessage: 'Failed to update campaign lead.',
+      campaignLeadSchemaHint: true,
+    });
   }
 
   // ------------------------------------
-  // Mirror outreach status
+  // Mirror outreach status (non-blocking)
   // ------------------------------------
 
   const MIRROR_STATUSES = {
@@ -251,24 +271,46 @@ async function updateCampaignLead(userId, campaignId, leadId, updates) {
     skipped: 'skipped',
   };
 
-  if (updates.status && MIRROR_STATUSES[updates.status]) {
+  if (payload.status && MIRROR_STATUSES[payload.status]) {
     const leadsDataUpdate = {
-      outreachStatus: MIRROR_STATUSES[updates.status],
+      outreachStatus: MIRROR_STATUSES[payload.status],
     };
 
-    if (updates.status === 'sent') {
+    if (payload.status === 'sent') {
       leadsDataUpdate.emailSent = 'true';
-
-      leadsDataUpdate.emailSentDate = updates.sent_at || new Date().toISOString();
+      leadsDataUpdate.emailSentDate = payload.sent_at || new Date().toISOString();
     }
 
-    await supabase
+    const { error: mirrorErr } = await supabase
       .from('leads_data')
       .update(leadsDataUpdate)
       .eq('id', parseLeadDataId(data.lead_data_id));
+
+    if (mirrorErr) {
+      logger.warn('[CampaignLead] Failed to mirror status to leads_data', {
+        campaignLeadId: leadId,
+        lead_data_id: data.lead_data_id,
+        status: payload.status,
+        error: mirrorErr.message,
+      });
+    }
   }
 
-  return data;
+  try {
+    const [enriched] = await enrichCampaignLeadsWithLeadData([data]);
+    return enriched;
+  } catch (err) {
+    logger.warn('[CampaignLead] enrich after update failed', {
+      campaignLeadId: leadId,
+      error: err.message,
+    });
+    return {
+      ...data,
+      lead_name: null,
+      lead_email: null,
+      lead_company: null,
+    };
+  }
 }
 
 // ─────────────────────────────────────────────────────────────

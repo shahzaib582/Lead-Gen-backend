@@ -40,7 +40,7 @@ const updateLeadValidation = [
   campaignIdParam,
   leadIdParam,
   body('status')
-    .optional()
+    .optional({ values: 'falsy' })
     .isIn(VALID_STATUSES)
     .withMessage(`status must be one of: ${VALID_STATUSES.join(', ')}.`),
   body('sent_at')

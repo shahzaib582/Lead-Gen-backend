@@ -1,7 +1,7 @@
 const AppError = require('./AppError');
 const logger = require('./logger');
 
-function isLikelyMissingCampaignColumns(dbError) {
+function isLikelyMissingColumn(dbError) {
   const msg = `${dbError?.message || ''} ${dbError?.details || ''} ${dbError?.hint || ''}`;
   const code = dbError?.code || '';
   return (
@@ -10,6 +10,18 @@ function isLikelyMissingCampaignColumns(dbError) {
     /Could not find the ['"]?\w+['"]? column/i.test(msg) ||
     /column .* does not exist/i.test(msg) ||
     /schema cache/i.test(msg)
+  );
+}
+
+function isLikelyMissingCampaignColumns(dbError) {
+  return isLikelyMissingColumn(dbError);
+}
+
+function isLikelyMissingCampaignLeadColumns(dbError) {
+  const msg = `${dbError?.message || ''} ${dbError?.details || ''}`;
+  return (
+    isLikelyMissingColumn(dbError) ||
+    /reply_received|gmail_thread|gmail_message|gmail_subject|gmail_rfc/i.test(msg)
   );
 }
 
@@ -50,10 +62,23 @@ function throwSupabaseError(error, opts) {
     );
   }
 
+  if (opts.campaignLeadSchemaHint && isLikelyMissingCampaignLeadColumns(error)) {
+    throw new AppError(
+      'Database is missing columns the API expects on `campaign_leads` (e.g. `reply_received`, `gmail_thread_id`). Run sql/migrations/20260519_campaign_leads_gmail_thread_reply.sql in Supabase, then retry.',
+      500,
+      'CAMPAIGN_LEAD_DB_SCHEMA'
+    );
+  }
+
+  if (error.code === 'PGRST116') {
+    throw new AppError('Campaign lead not found.', 404);
+  }
+
   throw new AppError(fallbackMessage, 500, 'DB_ERROR');
 }
 
 module.exports = {
   isLikelyMissingCampaignColumns,
+  isLikelyMissingCampaignLeadColumns,
   throwSupabaseError,
 };

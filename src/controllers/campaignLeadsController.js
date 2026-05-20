@@ -96,7 +96,12 @@ async function updateLead(req, res, next) {
 
     const lead = await campaignLeadsService.updateCampaignLead(userId, campaignId, leadId, updates);
 
-    return successResponse(res, 200, 'Campaign lead updated.', { lead });
+    const message =
+      updates.status != null
+        ? `Lead status updated to ${updates.status}.`
+        : 'Campaign lead updated.';
+
+    return successResponse(res, 200, message, { lead });
   } catch (err) {
     next(err);
   }
