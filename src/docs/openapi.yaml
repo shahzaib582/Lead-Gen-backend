@@ -20,6 +20,8 @@ tags:
     description: Email/password signup, OTP, login, tokens, logout.
   - name: GoogleAuth
     description: Google OAuth and ID-token login.
+  - name: Dashboard
+    description: Dashboard KPIs, performance chart, active campaigns, and recent activity.
   - name: Campaigns
     description: Campaign CRUD and listing (authenticated).
   - name: CampaignLeads
@@ -1241,6 +1243,123 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+
+  /api/dashboard/summary:
+    get:
+      tags: [Dashboard]
+      summary: Dashboard KPI summary
+      description: |
+        Aggregate metrics for the authenticated user: total campaigns, total emails sent,
+        reply rate, and `meeting_booking_count` (reserved — returns `0` until bookings flow exists).
+      responses:
+        '200':
+          description: Summary metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/dashboard/performance:
+    get:
+      tags: [Dashboard]
+      summary: Campaign performance time series (chart)
+      description: |
+        Triple-line chart data: `sent`, `replies`, and `bookings` (bookings are `0` until integrated).
+        One row per UTC day in the selected range.
+      parameters:
+        - in: query
+          name: period
+          schema:
+            type: string
+            enum: [last_7_days, last_30_days, last_month, last_90_days, this_month, custom]
+            default: last_30_days
+        - in: query
+          name: from
+          schema:
+            type: string
+            format: date
+          description: Required when `period=custom` (YYYY-MM-DD).
+        - in: query
+          name: to
+          schema:
+            type: string
+            format: date
+          description: Required when `period=custom` (YYYY-MM-DD).
+      responses:
+        '200':
+          description: Time series for chart
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /api/dashboard/active-campaigns:
+    get:
+      tags: [Dashboard]
+      summary: Active campaigns with progress
+      description: |
+        Returns `total_running` (campaigns with `status=active`) and a paginated list with
+        `total_leads`, `sent_count`, `reply_count`, and `progress` (percent of leads sent).
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+      responses:
+        '200':
+          description: Active campaigns
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /api/dashboard/recent-activity:
+    get:
+      tags: [Dashboard]
+      summary: Recent outreach activity
+      description: |
+        Paginated feed of recent events: `email_sent`, `reply_received`, `follow_up_sent`.
+        Merged from the latest outreach actions (up to ~500 events considered per request).
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+      responses:
+        '200':
+          description: Activity feed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessPaginated'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
 
   /api/campaigns:
     get:
