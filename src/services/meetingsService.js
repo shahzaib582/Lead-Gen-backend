@@ -145,6 +145,9 @@ async function createMeeting(userId, userRow, body) {
     throw new AppError(insertErr.message || 'Failed to create meeting.', 500);
   }
 
+  const { notifyMeetingBooked } = require('./notificationService');
+  void notifyMeetingBooked(userId, row);
+
   if (!syncGoogle) return row;
 
   const account = await googleAuthService.findGoogleAccountByUserId(userId);

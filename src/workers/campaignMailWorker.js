@@ -150,6 +150,13 @@ const worker = new Worker(
           message: err.message?.slice(0, 300),
           ...(await getCampaignProgressSnapshot(userId, campaignId)),
         });
+
+        const { notifyEmailFailed } = require('../services/notificationService');
+        void notifyEmailFailed(userId, {
+          campaignId,
+          campaignLeadId,
+          message: err.message,
+        });
       } else {
         logger.warn('[CampaignMailWorker] Will retry', {
           campaignLeadId,

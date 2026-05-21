@@ -24,6 +24,8 @@ tags:
     description: Dashboard KPIs, performance chart, active campaigns, and recent activity.
   - name: Analytics
     description: Analytics screen — overview KPIs, campaign chart, comparison table, weekly bars, reply breakdown donut.
+  - name: Notifications
+    description: In-app notifications — list, unread count, mark read, real-time SSE for web bell/dropdown.
   - name: Campaigns
     description: Campaign CRUD and listing (authenticated).
   - name: CampaignLeads
@@ -1740,6 +1742,148 @@ paths:
                       percent: 4
         '401':
           $ref: '#/components/responses/Unauthorized'
+
+  /api/notifications:
+    get:
+      tags: [Notifications]
+      summary: List notifications
+      description: Paginated notifications for the authenticated user. Use `unread=true` for unread only.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+        - in: query
+          name: unread
+          schema:
+            type: string
+            enum: ['true', 'false', '1', '0']
+      responses:
+        '200':
+          description: `data.items` and `data.pagination`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/notifications/unread-count:
+    get:
+      tags: [Notifications]
+      summary: Unread notification count
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: `data.unreadCount`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/notifications/read-all:
+    post:
+      tags: [Notifications]
+      summary: Mark all notifications as read
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Returns updated `data.unreadCount` (0)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/notifications/{id}/read:
+    patch:
+      tags: [Notifications]
+      summary: Mark one notification as read
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: `data.notification`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/notifications/events/session:
+    post:
+      tags: [Notifications]
+      summary: Create short-lived SSE session (Bearer)
+      description: |
+        Returns `sid` (~5 min TTL) for `GET /api/notifications/events?sid=...`.
+        Use with browser `EventSource` (no Authorization header on the stream).
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Session created; `data` includes `sid`, `expiresInSec`, `eventsUrl`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/notifications/events:
+    get:
+      tags: [Notifications]
+      summary: Server-Sent Events stream for user notifications
+      description: |
+        Query `sid` from `POST /api/notifications/events/session`.
+        Initial event `notifications_snapshot` includes `unreadCount`.
+        New rows emit `notification` with full `notification` object.
+        Types created by the API include `reply_received`, `email_failed`, `meeting_booked`, `outreach_finished`.
+      security: []
+      parameters:
+        - name: sid
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: SSE stream (`text/event-stream`)
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        '401':
+          description: Invalid or expired `sid`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/dashboard/performance:
     get:

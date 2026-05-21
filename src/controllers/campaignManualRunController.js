@@ -15,7 +15,7 @@ async function runOutreach(req, res, next) {
     const { leadCount } = await validateManualCampaignRunStart(userId, campaignId);
 
     void runManualCampaignOutreach(userId, campaignId)
-      .then((result) => {
+      .then(async (result) => {
         logger.info('[ManualRun] Background outreach finished', {
           campaignId,
           userId,
@@ -25,6 +25,8 @@ async function runOutreach(req, res, next) {
           sendFailed: result.sendFailed,
           dailyLimitReached: result.dailyLimitReached,
         });
+        const { notifyOutreachFinished } = require('../services/notificationService');
+        await notifyOutreachFinished(userId, campaignId, result);
       })
       .catch((err) => {
         logger.error('[ManualRun] Background outreach failed', {

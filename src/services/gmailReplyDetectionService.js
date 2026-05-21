@@ -90,6 +90,13 @@ async function syncReplyFlagsForUser(userId) {
           leadEmail,
         });
 
+        const { notifyReplyReceived } = require('./notificationService');
+        void notifyReplyReceived(userId, {
+          campaignId: lead.campaign_id,
+          campaignLeadId: lead.id,
+          leadEmail,
+        });
+
         await maybeCreateThankYouDraft({
           userId,
           campaignLead: { ...lead, reply_received: true },
