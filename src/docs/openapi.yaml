@@ -25,7 +25,7 @@ tags:
   - name: Analytics
     description: Analytics screen — overview KPIs, campaign chart, comparison table, weekly bars, reply breakdown donut.
   - name: Notifications
-    description: In-app notifications — list, unread count, mark read, real-time SSE for web bell/dropdown.
+    description: In-app notifications, FCM web push token registration, list, unread count, mark read, and SSE.
   - name: Campaigns
     description: Campaign CRUD and listing (authenticated).
   - name: CampaignLeads
@@ -1746,6 +1746,84 @@ paths:
                       label: Failed / skipped
                       count: 4
                       percent: 4
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/notifications/push/status:
+    get:
+      tags: [Notifications]
+      summary: Web push (FCM) status for current user
+      description: Whether FCM is configured on the server and how many device tokens are registered.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: fcmConfigured and registeredDevices
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/notifications/push/register:
+    post:
+      tags: [Notifications]
+      summary: Register FCM token (web push)
+      description: |
+        Call after the browser obtains an FCM registration token (Firebase JS SDK + service worker).
+        Requires server env FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY.
+        Respects user notificationsEnabled — tokens are stored but push is skipped when disabled.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fcmToken]
+              properties:
+                fcmToken:
+                  type: string
+                  description: FCM registration token from getToken() on the web client.
+                deviceLabel:
+                  type: string
+                  nullable: true
+                  description: Optional label (e.g. Chrome on MacBook).
+      responses:
+        '200':
+          description: Token registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '503':
+          description: FCM not configured on server
+    delete:
+      tags: [Notifications]
+      summary: Unregister FCM token
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fcmToken]
+              properties:
+                fcmToken:
+                  type: string
+      responses:
+        '200':
+          description: Token removed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
         '401':
           $ref: '#/components/responses/Unauthorized'
 

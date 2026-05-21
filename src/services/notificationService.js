@@ -82,6 +82,9 @@ async function createUserNotification(params) {
     notification: publicRow,
   });
 
+  const { sendWebPushForNotification } = require('./fcmPushService');
+  void sendWebPushForNotification(userId, publicRow);
+
   return publicRow;
 }
 

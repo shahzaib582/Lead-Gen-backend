@@ -2,6 +2,7 @@ const connection = require('../queues/connection');
 const logger = require('../utils/logger');
 const { successResponse, errorResponse } = require('../utils/response');
 const notificationService = require('../services/notificationService');
+const pushSubscriptionService = require('../services/pushSubscriptionService');
 const {
   createNotificationSseSession,
   getNotificationSseSession,
@@ -144,6 +145,38 @@ async function streamNotificationEvents(req, res, next) {
   }
 }
 
+async function pushStatus(req, res, next) {
+  try {
+    const result = await pushSubscriptionService.getPushRegistrationSummary(req.user.id);
+    return successResponse(res, 200, undefined, result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function registerPush(req, res, next) {
+  try {
+    const { fcmToken, deviceLabel } = req.body;
+    const result = await pushSubscriptionService.registerFcmToken(req.user.id, {
+      fcmToken,
+      deviceLabel,
+    });
+    return successResponse(res, 200, 'FCM token registered.', result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function unregisterPush(req, res, next) {
+  try {
+    const { fcmToken } = req.body;
+    await pushSubscriptionService.unregisterFcmToken(req.user.id, fcmToken);
+    return successResponse(res, 200, 'FCM token unregistered.');
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   list,
   unreadCount,
@@ -151,4 +184,7 @@ module.exports = {
   markAllRead,
   createEventsSession,
   streamNotificationEvents,
+  pushStatus,
+  registerPush,
+  unregisterPush,
 };

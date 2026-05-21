@@ -24,6 +24,7 @@
     "express": "^4.21.1",
     "express-rate-limit": "^7.4.1",
     "express-validator": "^7.2.0",
+    "firebase-admin": "^13.10.0",
     "google-auth-library": "^10.6.2",
     "googleapis": "^171.4.0",
     "ioredis": "^5.10.1",

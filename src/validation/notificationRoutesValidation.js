@@ -1,4 +1,4 @@
-const { query, param } = require('express-validator');
+const { query, param, body } = require('express-validator');
 
 const pageQuery = query('page')
   .optional()
@@ -19,10 +19,26 @@ const unreadQuery = query('unread')
 
 const notificationIdParam = param('id').isUUID().withMessage('id must be a valid UUID.');
 
+const fcmTokenBody = body('fcmToken')
+  .isString()
+  .trim()
+  .isLength({ min: 20, max: 4096 })
+  .withMessage('fcmToken must be a valid FCM registration token.');
+
+const deviceLabelBody = body('deviceLabel')
+  .optional({ nullable: true })
+  .isString()
+  .trim()
+  .isLength({ max: 120 });
+
 const listValidation = [pageQuery, limitQuery, unreadQuery];
 const markReadValidation = [notificationIdParam];
+const pushRegisterValidation = [fcmTokenBody, deviceLabelBody];
+const pushUnregisterValidation = [fcmTokenBody];
 
 module.exports = {
   listValidation,
   markReadValidation,
+  pushRegisterValidation,
+  pushUnregisterValidation,
 };
