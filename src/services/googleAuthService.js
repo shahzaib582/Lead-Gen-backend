@@ -69,6 +69,8 @@ async function upsertGoogleAccount(userId, { email, name, avatarUrl, googleToken
 }
 
 async function createGoogleUser({ email, name, avatarUrl, googleTokens, googleId }) {
+  await userService.assertEmailAvailableForSignup(email);
+
   const safeName = name ? String(name).trim().slice(0, 200) : null;
   const safePic = avatarUrl ? String(avatarUrl).trim().slice(0, 2048) : null;
 
@@ -113,6 +115,13 @@ async function resolveUserFromGoogleProfile({ email, name, avatarUrl, googleToke
   }
 
   const existingUser = await userService.findUserByEmail(email);
+
+  if (!existingUser) {
+    const closed = await userService.findUserByEmailIncludingDeleted(email);
+    if (closed && userService.isUserDeleted(closed)) {
+      userService.assertUserActive(closed);
+    }
+  }
 
   if (existingUser) {
     if (existingUser.auth_provider !== 'email') {

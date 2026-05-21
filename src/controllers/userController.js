@@ -1,4 +1,5 @@
 const userService = require('../services/userService');
+const AppError = require('../utils/AppError');
 const googleAuthService = require('../services/googleAuthService');
 const { accountHasCalendarScope } = require('../services/googleCalendarService');
 const { toPublicUser } = require('../utils/userPublic');
@@ -40,7 +41,18 @@ async function patchCurrentUser(req, res, next) {
       timezone,
       notificationsEnabled,
       notifications_enabled,
+      password,
+      oldPassword,
+      old_password,
     } = req.body;
+
+    let updated = null;
+
+    if (password !== undefined && password !== null && String(password).trim() !== '') {
+      const old = oldPassword ?? old_password;
+      updated = await userService.changePassword(req.user.id, old, password);
+    }
+
     const fields = {};
     if (name !== undefined) fields.name = name;
     if (profile_pic !== undefined) fields.profile_pic = profile_pic;
@@ -51,7 +63,16 @@ async function patchCurrentUser(req, res, next) {
     if (notificationsEnabled !== undefined) fields.notifications_enabled = notificationsEnabled;
     if (notifications_enabled !== undefined) fields.notifications_enabled = notifications_enabled;
 
-    const updated = await userService.updateUserProfile(req.user.id, fields);
+    const hasProfileFields = Object.keys(fields).length > 0;
+    if (hasProfileFields) {
+      updated = await userService.updateUserProfile(req.user.id, fields);
+    }
+
+    if (!updated) {
+      const row = await userService.findUserById(req.user.id);
+      if (!row) throw new AppError('User not found.', 404);
+      updated = row;
+    }
 
     return successResponse(res, 200, 'Profile updated successfully.', {
       user: toPublicUser(updated),

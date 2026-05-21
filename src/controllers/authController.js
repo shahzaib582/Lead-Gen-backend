@@ -62,8 +62,9 @@ async function verifyOtp(req, res, next) {
   try {
     const { email, otp } = req.body;
 
-    const user = await userService.findUserByEmail(email);
+    const user = await userService.findUserByEmailIncludingDeleted(email);
     if (!user) throw new AppError('User not found.', 404);
+    userService.assertUserActive(user);
     if (user.is_verified) throw new AppError('Email is already verified.', 400);
 
     await otpService.verifyOtp(user.id, otp);
@@ -87,15 +88,19 @@ async function login(req, res, next) {
     const { email, password } = req.body;
     const INVALID_MSG = 'Invalid email or password.';
 
-    const user = await userService.findUserByEmail(email);
+    const anyUser = await userService.findUserByEmailIncludingDeleted(email);
+    if (anyUser && userService.isUserDeleted(anyUser)) {
+      userService.assertUserActive(anyUser);
+    }
+
+    const user =
+      anyUser && !userService.isUserDeleted(anyUser) ? anyUser : null;
     const dummyHash = '$2a$12$invalidhashfortimingprotectiononly000000000000000000000';
     const passwordMatch = user
       ? await userService.checkPassword(password, user.password_hash)
       : await userService.checkPassword(password, dummyHash).catch(() => false);
 
     if (!user || !passwordMatch) throw new AppError(INVALID_MSG, 401);
-
-    userService.assertUserActive(user);
 
     if (!user.is_verified) {
       const otp = await otpService.createOtp(
@@ -196,10 +201,11 @@ async function resetPassword(req, res, next) {
   try {
     const { email, otp, password } = req.body;
 
-    const user = await userService.findUserByEmail(email);
+    const user = await userService.findUserByEmailIncludingDeleted(email);
     if (!user?.password_hash) {
       throw new AppError('Invalid or expired verification code.', 400);
     }
+    userService.assertUserActive(user);
 
     await otpService.verifyOtp(user.id, otp, otpService.OTP_PURPOSE_PASSWORD_RESET);
     await userService.updatePassword(user.id, password);
@@ -226,8 +232,9 @@ async function resendOtp(req, res, next) {
   try {
     const { email } = req.body;
 
-    const user = await userService.findUserByEmail(email);
+    const user = await userService.findUserByEmailIncludingDeleted(email);
     if (!user) throw new AppError('User not found.', 404);
+    userService.assertUserActive(user);
     if (user.is_verified) throw new AppError('Email is already verified.', 400);
 
     const otp = await otpService.createOtp(

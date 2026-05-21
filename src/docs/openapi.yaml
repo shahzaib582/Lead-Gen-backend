@@ -1293,7 +1293,8 @@ paths:
       summary: Update current user profile
       description: |
         Update `name`, `profilePic` / `profile_pic`, `address`, `contact`, `timezone`, or `notificationsEnabled`.
-        Email, password, and role cannot be changed here. Set `timezone` to `null` to clear.
+        To change `password`, send `oldPassword` (or `old_password`) and a new `password` (same strength rules as signup).
+        Email and role cannot be changed here. Set `timezone` to `null` to clear.
       requestBody:
         required: true
         content:
@@ -1320,6 +1321,12 @@ paths:
                 notificationsEnabled:
                   type: boolean
                   description: Enable or disable new in-app notifications.
+                oldPassword:
+                  type: string
+                  description: Required when `password` is sent (current password).
+                password:
+                  type: string
+                  description: New password (min 8 chars, upper, lower, number, special).
       responses:
         '200':
           description: Updated profile
@@ -1328,7 +1335,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          description: Wrong current password when changing password
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
     delete:
@@ -1336,8 +1349,8 @@ paths:
       summary: Soft-delete current user account
       description: |
         Sets `deleted_at` on the user, revokes all refresh tokens, and removes FCM push tokens.
-        Login, token refresh, and Bearer access are blocked afterward. The row is kept in the database.
-        The same email may be used to sign up again after delete.
+        Login, Google sign-in, token refresh, and Bearer access are blocked afterward.
+        Signup or Google registration with the same email returns 403 — contact support (account cannot be self-restored).
       security:
         - bearerAuth: []
       responses:

@@ -4,7 +4,9 @@ const AppError = require('../utils/AppError');
 const { isValidIanaTimezone } = require('../utils/timezone');
 const refreshTokenService = require('./refreshTokenService');
 
-const ACCOUNT_DELETED_MSG = 'This account has been deleted.';
+const ACCOUNT_CLOSED_MSG =
+  'This account has been closed. Please contact support if you need assistance.';
+const ACCOUNT_CLOSED_CODE = 'ACCOUNT_CLOSED';
 
 const BCRYPT_ROUNDS = 12; // higher than OTP hashing — passwords deserve extra rounds
 
@@ -31,8 +33,29 @@ function isUserDeleted(user) {
 function assertUserActive(user) {
   if (!user) return;
   if (isUserDeleted(user)) {
-    throw new AppError(ACCOUNT_DELETED_MSG, 403, 'ACCOUNT_DELETED');
+    throw new AppError(ACCOUNT_CLOSED_MSG, 403, ACCOUNT_CLOSED_CODE);
   }
+}
+
+async function findUserByEmailIncludingDeleted(email) {
+  const { data, error } = await supabase
+    .from('users')
+    .select('*')
+    .eq('email', email.toLowerCase().trim())
+    .maybeSingle();
+
+  if (error) throw new AppError('Database error', 500);
+  return data;
+}
+
+/** Block signup / Google create when email belongs to a soft-deleted account. */
+async function assertEmailAvailableForSignup(email) {
+  const existing = await findUserByEmailIncludingDeleted(email);
+  if (!existing) return;
+  if (isUserDeleted(existing)) {
+    throw new AppError(ACCOUNT_CLOSED_MSG, 403, ACCOUNT_CLOSED_CODE);
+  }
+  throw new AppError('An account with this email already exists.', 409);
 }
 
 async function findUserByEmail(email) {
@@ -66,6 +89,8 @@ async function findUserById(id) {
  * @param {{ name?: string, profile_pic?: string, address?: string, contact?: string }} [profile]
  */
 async function createUser(email, password, profile = {}) {
+  await assertEmailAvailableForSignup(email);
+
   const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
 
   const row = {
@@ -109,9 +134,30 @@ async function updatePassword(userId, plainPassword) {
   const { error } = await supabase
     .from('users')
     .update({ password_hash: passwordHash })
-    .eq('id', userId);
+    .eq('id', userId)
+    .is('deleted_at', null);
 
   if (error) throw new AppError('Failed to update password.', 500);
+}
+
+/**
+ * Change password for email/password users; requires current password.
+ */
+async function changePassword(userId, oldPassword, newPassword) {
+  const user = await findUserById(userId);
+  if (!user) throw new AppError('User not found.', 404);
+  if (!user.password_hash) {
+    throw new AppError(
+      'This account uses Google sign-in only. Set a password via forgot-password or contact support.',
+      400
+    );
+  }
+
+  const match = await checkPassword(oldPassword, user.password_hash);
+  if (!match) throw new AppError('Current password is incorrect.', 401);
+
+  await updatePassword(userId, newPassword);
+  return findUserById(userId);
 }
 
 // ─── Password ─────────────────────────────────────────────────────────────────
@@ -216,13 +262,18 @@ async function softDeleteUser(userId) {
 }
 
 module.exports = {
+  ACCOUNT_CLOSED_MSG,
+  ACCOUNT_CLOSED_CODE,
   isUserDeleted,
   assertUserActive,
+  assertEmailAvailableForSignup,
   findUserByEmail,
+  findUserByEmailIncludingDeleted,
   findUserById,
   createUser,
   markUserVerified,
   updatePassword,
+  changePassword,
   checkPassword,
   findOrCreateGoogleUser,
   updateAuthProvider,
