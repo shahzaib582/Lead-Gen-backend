@@ -24,7 +24,7 @@ $$ LANGUAGE plpgsql;
 
 CREATE TABLE IF NOT EXISTS users (
   id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  email           TEXT        NOT NULL UNIQUE,
+  email           TEXT        NOT NULL,
   password_hash   TEXT,                   -- nullable for Google-only accounts
   auth_provider   TEXT        NOT NULL DEFAULT 'email'
                     CHECK (auth_provider IN ('email', 'google')),
@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS users (
                     CHECK (role IN ('user', 'superadmin')),
   timezone        TEXT,
   notifications_enabled BOOLEAN NOT NULL DEFAULT true,
+  deleted_at      TIMESTAMPTZ,
 
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -49,8 +50,15 @@ COMMENT ON COLUMN users.timezone IS
 COMMENT ON COLUMN users.notifications_enabled IS
   'When false, notification rows are still saved; SSE and FCM push are not sent.';
 
-CREATE INDEX IF NOT EXISTS idx_users_email ON users (email);
+COMMENT ON COLUMN users.deleted_at IS
+  'When set, the account is deactivated; login, refresh, and Bearer access are rejected.';
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_active
+  ON users (email)
+  WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_users_role ON users (role);
+CREATE INDEX IF NOT EXISTS idx_users_deleted_at ON users (deleted_at)
+  WHERE deleted_at IS NOT NULL;
 
 DROP TRIGGER IF EXISTS set_users_updated_at ON users;
 CREATE TRIGGER set_users_updated_at

@@ -23,6 +23,7 @@ async function authenticate(req, res, next) {
 
     const user = await userService.findUserById(decoded.sub);
     if (!user) throw new AppError('User no longer exists.', 401);
+    userService.assertUserActive(user);
     if (!user.is_verified) throw new AppError('Email not verified.', 403);
 
     const publicUser = toPublicUser(user);

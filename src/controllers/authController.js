@@ -95,6 +95,8 @@ async function login(req, res, next) {
 
     if (!user || !passwordMatch) throw new AppError(INVALID_MSG, 401);
 
+    userService.assertUserActive(user);
+
     if (!user.is_verified) {
       const otp = await otpService.createOtp(
         user.id,
@@ -130,6 +132,7 @@ async function refreshTokens(req, res, next) {
 
     const user = await userService.findUserById(record.user_id);
     if (!user) throw new AppError('User not found.', 401);
+    userService.assertUserActive(user);
 
     await refreshTokenService.deleteRefreshToken(record.id);
     const { accessToken, refreshToken: newRefreshToken } = await issueTokenPair(user);

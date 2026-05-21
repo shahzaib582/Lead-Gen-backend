@@ -107,6 +107,7 @@ async function resolveUserFromGoogleProfile({ email, name, avatarUrl, googleToke
 
   if (existingGoogleAccount) {
     const user = existingGoogleAccount.users;
+    userService.assertUserActive(user);
     await upsertGoogleAccount(user.id, { email, name, avatarUrl, googleTokens, googleId });
     return user;
   }

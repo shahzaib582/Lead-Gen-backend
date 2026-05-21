@@ -12,5 +12,6 @@ router.use(campaignLimiter);
 
 router.get('/', userController.getCurrentUser);
 router.patch('/', patchUserValidation, validateRequest, userController.patchCurrentUser);
+router.delete('/', userController.deleteAccount);
 
 module.exports = router;

@@ -2,6 +2,9 @@ const bcrypt = require('bcryptjs');
 const supabase = require('../config/supabase');
 const AppError = require('../utils/AppError');
 const { isValidIanaTimezone } = require('../utils/timezone');
+const refreshTokenService = require('./refreshTokenService');
+
+const ACCOUNT_DELETED_MSG = 'This account has been deleted.';
 
 const BCRYPT_ROUNDS = 12; // higher than OTP hashing — passwords deserve extra rounds
 
@@ -21,11 +24,23 @@ function trimProfileField(value, maxLen) {
 
 // ─── Find ─────────────────────────────────────────────────────────────────────
 
+function isUserDeleted(user) {
+  return Boolean(user?.deleted_at);
+}
+
+function assertUserActive(user) {
+  if (!user) return;
+  if (isUserDeleted(user)) {
+    throw new AppError(ACCOUNT_DELETED_MSG, 403, 'ACCOUNT_DELETED');
+  }
+}
+
 async function findUserByEmail(email) {
   const { data, error } = await supabase
     .from('users')
     .select('*')
     .eq('email', email.toLowerCase().trim())
+    .is('deleted_at', null)
     .maybeSingle();
 
   if (error) throw new AppError('Database error', 500);
@@ -33,7 +48,12 @@ async function findUserByEmail(email) {
 }
 
 async function findUserById(id) {
-  const { data, error } = await supabase.from('users').select('*').eq('id', id).maybeSingle();
+  const { data, error } = await supabase
+    .from('users')
+    .select('*')
+    .eq('id', id)
+    .is('deleted_at', null)
+    .maybeSingle();
 
   if (error) throw new AppError('Database error', 500);
   return data;
@@ -156,6 +176,7 @@ async function updateUserProfile(userId, fields) {
     .from('users')
     .update(patch)
     .eq('id', userId)
+    .is('deleted_at', null)
     .select()
     .single();
 
@@ -163,7 +184,40 @@ async function updateUserProfile(userId, fields) {
   return data;
 }
 
+/**
+ * Soft-delete the account: set deleted_at, revoke all refresh sessions.
+ */
+async function softDeleteUser(userId) {
+  const { data, error } = await supabase
+    .from('users')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', userId)
+    .is('deleted_at', null)
+    .select('id, email, deleted_at')
+    .maybeSingle();
+
+  if (error) throw new AppError('Failed to delete account.', 500);
+  if (!data) {
+    const { data: existing } = await supabase
+      .from('users')
+      .select('deleted_at')
+      .eq('id', userId)
+      .maybeSingle();
+    if (!existing) throw new AppError('User not found.', 404);
+    if (existing.deleted_at) throw new AppError('Account is already deleted.', 400);
+    throw new AppError('Failed to delete account.', 500);
+  }
+
+  await refreshTokenService.revokeAllUserRefreshTokens(userId);
+
+  await supabase.from('user_fcm_tokens').delete().eq('user_id', userId);
+
+  return data;
+}
+
 module.exports = {
+  isUserDeleted,
+  assertUserActive,
   findUserByEmail,
   findUserById,
   createUser,
@@ -173,4 +227,5 @@ module.exports = {
   findOrCreateGoogleUser,
   updateAuthProvider,
   updateUserProfile,
+  softDeleteUser,
 };

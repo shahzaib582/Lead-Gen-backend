@@ -61,4 +61,13 @@ async function patchCurrentUser(req, res, next) {
   }
 }
 
-module.exports = { getCurrentUser, patchCurrentUser };
+async function deleteAccount(req, res, next) {
+  try {
+    await userService.softDeleteUser(req.user.id);
+    return successResponse(res, 200, 'Account deleted successfully.');
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { getCurrentUser, patchCurrentUser, deleteAccount };
