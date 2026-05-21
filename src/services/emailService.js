@@ -1,6 +1,5 @@
 const { google } = require('googleapis');
-const logger = require('../utils/logger');
-const { getSmtpConfig, getTransporter } = require('../config/smtp');
+const { sendBrevoEmail } = require('../config/brevo');
 const {
   buildVerificationEmail,
   buildPasswordResetEmail,
@@ -11,32 +10,16 @@ function otpExpiryMinutes() {
   return Number(process.env.OTP_EXPIRY_MINUTES) || 10;
 }
 
-async function sendSmtpMail({ to, subject, html, text }) {
-  const { from } = getSmtpConfig();
-  const transport = getTransporter();
-
-  try {
-    return await transport.sendMail({ from, to, subject, html, text });
-  } catch (err) {
-    logger.error('SMTP send failed', {
-      to,
-      code: err.code,
-      message: err.message,
-    });
-    throw err;
-  }
-}
-
 async function sendOtpEmail(to, otp) {
   const expiry = otpExpiryMinutes();
   const { subject, html, text } = buildVerificationEmail(otp, expiry);
-  return sendSmtpMail({ to, subject, html, text });
+  return sendBrevoEmail({ to, subject, html, text });
 }
 
 async function sendPasswordResetOtpEmail(to, otp) {
   const expiry = otpExpiryMinutes();
   const { subject, html, text } = buildPasswordResetEmail(otp, expiry);
-  return sendSmtpMail({ to, subject, html, text });
+  return sendBrevoEmail({ to, subject, html, text });
 }
 
 function encodeMimeDisplayName(name) {

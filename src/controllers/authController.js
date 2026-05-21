@@ -17,7 +17,7 @@ function logEmailFailure(label, email, err) {
   });
 }
 
-/** Fire-and-forget; always attach .catch so SMTP failures do not become unhandledRejection. */
+/** Fire-and-forget; always attach .catch so Brevo OTP send failures do not become unhandledRejection. */
 function sendOtpEmailInBackground(email, otp) {
   void emailService
     .sendOtpEmail(email, otp)

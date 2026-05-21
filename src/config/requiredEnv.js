@@ -26,10 +26,8 @@ function assertRedis() {
 const WEB_KEYS = [
   'SUPABASE_URL',
   'SUPABASE_SERVICE_ROLE_KEY',
-  'SMTP_HOST',
-  'SMTP_USER',
-  'SMTP_PASS',
-  'EMAIL_FROM',
+  'BREVO_API_KEY',
+  'BREVO_SENDER_EMAIL',
 ];
 
 const WORKER_MAIL_TEMPLATE_KEYS = [

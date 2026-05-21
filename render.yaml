@@ -35,17 +35,11 @@ services:
 
       - key: JWT_ACCESS_SECRET
         sync: false
-      - key: SMTP_HOST
+      - key: BREVO_API_KEY
         sync: false
-      - key: SMTP_PORT
+      - key: BREVO_SENDER_EMAIL
         sync: false
-      - key: SMTP_SECURE
-        sync: false
-      - key: SMTP_USER
-        sync: false
-      - key: SMTP_PASS
-        sync: false
-      - key: EMAIL_FROM
+      - key: BREVO_SENDER_NAME
         sync: false
 
   - type: worker
