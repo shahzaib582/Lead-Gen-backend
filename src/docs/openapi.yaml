@@ -1001,7 +1001,9 @@ paths:
       tags: [Auth]
       summary: Set new password with email + reset OTP
       security: []
-      description: Revokes all refresh sessions then returns new JWT pair (same shape as login).
+      description: |
+        Revokes all refresh sessions then returns new JWT pair (same shape as login).
+        Returns 422 if the new password matches the current password.
       requestBody:
         required: true
         content:
@@ -1294,6 +1296,7 @@ paths:
       description: |
         Update `name`, `profilePic` / `profile_pic`, `address`, `contact`, `timezone`, or `notificationsEnabled`.
         To change `password`, send `oldPassword` (or `old_password`) and a new `password` (same strength rules as signup).
+        New password must differ from the current one (422 if identical).
         Email and role cannot be changed here. Set `timezone` to `null` to clear.
       requestBody:
         required: true

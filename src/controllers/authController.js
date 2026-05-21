@@ -208,6 +208,7 @@ async function resetPassword(req, res, next) {
     userService.assertUserActive(user);
 
     await otpService.verifyOtp(user.id, otp, otpService.OTP_PURPOSE_PASSWORD_RESET);
+    await userService.assertNewPasswordDiffersFromCurrent(password, user.password_hash);
     await userService.updatePassword(user.id, password);
     if (!user.is_verified) {
       await userService.markUserVerified(user.id);

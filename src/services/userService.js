@@ -156,6 +156,7 @@ async function changePassword(userId, oldPassword, newPassword) {
   const match = await checkPassword(oldPassword, user.password_hash);
   if (!match) throw new AppError('Current password is incorrect.', 401);
 
+  await assertNewPasswordDiffersFromCurrent(newPassword, user.password_hash);
   await updatePassword(userId, newPassword);
   return findUserById(userId);
 }
@@ -164,6 +165,16 @@ async function changePassword(userId, oldPassword, newPassword) {
 
 async function checkPassword(plainPassword, hash) {
   return bcrypt.compare(plainPassword, hash);
+}
+
+const PASSWORD_SAME_AS_OLD_MSG = 'New password cannot be the same as old password.';
+
+async function assertNewPasswordDiffersFromCurrent(plainPassword, currentHash) {
+  if (!currentHash) return;
+  const same = await checkPassword(plainPassword, currentHash);
+  if (same) {
+    throw new AppError(PASSWORD_SAME_AS_OLD_MSG, 422, 'PASSWORD_SAME_AS_OLD');
+  }
 }
 
 // ─── Google OAuth helpers ─────────────────────────────────────────────────────
@@ -275,6 +286,8 @@ module.exports = {
   updatePassword,
   changePassword,
   checkPassword,
+  assertNewPasswordDiffersFromCurrent,
+  PASSWORD_SAME_AS_OLD_MSG,
   findOrCreateGoogleUser,
   updateAuthProvider,
   updateUserProfile,
