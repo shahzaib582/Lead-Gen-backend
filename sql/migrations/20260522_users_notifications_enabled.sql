@@ -4,4 +4,4 @@ ALTER TABLE users
   ADD COLUMN IF NOT EXISTS notifications_enabled BOOLEAN NOT NULL DEFAULT true;
 
 COMMENT ON COLUMN users.notifications_enabled IS
-  'When false, the API does not create new in-app notifications for this user.';
+  'When false, notification rows are still saved; SSE and FCM push are not sent.';

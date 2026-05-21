@@ -18,7 +18,7 @@ async function fetchNotificationsEnabled(userId) {
   return data?.notifications_enabled !== false;
 }
 
-/** In-app notifications + SSE (fail open if DB error). */
+/** Live delivery (SSE). Rows are always stored; this gates real-time events only (fail open if DB error). */
 async function isUserNotificationsEnabled(userId) {
   const enabled = await fetchNotificationsEnabled(userId);
   if (enabled === null) return true;

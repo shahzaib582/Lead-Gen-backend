@@ -47,7 +47,7 @@ COMMENT ON COLUMN users.timezone IS
   'Optional IANA timezone for scheduling. When null, meetings use UTC.';
 
 COMMENT ON COLUMN users.notifications_enabled IS
-  'When false, the API does not create new in-app notifications for this user.';
+  'When false, notification rows are still saved; SSE and FCM push are not sent.';
 
 CREATE INDEX IF NOT EXISTS idx_users_email ON users (email);
 CREATE INDEX IF NOT EXISTS idx_users_role ON users (role);

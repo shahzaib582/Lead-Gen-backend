@@ -42,8 +42,6 @@ async function createUserNotification(params) {
 
   if (!userId || !type || !title) return null;
 
-  if (!(await isUserNotificationsEnabled(userId))) return null;
-
   const { data, error } = await supabase
     .from('notifications')
     .insert({
@@ -65,10 +63,13 @@ async function createUserNotification(params) {
   }
 
   const publicRow = toPublicNotification(data);
-  await publishNotificationEvent(userId, {
-    type: 'notification',
-    notification: publicRow,
-  });
+
+  if (await isUserNotificationsEnabled(userId)) {
+    await publishNotificationEvent(userId, {
+      type: 'notification',
+      notification: publicRow,
+    });
+  }
 
   void sendWebPushForNotification(userId, publicRow);
 

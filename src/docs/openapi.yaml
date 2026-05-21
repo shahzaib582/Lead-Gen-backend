@@ -231,7 +231,7 @@ components:
           description: Optional IANA timezone (e.g. America/New_York). Used when syncing meetings to Google Calendar; defaults to UTC when unset.
         notificationsEnabled:
           type: boolean
-          description: When false, the API does not create new in-app notifications. Defaults to true.
+          description: When false, notifications are still saved but SSE and FCM push are not sent. Defaults to true.
 
     MeetingPublic:
       type: object
@@ -1773,7 +1773,7 @@ paths:
       description: |
         Call after the browser obtains an FCM registration token (Firebase JS SDK + service worker).
         Requires server env FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY.
-        Respects user notificationsEnabled — tokens are stored but push is skipped when disabled.
+        Tokens are stored regardless of notificationsEnabled. Push and live SSE are skipped when notificationsEnabled is false; notification rows are still saved.
       security:
         - bearerAuth: []
       requestBody:
