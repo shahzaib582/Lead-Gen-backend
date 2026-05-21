@@ -1,6 +1,7 @@
 const { getMessaging, isFirebaseConfigured } = require('../config/firebase');
 const { buildNotificationDeepLink, fcmStringData } = require('../utils/fcmPushLink');
 const pushSubscriptionService = require('./pushSubscriptionService');
+const { isUserWebPushEnabled } = require('./userNotificationPreferences');
 const logger = require('../utils/logger');
 
 const INVALID_TOKEN_CODES = new Set([
@@ -17,6 +18,10 @@ const INVALID_TOKEN_CODES = new Set([
 async function sendWebPushForNotification(userId, notification) {
   if (!isFirebaseConfigured() || !notification) {
     return { sent: 0, failed: 0, skipped: true };
+  }
+
+  if (!(await isUserWebPushEnabled(userId))) {
+    return { sent: 0, failed: 0, skipped: true, reason: 'notifications_disabled' };
   }
 
   const messaging = getMessaging();

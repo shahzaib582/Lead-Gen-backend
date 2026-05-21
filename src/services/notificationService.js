@@ -3,6 +3,8 @@ const AppError = require('../utils/AppError');
 const { parseLeadDataId } = require('../utils/leadDataId');
 const { toPublicNotification } = require('../utils/notificationPublic');
 const { publishNotificationEvent } = require('./notificationEventsPublisher');
+const { isUserNotificationsEnabled } = require('./userNotificationPreferences');
+const { sendWebPushForNotification } = require('./fcmPushService');
 const logger = require('../utils/logger');
 
 /** @typedef {'reply_received' | 'email_failed' | 'meeting_booked' | 'outreach_finished'} NotificationType */
@@ -26,20 +28,6 @@ const NOTIFICATION_TYPES = Object.freeze({
  *   metadata?: Record<string, unknown>,
  * }} params
  */
-async function isUserNotificationsEnabled(userId) {
-  const { data, error } = await supabase
-    .from('users')
-    .select('notifications_enabled')
-    .eq('id', userId)
-    .maybeSingle();
-
-  if (error) {
-    logger.warn('[Notifications] preference lookup failed', { userId, error: error.message });
-    return true;
-  }
-  return data?.notifications_enabled !== false;
-}
-
 async function createUserNotification(params) {
   const {
     userId,
@@ -82,7 +70,6 @@ async function createUserNotification(params) {
     notification: publicRow,
   });
 
-  const { sendWebPushForNotification } = require('./fcmPushService');
   void sendWebPushForNotification(userId, publicRow);
 
   return publicRow;
