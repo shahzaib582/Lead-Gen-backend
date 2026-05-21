@@ -22,6 +22,8 @@ tags:
     description: Google OAuth and ID-token login.
   - name: Dashboard
     description: Dashboard KPIs, performance chart, active campaigns, and recent activity.
+  - name: Analytics
+    description: Analytics screen — overview KPIs, campaign chart, comparison table, weekly bars, reply breakdown donut.
   - name: Campaigns
     description: Campaign CRUD and listing (authenticated).
   - name: CampaignLeads
@@ -1549,6 +1551,168 @@ paths:
                   conversion_rate:
                     percent: 4.4
                     vs_last_month_points: 0.6
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/analytics/overview:
+    get:
+      tags: [Analytics]
+      summary: Analytics overview KPIs
+      description: |
+        Top cards for the Analytics screen: emails sent, reply rate, meetings booked, and open rate placeholder.
+        Includes comparison vs the previous period of equal length (`vs_previous_period_*`).
+      parameters:
+        - in: query
+          name: period
+          schema:
+            type: string
+            enum: [last_7_days, last_30_days, last_month, last_90_days, this_month, custom]
+            default: last_30_days
+        - in: query
+          name: from
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: to
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Overview metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/analytics/campaign-chart:
+    get:
+      tags: [Analytics]
+      summary: Campaign reply volume chart (multi-line)
+      description: Daily reply counts per campaign for the selected date range.
+      parameters:
+        - in: query
+          name: period
+          schema:
+            type: string
+            enum: [last_7_days, last_30_days, last_month, last_90_days, this_month, custom]
+            default: last_30_days
+        - in: query
+          name: from
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: to
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Per-campaign time series
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/analytics/campaign-comparison:
+    get:
+      tags: [Analytics]
+      summary: Campaign comparison table
+      description: |
+        All campaigns with leads, emails sent, reply rate %, meetings, status label, and reply sparkline (last 14 reply days).
+        `open_rate_percent` is null until open tracking exists.
+      responses:
+        '200':
+          description: Campaign rows
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/analytics/sent-vs-replies:
+    get:
+      tags: [Analytics]
+      summary: Emails sent vs replies by week
+      description: Grouped bar chart data for the last N UTC weeks (default 4).
+      parameters:
+        - in: query
+          name: weeks
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 12
+            default: 4
+      responses:
+        '200':
+          description: Weekly sent and reply counts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/analytics/reply-breakdown:
+    get:
+      tags: [Analytics]
+      summary: Reply breakdown (donut / circle chart)
+      description: |
+        Four segments for a circle graph: replies received, sent awaiting reply, in pipeline, failed/skipped.
+        Percents sum to 100 over `total` in the selected period.
+      parameters:
+        - in: query
+          name: period
+          schema:
+            type: string
+            enum: [last_7_days, last_30_days, last_month, last_90_days, this_month, custom]
+            default: last_30_days
+        - in: query
+          name: from
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: to
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Breakdown segments
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+              example:
+                success: true
+                data:
+                  period: last_30_days
+                  total: 100
+                  segments:
+                    - key: replies_received
+                      label: Replies received
+                      count: 14
+                      percent: 14
+                    - key: sent_awaiting_reply
+                      label: Sent — awaiting reply
+                      count: 62
+                      percent: 62
+                    - key: in_pipeline
+                      label: In pipeline (not sent)
+                      count: 20
+                      percent: 20
+                    - key: failed_or_skipped
+                      label: Failed / skipped
+                      count: 4
+                      percent: 4
         '401':
           $ref: '#/components/responses/Unauthorized'
 
