@@ -16,6 +16,8 @@ const patchUserValidation = [
       }
       return true;
     }),
+  body('notificationsEnabled').optional().isBoolean().withMessage('notificationsEnabled must be a boolean.'),
+  body('notifications_enabled').optional().isBoolean().withMessage('notifications_enabled must be a boolean.'),
 ];
 
 module.exports = { patchUserValidation };

@@ -31,7 +31,16 @@ async function getCurrentUser(req, res, next) {
 
 async function patchCurrentUser(req, res, next) {
   try {
-    const { name, profile_pic, profilePic, address, contact, timezone } = req.body;
+    const {
+      name,
+      profile_pic,
+      profilePic,
+      address,
+      contact,
+      timezone,
+      notificationsEnabled,
+      notifications_enabled,
+    } = req.body;
     const fields = {};
     if (name !== undefined) fields.name = name;
     if (profile_pic !== undefined) fields.profile_pic = profile_pic;
@@ -39,6 +48,8 @@ async function patchCurrentUser(req, res, next) {
     if (address !== undefined) fields.address = address;
     if (contact !== undefined) fields.contact = contact;
     if (timezone !== undefined) fields.timezone = timezone;
+    if (notificationsEnabled !== undefined) fields.notifications_enabled = notificationsEnabled;
+    if (notifications_enabled !== undefined) fields.notifications_enabled = notifications_enabled;
 
     const updated = await userService.updateUserProfile(req.user.id, fields);
 

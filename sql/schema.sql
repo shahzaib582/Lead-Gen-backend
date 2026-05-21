@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS users (
   role            TEXT        NOT NULL DEFAULT 'user'
                     CHECK (role IN ('user', 'superadmin')),
   timezone        TEXT,
+  notifications_enabled BOOLEAN NOT NULL DEFAULT true,
 
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -44,6 +45,9 @@ CREATE TABLE IF NOT EXISTS users (
 
 COMMENT ON COLUMN users.timezone IS
   'Optional IANA timezone for scheduling. When null, meetings use UTC.';
+
+COMMENT ON COLUMN users.notifications_enabled IS
+  'When false, the API does not create new in-app notifications for this user.';
 
 CREATE INDEX IF NOT EXISTS idx_users_email ON users (email);
 CREATE INDEX IF NOT EXISTS idx_users_role ON users (role);

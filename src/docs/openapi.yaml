@@ -229,6 +229,9 @@ components:
           type: string
           nullable: true
           description: Optional IANA timezone (e.g. America/New_York). Used when syncing meetings to Google Calendar; defaults to UTC when unset.
+        notificationsEnabled:
+          type: boolean
+          description: When false, the API does not create new in-app notifications. Defaults to true.
 
     MeetingPublic:
       type: object
@@ -1289,7 +1292,7 @@ paths:
       tags: [User]
       summary: Update current user profile
       description: |
-        Update `name`, `profilePic` / `profile_pic`, `address`, `contact`, or `timezone`.
+        Update `name`, `profilePic` / `profile_pic`, `address`, `contact`, `timezone`, or `notificationsEnabled`.
         Email, password, and role cannot be changed here. Set `timezone` to `null` to clear.
       requestBody:
         required: true
@@ -1314,6 +1317,9 @@ paths:
                   type: string
                   nullable: true
                   description: IANA timezone (e.g. America/New_York) or null to clear.
+                notificationsEnabled:
+                  type: boolean
+                  description: Enable or disable new in-app notifications.
       responses:
         '200':
           description: Updated profile
@@ -1771,7 +1777,7 @@ paths:
             enum: ['true', 'false', '1', '0']
       responses:
         '200':
-          description: `data.items` and `data.pagination`
+          description: Response data includes items and pagination.
           content:
             application/json:
               schema:
@@ -1787,7 +1793,7 @@ paths:
         - bearerAuth: []
       responses:
         '200':
-          description: `data.unreadCount`
+          description: Response data includes unreadCount.
           content:
             application/json:
               schema:
@@ -1803,7 +1809,7 @@ paths:
         - bearerAuth: []
       responses:
         '200':
-          description: Returns updated `data.unreadCount` (0)
+          description: Returns updated unreadCount (0).
           content:
             application/json:
               schema:
@@ -1826,7 +1832,7 @@ paths:
             format: uuid
       responses:
         '200':
-          description: `data.notification`
+          description: Response data includes notification.
           content:
             application/json:
               schema:

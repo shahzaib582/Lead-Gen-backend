@@ -117,7 +117,7 @@ async function updateAuthProvider(userId, provider) {
 /**
  * Update profile fields (not email, password, or role).
  * @param {string} userId
- * @param {{ name?: string|null, profile_pic?: string|null, address?: string|null, contact?: string|null, timezone?: string|null }} fields
+ * @param {{ name?: string|null, profile_pic?: string|null, address?: string|null, contact?: string|null, timezone?: string|null, notifications_enabled?: boolean }} fields
  */
 async function updateUserProfile(userId, fields) {
   const patch = {};
@@ -143,6 +143,9 @@ async function updateUserProfile(userId, fields) {
     } else {
       patch.timezone = String(tz).trim();
     }
+  }
+  if (Object.prototype.hasOwnProperty.call(fields, 'notifications_enabled')) {
+    patch.notifications_enabled = Boolean(fields.notifications_enabled);
   }
 
   if (Object.keys(patch).length === 0) {

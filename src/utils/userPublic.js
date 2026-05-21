@@ -14,6 +14,7 @@ function toPublicUser(row) {
     address: row.address ?? null,
     contact: row.contact ?? null,
     timezone: row.timezone ?? null,
+    notificationsEnabled: row.notifications_enabled !== false,
     role: row.role || 'user',
   };
 }

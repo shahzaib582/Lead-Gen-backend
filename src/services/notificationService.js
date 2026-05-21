@@ -26,6 +26,20 @@ const NOTIFICATION_TYPES = Object.freeze({
  *   metadata?: Record<string, unknown>,
  * }} params
  */
+async function isUserNotificationsEnabled(userId) {
+  const { data, error } = await supabase
+    .from('users')
+    .select('notifications_enabled')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (error) {
+    logger.warn('[Notifications] preference lookup failed', { userId, error: error.message });
+    return true;
+  }
+  return data?.notifications_enabled !== false;
+}
+
 async function createUserNotification(params) {
   const {
     userId,
@@ -39,6 +53,8 @@ async function createUserNotification(params) {
   } = params;
 
   if (!userId || !type || !title) return null;
+
+  if (!(await isUserNotificationsEnabled(userId))) return null;
 
   const { data, error } = await supabase
     .from('notifications')
