@@ -1623,19 +1623,44 @@ paths:
   /api/analytics/campaign-comparison:
     get:
       tags: [Analytics]
-      summary: Campaign comparison table
+      summary: Campaign comparison table (paginated)
       description: |
-        All campaigns with leads, emails sent, reply rate %, meetings, status label, and reply sparkline (last 14 reply days).
-        `open_rate_percent` is null until open tracking exists.
+        Campaigns ordered by `updated_at` (newest first) with leads, emails sent, reply rate %, meetings,
+        status label, and reply sparkline (last 14 reply days). `open_rate_percent` is null until open tracking exists.
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
       responses:
         '200':
-          description: Campaign rows
+          description: Campaign rows with pagination
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
+              example:
+                success: true
+                data:
+                  campaigns: []
+                  pagination:
+                    page: 1
+                    limit: 10
+                    total: 7
+                    totalPages: 1
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
 
   /api/analytics/sent-vs-replies:
     get:

@@ -29,7 +29,10 @@ async function campaignChart(req, res, next) {
 
 async function campaignComparison(req, res, next) {
   try {
-    const data = await analyticsService.getAnalyticsCampaignComparison(req.user.id);
+    const data = await analyticsService.getAnalyticsCampaignComparison(req.user.id, {
+      page: parseInt(req.query.page || '1', 10),
+      limit: parseInt(req.query.limit || '10', 10),
+    });
     return successResponse(res, 200, undefined, data);
   } catch (err) {
     next(err);

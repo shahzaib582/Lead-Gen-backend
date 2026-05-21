@@ -196,27 +196,82 @@ async function getAnalyticsCampaignChart(userId, periodOptions) {
 
 // ─── 3. Campaign comparison table ─────────────────────────────────────────────
 
-async function aggregateCampaignTableStats(userId) {
-  const { data: campaigns, error: campErr } = await supabase
-    .from('campaigns')
-    .select('id, name, status')
-    .eq('user_id', userId)
-    .order('updated_at', { ascending: false });
+function buildCampaignComparisonRow(c, stats, meetingsByCampaign) {
+  const s = stats.get(c.id) || { leads: 0, emails_sent: 0, replies: 0, reply_trend: [] };
+  const replyRate = computeRatePercent(s.replies, s.emails_sent);
+  const trendCounts = countByUtcDateKey(s.reply_trend);
+  const sparkline = [...trendCounts.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .slice(-14)
+    .map(([, count]) => count);
 
-  if (campErr) throw new AppError('Failed to load campaign comparison.', 500);
+  return {
+    campaign_id: c.id,
+    campaign_name: c.name,
+    leads: s.leads,
+    emails_sent: s.emails_sent,
+    open_rate_percent: null,
+    reply_rate_percent: replyRate.rate_percent,
+    reply_sparkline: sparkline,
+    meetings: meetingsByCampaign.get(c.id) || 0,
+    status: c.status,
+    status_label: STATUS_UI[c.status] || c.status,
+  };
+}
+
+async function getAnalyticsCampaignComparison(userId, { page = 1, limit = 10 } = {}) {
+  const safeLimit = Math.min(Math.max(limit, 1), 50);
+  const safePage = Math.max(page, 1);
+  const fromIdx = (safePage - 1) * safeLimit;
+  const toIdx = safePage * safeLimit - 1;
+
+  const [{ count: total, error: countErr }, { data: campaigns, error: listErr }] =
+    await Promise.all([
+      supabase
+        .from('campaigns')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', userId),
+      supabase
+        .from('campaigns')
+        .select('id, name, status')
+        .eq('user_id', userId)
+        .order('updated_at', { ascending: false })
+        .range(fromIdx, toIdx),
+    ]);
+
+  if (countErr || listErr) {
+    throw new AppError('Failed to load campaign comparison.', 500);
+  }
+
+  const totalCount = total ?? 0;
+  const pageCampaigns = campaigns || [];
+  const campaignIds = pageCampaigns.map((c) => c.id);
+
+  if (campaignIds.length === 0) {
+    return {
+      campaigns: [],
+      pagination: {
+        page: safePage,
+        limit: safeLimit,
+        total: totalCount,
+        totalPages: Math.ceil(totalCount / safeLimit) || 0,
+      },
+    };
+  }
 
   const { data: leads, error: leadErr } = await supabase
     .from('campaign_leads')
     .select('campaign_id, status, reply_received, sent_at, reply_received_at')
-    .eq('user_id', userId);
-
+    .eq('user_id', userId)
+    .in('campaign_id', campaignIds);
   if (leadErr) throw new AppError('Failed to load leads for comparison.', 500);
 
   const { data: meetings, error: meetErr } = await supabase
     .from('meetings')
     .select('campaign_id')
     .eq('user_id', userId)
-    .neq('status', 'cancelled');
+    .neq('status', 'cancelled')
+    .in('campaign_id', campaignIds);
 
   const meetingsByCampaign = new Map();
   if (!meetErr) {
@@ -242,34 +297,17 @@ async function aggregateCampaignTableStats(userId) {
     }
   }
 
-  const items = (campaigns || []).map((c) => {
-    const s = stats.get(c.id) || { leads: 0, emails_sent: 0, replies: 0, reply_trend: [] };
-    const replyRate = computeRatePercent(s.replies, s.emails_sent);
-    const trendCounts = countByUtcDateKey(s.reply_trend);
-    const sparkline = [...trendCounts.entries()]
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .slice(-14)
-      .map(([, count]) => count);
+  const items = pageCampaigns.map((c) => buildCampaignComparisonRow(c, stats, meetingsByCampaign));
 
-    return {
-      campaign_id: c.id,
-      campaign_name: c.name,
-      leads: s.leads,
-      emails_sent: s.emails_sent,
-      open_rate_percent: null,
-      reply_rate_percent: replyRate.rate_percent,
-      reply_sparkline: sparkline,
-      meetings: meetingsByCampaign.get(c.id) || 0,
-      status: c.status,
-      status_label: STATUS_UI[c.status] || c.status,
-    };
-  });
-
-  return { campaigns: items };
-}
-
-async function getAnalyticsCampaignComparison(userId) {
-  return aggregateCampaignTableStats(userId);
+  return {
+    campaigns: items,
+    pagination: {
+      page: safePage,
+      limit: safeLimit,
+      total: totalCount,
+      totalPages: Math.ceil(totalCount / safeLimit) || 0,
+    },
+  };
 }
 
 // ─── 4. Sent vs replies by week ───────────────────────────────────────────────

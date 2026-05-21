@@ -3,7 +3,11 @@ const { authenticate } = require('../middleware/authenticate');
 const validateRequest = require('../middleware/validateRequest');
 const { campaignLimiter } = require('../config/rateLimits');
 const analyticsController = require('../controllers/analyticsController');
-const { periodValidation, weeksQuery } = require('../validation/analyticsRoutesValidation');
+const {
+  periodValidation,
+  weeksQuery,
+  campaignComparisonValidation,
+} = require('../validation/analyticsRoutesValidation');
 
 const router = express.Router();
 
@@ -21,8 +25,13 @@ router.get(
   analyticsController.campaignChart
 );
 
-/** Campaign comparison table (all campaigns) */
-router.get('/campaign-comparison', analyticsController.campaignComparison);
+/** Campaign comparison table (paginated) */
+router.get(
+  '/campaign-comparison',
+  campaignComparisonValidation,
+  validateRequest,
+  analyticsController.campaignComparison
+);
 
 /** Grouped bar: sent vs replies by UTC week */
 router.get(

@@ -24,7 +24,22 @@ const weeksQuery = query('weeks')
   .withMessage('weeks must be between 1 and 12.')
   .toInt();
 
+const pageQuery = query('page')
+  .optional()
+  .isInt({ min: 1 })
+  .withMessage('page must be a positive integer.')
+  .toInt();
+
+const limitQuery = query('limit')
+  .optional()
+  .isInt({ min: 1, max: 50 })
+  .withMessage('limit must be between 1 and 50.')
+  .toInt();
+
+const campaignComparisonValidation = [pageQuery, limitQuery];
+
 module.exports = {
   periodValidation,
   weeksQuery,
+  campaignComparisonValidation,
 };
