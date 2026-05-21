@@ -6,13 +6,10 @@ const AppError = require('../utils/AppError');
  * Place after validator arrays on the route.
  */
 function validateRequest(req, res, next) {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    const messages = errors
-      .array()
-      .map((e) => e.msg)
-      .join(', ');
-    return next(new AppError(messages, 422));
+  const result = validationResult(req);
+  if (!result.isEmpty()) {
+    const first = result.array()[0];
+    return next(new AppError(first?.msg || 'Validation failed.', 422));
   }
   next();
 }
