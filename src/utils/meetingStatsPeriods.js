@@ -70,6 +70,8 @@ function computeConversionPercent(meetingsCount, emailsSentCount) {
 }
 
 module.exports = {
+  startOfUtcDay,
+  endOfUtcDay,
   getUtcWeekRange,
   getUtcMonthRange,
   absoluteChange,
