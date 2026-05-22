@@ -217,7 +217,7 @@ components:
         profilePic:
           type: string
           nullable: true
-          description: URL or path to profile image.
+          description: Public Supabase Storage URL; set via POST /api/user/avatar (not PATCH/signup).
         address:
           type: string
           nullable: true
@@ -771,10 +771,6 @@ paths:
                 name:
                   type: string
                   maxLength: 200
-                profile_pic:
-                  type: string
-                  maxLength: 2048
-                  description: URL or storage reference for profile image.
                 address:
                   type: string
                   maxLength: 500
@@ -1294,7 +1290,8 @@ paths:
       tags: [User]
       summary: Update current user profile
       description: |
-        Update `name`, `profilePic` / `profile_pic`, `address`, `contact`, `timezone`, or `notificationsEnabled`.
+        Update `name`, `address`, `contact`, `timezone`, or `notificationsEnabled`.
+        Profile image uses POST/DELETE `/api/user/avatar` only (not `profilePic` here).
         To change `password`, send `oldPassword` (or `old_password`) and a new `password` (same strength rules as signup).
         New password must differ from the current one (422 if identical).
         Email and role cannot be changed here. Set `timezone` to `null` to clear.
@@ -1306,9 +1303,6 @@ paths:
               type: object
               properties:
                 name:
-                  type: string
-                  nullable: true
-                profilePic:
                   type: string
                   nullable: true
                 address:
@@ -1372,6 +1366,56 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/user/avatar:
+    post:
+      tags: [User]
+      summary: Upload profile image
+      description: |
+        Multipart upload to Supabase Storage bucket `SUPABASE_STORAGE_BUCKET` (default `lead_generation_bucket`).
+        Field name must be `image`. Max 10 MB; JPEG, PNG, or WebP. Replaces any existing avatar in storage.
+        Saves full public URL on `users.profile_pic`.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [image]
+              properties:
+                image:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Uploaded; data.user.profilePic is the public URL
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '413':
+          description: File larger than 10 MB
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+    delete:
+      tags: [User]
+      summary: Delete profile image
+      description: Removes avatar object(s) from storage and clears profilePic on the user.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Removed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
         '401':
           $ref: '#/components/responses/Unauthorized'
 

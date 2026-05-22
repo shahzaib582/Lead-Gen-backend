@@ -2,9 +2,13 @@ const { body } = require('express-validator');
 const { isValidIanaTimezone } = require('../utils/timezone');
 
 const patchUserValidation = [
+  body().custom((_value, { req }) => {
+    if (req.body?.profile_pic !== undefined || req.body?.profilePic !== undefined) {
+      throw new Error('Profile image cannot be set here. Use POST /api/user/avatar.');
+    }
+    return true;
+  }),
   body('name').optional({ nullable: true }).isString().trim().isLength({ max: 200 }),
-  body('profile_pic').optional({ nullable: true }).isString().trim().isLength({ max: 2048 }),
-  body('profilePic').optional({ nullable: true }).isString().trim().isLength({ max: 2048 }),
   body('address').optional({ nullable: true }).isString().trim().isLength({ max: 500 }),
   body('contact').optional({ nullable: true }).isString().trim().isLength({ max: 120 }),
   body('timezone')

@@ -86,7 +86,7 @@ async function findUserById(id) {
 
 /**
  * Email/password signup — always creates `role` via DB default (`user`). Never pass `role` from clients.
- * @param {{ name?: string, profile_pic?: string, address?: string, contact?: string }} [profile]
+ * @param {{ name?: string, address?: string, contact?: string }} [profile]
  */
 async function createUser(email, password, profile = {}) {
   await assertEmailAvailableForSignup(email);
@@ -99,11 +99,9 @@ async function createUser(email, password, profile = {}) {
   };
 
   const name = trimProfileField(profile.name, PROFILE_MAX.name);
-  const profilePic = trimProfileField(profile.profile_pic, PROFILE_MAX.profile_pic);
   const address = trimProfileField(profile.address, PROFILE_MAX.address);
   const contact = trimProfileField(profile.contact, PROFILE_MAX.contact);
   if (name != null) row.name = name;
-  if (profilePic != null) row.profile_pic = profilePic;
   if (address != null) row.address = address;
   if (contact != null) row.contact = contact;
 
@@ -194,16 +192,13 @@ async function updateAuthProvider(userId, provider) {
 /**
  * Update profile fields (not email, password, or role).
  * @param {string} userId
- * @param {{ name?: string|null, profile_pic?: string|null, address?: string|null, contact?: string|null, timezone?: string|null, notifications_enabled?: boolean }} fields
+ * @param {{ name?: string|null, address?: string|null, contact?: string|null, timezone?: string|null, notifications_enabled?: boolean }} fields
  */
 async function updateUserProfile(userId, fields) {
   const patch = {};
 
   if (Object.prototype.hasOwnProperty.call(fields, 'name')) {
     patch.name = trimProfileField(fields.name, PROFILE_MAX.name);
-  }
-  if (Object.prototype.hasOwnProperty.call(fields, 'profile_pic')) {
-    patch.profile_pic = trimProfileField(fields.profile_pic, PROFILE_MAX.profile_pic);
   }
   if (Object.prototype.hasOwnProperty.call(fields, 'address')) {
     patch.address = trimProfileField(fields.address, PROFILE_MAX.address);
@@ -241,6 +236,20 @@ async function updateUserProfile(userId, fields) {
   return data;
 }
 
+async function setProfilePicUrl(userId, url) {
+  const value = url ? String(url).trim().slice(0, PROFILE_MAX.profile_pic) : null;
+  const { data, error } = await supabase
+    .from('users')
+    .update({ profile_pic: value })
+    .eq('id', userId)
+    .is('deleted_at', null)
+    .select()
+    .single();
+
+  if (error) throw new AppError('Failed to update profile image.', 500);
+  return data;
+}
+
 /**
  * Soft-delete the account: set deleted_at, revoke all refresh sessions.
  */
@@ -263,6 +272,13 @@ async function softDeleteUser(userId) {
     if (!existing) throw new AppError('User not found.', 404);
     if (existing.deleted_at) throw new AppError('Account is already deleted.', 400);
     throw new AppError('Failed to delete account.', 500);
+  }
+
+  try {
+    const { deleteProfileImage } = require('./profileImageService');
+    await deleteProfileImage(userId);
+  } catch {
+    // best-effort storage cleanup
   }
 
   await refreshTokenService.revokeAllUserRefreshTokens(userId);
@@ -291,5 +307,6 @@ module.exports = {
   findOrCreateGoogleUser,
   updateAuthProvider,
   updateUserProfile,
+  setProfilePicUrl,
   softDeleteUser,
 };

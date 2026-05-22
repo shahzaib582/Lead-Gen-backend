@@ -1,4 +1,5 @@
 const userService = require('../services/userService');
+const profileImageService = require('../services/profileImageService');
 const AppError = require('../utils/AppError');
 const googleAuthService = require('../services/googleAuthService');
 const { accountHasCalendarScope } = require('../services/googleCalendarService');
@@ -34,8 +35,6 @@ async function patchCurrentUser(req, res, next) {
   try {
     const {
       name,
-      profile_pic,
-      profilePic,
       address,
       contact,
       timezone,
@@ -55,8 +54,6 @@ async function patchCurrentUser(req, res, next) {
 
     const fields = {};
     if (name !== undefined) fields.name = name;
-    if (profile_pic !== undefined) fields.profile_pic = profile_pic;
-    if (profilePic !== undefined) fields.profile_pic = profilePic;
     if (address !== undefined) fields.address = address;
     if (contact !== undefined) fields.contact = contact;
     if (timezone !== undefined) fields.timezone = timezone;
@@ -82,6 +79,24 @@ async function patchCurrentUser(req, res, next) {
   }
 }
 
+async function uploadProfileImage(req, res, next) {
+  try {
+    const updated = await profileImageService.uploadProfileImage(req.user.id, req.file);
+    return successResponse(res, 200, 'Profile image uploaded.', { user: toPublicUser(updated) });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function deleteProfileImage(req, res, next) {
+  try {
+    const updated = await profileImageService.deleteProfileImage(req.user.id);
+    return successResponse(res, 200, 'Profile image removed.', { user: toPublicUser(updated) });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function deleteAccount(req, res, next) {
   try {
     await userService.softDeleteUser(req.user.id);
@@ -91,4 +106,10 @@ async function deleteAccount(req, res, next) {
   }
 }
 
-module.exports = { getCurrentUser, patchCurrentUser, deleteAccount };
+module.exports = {
+  getCurrentUser,
+  patchCurrentUser,
+  uploadProfileImage,
+  deleteProfileImage,
+  deleteAccount,
+};

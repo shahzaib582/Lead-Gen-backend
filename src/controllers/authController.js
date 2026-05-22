@@ -32,11 +32,10 @@ function sendPasswordResetOtpEmailInBackground(email, otp) {
 
 async function signup(req, res, next) {
   try {
-    const { email, password, name, profile_pic, address, contact } = req.body;
+    const { email, password, name, address, contact } = req.body;
 
     const user = await userService.createUser(email, password, {
       name,
-      profile_pic,
       address,
       contact,
     });
