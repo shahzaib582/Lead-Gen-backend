@@ -181,7 +181,7 @@ const worker = new Worker(
 async function chainNextLead({ userId, campaignId }) {
   const { data: campaign } = await supabase
     .from('campaigns')
-    .select('status')
+    .select('status, run_mode')
     .eq('id', campaignId)
     .eq('user_id', userId)
     .single();
@@ -212,12 +212,52 @@ async function chainNextLead({ userId, campaignId }) {
       { userId, campaignId, campaignLeadId: nextLead.id },
       { delay: delayMs }
     );
+  } else {
+    // No ready-to-send leads left. If auto campaign has no pending work, mark completed.
+    await maybeCompleteAutoCampaignIfDone({ userId, campaignId, campaign });
   }
 
   await publishCampaignEvent(campaignId, {
     type: 'campaign_progress',
     ...(await getCampaignProgressSnapshot(userId, campaignId)),
   });
+}
+
+async function maybeCompleteAutoCampaignIfDone({ userId, campaignId, campaign }) {
+  if (!campaign || campaign.run_mode !== 'auto' || campaign.status !== 'active') return;
+
+  const { count, error } = await supabase
+    .from('campaign_leads')
+    .select('id', { count: 'exact', head: true })
+    .eq('campaign_id', campaignId)
+    .eq('user_id', userId)
+    .in('status', ['pending', 'template_generated']);
+
+  if (error) {
+    logger.warn('[CampaignMailWorker] completion-check failed', {
+      campaignId,
+      userId,
+      error: error.message,
+    });
+    return;
+  }
+
+  if ((count || 0) > 0) return;
+
+  const { error: updateError } = await supabase
+    .from('campaigns')
+    .update({ status: 'completed' })
+    .eq('id', campaignId)
+    .eq('user_id', userId)
+    .eq('status', 'active');
+
+  if (updateError) {
+    logger.warn('[CampaignMailWorker] failed to mark completed', {
+      campaignId,
+      userId,
+      error: updateError.message,
+    });
+  }
 }
 
 // ─── Events ───────────────────────────────────────────────────────────────────

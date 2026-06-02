@@ -92,6 +92,29 @@ function assertCampaignAllowsLeadAdd(campaign) {
   }
 }
 
+/**
+ * If an auto campaign was completed, adding brand-new leads should resume automation.
+ * We reactivate to active so normal template/mail pipeline can run.
+ */
+async function maybeReactivateAutoCampaign(campaign, insertedCount) {
+  if (!campaign || insertedCount <= 0) return campaign;
+  if (campaign.run_mode !== 'auto') return campaign;
+  if (campaign.status !== 'completed') return campaign;
+
+  const { data, error } = await supabase
+    .from('campaigns')
+    .update({ status: 'active' })
+    .eq('id', campaign.id)
+    .eq('user_id', campaign.user_id)
+    .select('*')
+    .single();
+
+  if (error || !data) {
+    throw new AppError('Failed to reactivate completed auto campaign.', 500);
+  }
+  return data;
+}
+
 // ─────────────────────────────────────────────────────────────
 // Bulk Add Leads
 // ─────────────────────────────────────────────────────────────
@@ -127,7 +150,9 @@ async function bulkAddLeadsToCampaign(userId, campaignId, leads) {
   // Queue template jobs
   // ------------------------------------
 
-  if (shouldAutoEnqueuePipeline(campaign)) {
+  const activeCampaign = await maybeReactivateAutoCampaign(campaign, (data || []).length);
+
+  if (shouldAutoEnqueuePipeline(activeCampaign)) {
     for (const lead of data || []) {
       await ensureMailTemplateJob({
         userId,
@@ -403,7 +428,9 @@ async function assignRandomLeadsToCampaign(userId, campaignId) {
   // Queue template generation
   // ------------------------------------
 
-  if (shouldAutoEnqueuePipeline(campaign)) {
+  const activeCampaign = await maybeReactivateAutoCampaign(campaign, (inserted || []).length);
+
+  if (shouldAutoEnqueuePipeline(activeCampaign)) {
     for (const lead of inserted || []) {
       await ensureMailTemplateJob({
         userId,
