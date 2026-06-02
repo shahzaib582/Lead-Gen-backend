@@ -40,6 +40,8 @@ tags:
     description: Current user profile (GET / PATCH).
   - name: Meetings
     description: Lead Gen meetings stored in the database (not personal Google Calendar events).
+  - name: Billing
+    description: Stripe subscriptions, plans, checkout, portal, and payment methods.
 
 security:
   - bearerAuth: []
@@ -3280,3 +3282,218 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
+
+  /api/billing/plans:
+    get:
+      tags: [Billing]
+      summary: List billing plans
+      security: []
+      responses:
+        '200':
+          description: Active plans with limits and pricing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /api/billing/subscription:
+    get:
+      tags: [Billing]
+      summary: Current user subscription
+      responses:
+        '200':
+          description: Plan, status, period end, limits
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/billing/checkout:
+    post:
+      tags: [Billing]
+      summary: Start Stripe Checkout for Growth or Pro
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [planId]
+              properties:
+                planId:
+                  type: string
+                  enum: [growth, pro]
+      responses:
+        '200':
+          description: checkoutUrl and sessionId
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/billing/portal:
+    post:
+      tags: [Billing]
+      summary: Stripe Customer Portal session
+      responses:
+        '200':
+          description: portalUrl
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/billing/upgrade:
+    post:
+      tags: [Billing]
+      summary: Upgrade plan (or checkout if on Starter)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [planId]
+              properties:
+                planId:
+                  type: string
+                  enum: [starter, growth, pro]
+      responses:
+        '200':
+          description: Upgrade result or checkout session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/billing/downgrade:
+    post:
+      tags: [Billing]
+      summary: Downgrade plan (applies at period end for paid tiers; Starter cancels)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [planId]
+              properties:
+                planId:
+                  type: string
+                  enum: [starter, growth, pro]
+      responses:
+        '200':
+          description: Downgrade initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/billing/cancel:
+    post:
+      tags: [Billing]
+      summary: Cancel paid subscription at period end
+      responses:
+        '200':
+          description: cancelAtPeriodEnd true
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/billing/reactivate:
+    post:
+      tags: [Billing]
+      summary: Undo scheduled cancellation
+      responses:
+        '200':
+          description: Subscription reactivated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/billing/payment-methods:
+    get:
+      tags: [Billing]
+      summary: List saved cards
+      responses:
+        '200':
+          description: paymentMethods array (brand, last4, exp, isDefault)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/billing/payment-methods/default:
+    post:
+      tags: [Billing]
+      summary: Set default payment method
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [paymentMethodId]
+              properties:
+                paymentMethodId:
+                  type: string
+                  example: pm_123
+      responses:
+        '200':
+          description: Updated payment methods list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/billing/payment-methods/{paymentMethodId}:
+    delete:
+      tags: [Billing]
+      summary: Remove a saved card
+      parameters:
+        - name: paymentMethodId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Payment method detached
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/billing/webhooks/stripe:
+    post:
+      tags: [Billing]
+      summary: Stripe webhook (raw body, no Bearer)
+      security: []
+      description: Verified via stripe-signature header. Use Stripe CLI for local testing.
+      responses:
+        '200':
+          description: Event processed or duplicate ignored
+        '400':
+          description: Invalid signature

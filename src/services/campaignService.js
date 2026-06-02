@@ -7,6 +7,9 @@ const { formatCampaignListItem } = require('../utils/campaignListMetrics');
 // ─── Create ───────────────────────────────────────────────────────────────────
 
 async function createCampaign(userId, fields) {
+  const { assertCanCreateCampaign } = require('./planLimitService');
+  await assertCanCreateCampaign(userId);
+
   const { data, error } = await supabase
     .from('campaigns')
     .insert({ user_id: userId, ...fields })

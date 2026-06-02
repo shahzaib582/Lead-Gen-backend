@@ -123,6 +123,9 @@ async function bulkAddLeadsToCampaign(userId, campaignId, leads) {
   const campaign = await assertCampaignOwnership(userId, campaignId);
   assertCampaignAllowsLeadAdd(campaign);
 
+  const { assertCanAddLeadsToCampaign } = require('./planLimitService');
+  await assertCanAddLeadsToCampaign(userId, campaignId, leads.length);
+
   const rows = leads.map((l) => ({
     user_id: userId,
 
@@ -400,6 +403,9 @@ async function assignRandomLeadsToCampaign(userId, campaignId) {
 
   shuffleInPlace(allLeads);
   const randomLeads = allLeads.slice(0, targetCount);
+
+  const { assertCanAddLeadsToCampaign } = require('./planLimitService');
+  await assertCanAddLeadsToCampaign(userId, campaignId, randomLeads.length);
 
   const rows = randomLeads.map((l) => ({
     user_id: userId,

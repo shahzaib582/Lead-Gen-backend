@@ -7,6 +7,7 @@ const { globalLimiter } = require('./config/rateLimits');
 const swaggerUi = require('swagger-ui-express');
 const YAML = require('yamljs');
 const apiRoutes = require('./routes/index');
+const billingWebhookRoutes = require('./routes/billingWebhookRoutes');
 const errorHandler = require('./middleware/errorHandler');
 const responseTime = require('./middleware/responseTime');
 const { errorResponse, successResponse } = require('./utils/response');
@@ -67,6 +68,14 @@ app.use(
 
 app.use(responseTime);
 app.use(httpRequestLogger);
+
+// Stripe webhooks require raw body for signature verification
+app.use(
+  '/api/billing/webhooks/stripe',
+  express.raw({ type: 'application/json' }),
+  billingWebhookRoutes
+);
+
 app.use(express.json({ limit: '10kb' }));
 app.disable('x-powered-by');
 

@@ -94,6 +94,10 @@ async function createGoogleUser({ email, name, avatarUrl, googleTokens, googleId
   }
 
   await upsertGoogleAccount(user.id, { email, name, avatarUrl, googleTokens, googleId });
+
+  const { bootstrapUserBilling } = require('./stripeCustomerService');
+  void bootstrapUserBilling(user.id, user.email);
+
   return user;
 }
 

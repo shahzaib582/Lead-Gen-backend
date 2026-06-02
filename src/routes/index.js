@@ -8,6 +8,7 @@ const leadsDataRoutes = require('./leadsDataRoutes');
 const userRoutes = require('./userRoutes');
 const meetingsRoutes = require('./meetingsRoutes');
 const notificationRoutes = require('./notificationRoutes');
+const billingRoutes = require('./billingRoutes');
 
 const router = express.Router();
 
@@ -21,5 +22,6 @@ router.use('/leads', leadsDataRoutes);
 router.use('/user', userRoutes);
 router.use('/meetings', meetingsRoutes);
 router.use('/notifications', notificationRoutes);
+router.use('/billing', billingRoutes);
 
 module.exports = router;

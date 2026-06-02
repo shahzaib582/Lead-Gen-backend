@@ -115,6 +115,9 @@ async function createUser(email, password, profile = {}) {
     throw new AppError(error.message || 'Failed to create user', 500);
   }
 
+  const { bootstrapUserBilling } = require('./stripeCustomerService');
+  void bootstrapUserBilling(data.id, data.email);
+
   return data;
 }
 
