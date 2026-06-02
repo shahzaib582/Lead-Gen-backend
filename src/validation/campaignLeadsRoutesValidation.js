@@ -88,6 +88,23 @@ const sendEmailsValidation = [
 
 const runOutreachValidation = [campaignIdParam];
 
+const testerRunFollowUpsValidation = [
+  campaignIdParam,
+  body('ignoreWaitingDays')
+    .optional()
+    .isBoolean()
+    .withMessage('ignoreWaitingDays must be a boolean.')
+    .toBoolean(),
+  body('campaignLeadId')
+    .optional({ nullable: true })
+    .isUUID()
+    .withMessage('campaignLeadId must be a valid UUID.'),
+  body('followUpId')
+    .optional({ nullable: true })
+    .isUUID()
+    .withMessage('followUpId must be a valid UUID.'),
+];
+
 module.exports = {
   campaignIdParam,
   leadIdParam,
@@ -98,4 +115,5 @@ module.exports = {
   generateTemplatesValidation,
   sendEmailsValidation,
   runOutreachValidation,
+  testerRunFollowUpsValidation,
 };

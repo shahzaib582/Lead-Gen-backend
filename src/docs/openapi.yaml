@@ -32,6 +32,8 @@ tags:
     description: Campaign leads — bulk add (not in draft), templates, send, list, CRUD.
   - name: CampaignFollowUps
     description: Per-campaign follow-up cadence (name, waiting_days); CRUD under a campaign.
+  - name: Tester
+    description: Tester utilities for fast QA (create test lead, trigger follow-ups ignoring waiting days).
   - name: LeadsData
     description: Global leads pool search and fetch by id.
   - name: User
@@ -2933,6 +2935,103 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /api/leads/tester:
+    post:
+      tags: [Tester]
+      summary: Tester - create a new lead
+      description: |
+        Creates a new row in `leads_data` only (no campaign attachment).
+        Useful for QA flows where testers need fresh leads and can use those emails for manual testing.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+                fullName:
+                  type: string
+                  maxLength: 200
+                  nullable: true
+                firstName:
+                  type: string
+                  maxLength: 120
+                  nullable: true
+                company:
+                  type: string
+                  maxLength: 200
+                  nullable: true
+                title:
+                  type: string
+                  maxLength: 200
+                  nullable: true
+      responses:
+        '201':
+          description: Lead created in leads_data.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /api/campaigns/{id}/leads/tester/follow-ups/run:
+    post:
+      tags: [Tester]
+      summary: Tester - run follow-ups now (optional ignore waiting days)
+      description: |
+        Executes follow-up sends for a campaign immediately for QA.
+        By default `ignoreWaitingDays=true`, so follow-ups are sent without waiting for due date.
+        Optional filters:
+        - `campaignLeadId` to target one campaign lead
+        - `followUpId` to target one follow-up definition
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ignoreWaitingDays:
+                  type: boolean
+                  default: true
+                campaignLeadId:
+                  type: string
+                  format: uuid
+                  nullable: true
+                followUpId:
+                  type: string
+                  format: uuid
+                  nullable: true
+      responses:
+        '200':
+          description: Follow-up run summary (`examined`, `sent`, `failed`, `skipped`, `results`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
 

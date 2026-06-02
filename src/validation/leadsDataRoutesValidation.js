@@ -1,4 +1,4 @@
-const { query, param } = require('express-validator');
+const { query, param, body } = require('express-validator');
 
 const VALID_SORT_COLUMNS = [
   'created_at',
@@ -57,9 +57,38 @@ const idValidation = [
   param('id').isInt({ min: 1 }).withMessage('Lead ID must be a positive integer.'),
 ];
 
+const testerCreateValidation = [
+  body('email').isEmail().withMessage('email must be a valid email address.'),
+  body('fullName')
+    .optional()
+    .isString()
+    .withMessage('fullName must be a string.')
+    .isLength({ max: 200 })
+    .withMessage('fullName must be at most 200 characters.'),
+  body('firstName')
+    .optional()
+    .isString()
+    .withMessage('firstName must be a string.')
+    .isLength({ max: 120 })
+    .withMessage('firstName must be at most 120 characters.'),
+  body('company')
+    .optional()
+    .isString()
+    .withMessage('company must be a string.')
+    .isLength({ max: 200 })
+    .withMessage('company must be at most 200 characters.'),
+  body('title')
+    .optional()
+    .isString()
+    .withMessage('title must be a string.')
+    .isLength({ max: 200 })
+    .withMessage('title must be at most 200 characters.'),
+];
+
 module.exports = {
   listValidation,
   idValidation,
+  testerCreateValidation,
   VALID_SORT_COLUMNS,
   VALID_SORT_ORDERS,
 };

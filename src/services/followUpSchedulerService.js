@@ -18,7 +18,15 @@ function deliveryKey(campaignLeadId, followUpId) {
  * Build list of due follow-up sends for active campaigns (anchored to initial sent_at).
  * @param {Date} [now]
  */
-async function findDueFollowUpItems(now = new Date()) {
+async function findDueFollowUpItems(now = new Date(), options = {}) {
+  const {
+    userId = null,
+    campaignId = null,
+    ignoreWaitingDays = false,
+    campaignLeadId = null,
+    followUpId = null,
+  } = options;
+
   const { data: followUpDefs, error: fuErr } = await supabase
     .from('campaign_follow_ups')
     .select('id, campaign_id, waiting_days, body_template, name, created_at')
@@ -32,8 +40,14 @@ async function findDueFollowUpItems(now = new Date()) {
     return [];
   }
 
+  const filteredDefs = (followUpDefs || []).filter((fu) => {
+    if (campaignId && fu.campaign_id !== campaignId) return false;
+    if (followUpId && fu.id !== followUpId) return false;
+    return true;
+  });
+
   const defsByCampaign = new Map();
-  for (const fu of followUpDefs || []) {
+  for (const fu of filteredDefs) {
     if (!hasUsableBodyTemplate(fu)) continue;
     if (!defsByCampaign.has(fu.campaign_id)) defsByCampaign.set(fu.campaign_id, []);
     defsByCampaign.get(fu.campaign_id).push(fu);
@@ -56,6 +70,8 @@ async function findDueFollowUpItems(now = new Date()) {
   const dueItems = [];
 
   for (const campaign of campaigns || []) {
+    if (userId && campaign.user_id !== userId) continue;
+
     const followUps = defsByCampaign.get(campaign.id) || [];
     if (followUps.length === 0) continue;
 
@@ -91,11 +107,12 @@ async function findDueFollowUpItems(now = new Date()) {
     );
 
     for (const lead of leads) {
+      if (campaignLeadId && lead.id !== campaignLeadId) continue;
       if (lead.reply_received) continue;
 
       for (const followUp of followUps) {
         if (sentSet.has(deliveryKey(lead.id, followUp.id))) continue;
-        if (!isFollowUpDue(lead.sent_at, followUp.waiting_days, now)) continue;
+        if (!ignoreWaitingDays && !isFollowUpDue(lead.sent_at, followUp.waiting_days, now)) continue;
 
         dueItems.push({
           userId: campaign.user_id,
