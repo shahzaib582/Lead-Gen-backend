@@ -1,23 +1,20 @@
 const { google } = require('googleapis');
 const { sendBrevoEmail } = require('../config/brevo');
+const { getOtpExpiryMinutes } = require('../config/otp');
 const {
   buildVerificationEmail,
   buildPasswordResetEmail,
 } = require('../emails/otpTemplates');
 const { normalizeMessageId } = require('../utils/gmailThread');
 
-function otpExpiryMinutes() {
-  return Number(process.env.OTP_EXPIRY_MINUTES) || 10;
-}
-
 async function sendOtpEmail(to, otp) {
-  const expiry = otpExpiryMinutes();
+  const expiry = getOtpExpiryMinutes();
   const { subject, html, text } = buildVerificationEmail(otp, expiry);
   return sendBrevoEmail({ to, subject, html, text });
 }
 
 async function sendPasswordResetOtpEmail(to, otp) {
-  const expiry = otpExpiryMinutes();
+  const expiry = getOtpExpiryMinutes();
   const { subject, html, text } = buildPasswordResetEmail(otp, expiry);
   return sendBrevoEmail({ to, subject, html, text });
 }

@@ -102,14 +102,22 @@ async function login(req, res, next) {
     if (!user || !passwordMatch) throw new AppError(INVALID_MSG, 401);
 
     if (!user.is_verified) {
-      const otp = await otpService.createOtp(
+      const hasCode = await otpService.hasActiveOtp(
         user.id,
-        user.email,
         otpService.OTP_PURPOSE_EMAIL_VERIFY
       );
-      sendOtpEmailInBackground(user.email, otp);
+      if (!hasCode) {
+        const otp = await otpService.createOtp(
+          user.id,
+          user.email,
+          otpService.OTP_PURPOSE_EMAIL_VERIFY
+        );
+        sendOtpEmailInBackground(user.email, otp);
+      }
       throw new AppError(
-        'Email not verified. A new verification code has been sent to your email.',
+        hasCode
+          ? 'Email not verified. Check your inbox for the verification code.'
+          : 'Email not verified. A new verification code has been sent to your email.',
         403,
         'EMAIL_NOT_VERIFIED'
       );
