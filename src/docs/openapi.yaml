@@ -1430,6 +1430,7 @@ paths:
       description: |
         Returns meetings created through this API. Personal Google Calendar events are not included.
         Dashboard metrics use the same `meetings` table.
+        Before listing, scheduled meetings whose `end_at` is in the past are automatically marked `completed`.
       parameters:
         - in: query
           name: status
@@ -1481,6 +1482,7 @@ paths:
         and the user has granted `calendar.events`, creates a Google Calendar event with optional Meet link.
         Link a lead via `campaign_lead_id` to tie the booking to a campaign. Scheduling uses the user's
         `timezone` when set, otherwise UTC.
+        `start_at` must not be in the past (422 `MEETING_PAST_DATETIME`).
       requestBody:
         required: true
         content:

@@ -8,6 +8,7 @@ const {
   updateCalendarEvent,
   deleteCalendarEvent,
 } = require('./googleCalendarService');
+const { assertMeetingStartNotInPast } = require('../utils/meetingScheduleRules');
 
 async function resolveCampaignLeadContext(userId, campaignLeadId) {
   if (!campaignLeadId) return { campaignId: null, attendeeEmail: null };
@@ -34,7 +35,26 @@ async function resolveCampaignLeadContext(userId, campaignLeadId) {
   return { campaignId: lead.campaign_id, attendeeEmail };
 }
 
+/**
+ * Mark scheduled meetings whose end time has passed as completed.
+ */
+async function syncExpiredScheduledMeetings(userId) {
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from('meetings')
+    .update({ status: 'completed' })
+    .eq('user_id', userId)
+    .eq('status', 'scheduled')
+    .lt('end_at', now);
+
+  if (error && !/meetings|relation|does not exist/i.test(error.message)) {
+    throw new AppError('Failed to sync meeting statuses.', 500);
+  }
+}
+
 async function getMeetingForUser(userId, meetingId) {
+  await syncExpiredScheduledMeetings(userId);
+
   const { data, error } = await supabase
     .from('meetings')
     .select('*')
@@ -48,6 +68,8 @@ async function getMeetingForUser(userId, meetingId) {
 }
 
 async function listMeetings(userId, { status, campaignId, from, to, page = 1, limit = 20 } = {}) {
+  await syncExpiredScheduledMeetings(userId);
+
   const safeLimit = Math.min(Math.max(limit, 1), 50);
   const safePage = Math.max(page, 1);
   const fromIdx = (safePage - 1) * safeLimit;
@@ -102,6 +124,7 @@ async function createMeeting(userId, userRow, body) {
   if (end <= start) {
     throw new AppError('end_at must be after start_at.', 422);
   }
+  assertMeetingStartNotInPast(start);
 
   let campaignId = campaignIdInput || null;
   let attendeeEmail = attendeeEmailInput || null;
@@ -205,8 +228,15 @@ async function updateMeeting(userId, userRow, meetingId, body) {
   if (body.end_at != null) patch.end_at = new Date(body.end_at).toISOString();
   if (body.status != null) patch.status = body.status;
 
-  if (patch.start_at && patch.end_at && new Date(patch.end_at) <= new Date(patch.start_at)) {
+  const effectiveStart = patch.start_at != null ? patch.start_at : existing.start_at;
+  const effectiveEnd = patch.end_at != null ? patch.end_at : existing.end_at;
+
+  if (new Date(effectiveEnd) <= new Date(effectiveStart)) {
     throw new AppError('end_at must be after start_at.', 422);
+  }
+
+  if (patch.start_at != null) {
+    assertMeetingStartNotInPast(new Date(patch.start_at));
   }
 
   const { data, error } = await supabase
@@ -273,6 +303,8 @@ async function cancelMeeting(userId, meetingId) {
 }
 
 async function countScheduledMeetings(userId) {
+  await syncExpiredScheduledMeetings(userId);
+
   const { count, error } = await supabase
     .from('meetings')
     .select('id', { count: 'exact', head: true })
@@ -287,6 +319,8 @@ async function countScheduledMeetings(userId) {
 }
 
 async function loadMeetingRowsInRange(userId, fromIso, toIso) {
+  await syncExpiredScheduledMeetings(userId);
+
   const { data, error } = await supabase
     .from('meetings')
     .select('start_at, status')
@@ -308,6 +342,7 @@ module.exports = {
   updateMeeting,
   cancelMeeting,
   getMeetingForUser,
+  syncExpiredScheduledMeetings,
   countScheduledMeetings,
   loadMeetingRowsInRange,
 };
