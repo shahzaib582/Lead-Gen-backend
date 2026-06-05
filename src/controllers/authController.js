@@ -214,14 +214,7 @@ async function resetPassword(req, res, next) {
     }
     await refreshTokenService.revokeAllUserRefreshTokens(user.id);
 
-    const freshUser = await userService.findUserById(user.id);
-    const { accessToken, refreshToken } = await issueTokenPair(freshUser);
-
-    return successResponse(res, 200, 'Password updated successfully.', {
-      accessToken,
-      refreshToken,
-      user: toPublicUser(freshUser),
-    });
+    return successResponse(res, 200, 'Password updated successfully.', undefined);
   } catch (err) {
     next(err);
   }

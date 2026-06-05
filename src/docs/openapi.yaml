@@ -1002,7 +1002,7 @@ paths:
       summary: Set new password with email + reset OTP
       security: []
       description: |
-        Revokes all refresh sessions then returns new JWT pair (same shape as login).
+        Revokes all refresh sessions. Returns a success message only — sign in with the new password to get tokens.
         Returns 422 if the new password matches the current password.
       requestBody:
         required: true
@@ -1024,11 +1024,11 @@ paths:
                   description: Same strength rules as signup.
       responses:
         '200':
-          description: Password updated; new tokens issued.
+          description: Password updated; sign in with the new password.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AuthLoginResponse'
+                $ref: '#/components/schemas/SuccessEnvelope'
         '400':
           description: Invalid or expired reset code / weak requests
           content:
