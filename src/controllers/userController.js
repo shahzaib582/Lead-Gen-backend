@@ -2,22 +2,13 @@ const userService = require('../services/userService');
 const profileImageService = require('../services/profileImageService');
 const AppError = require('../utils/AppError');
 const googleAuthService = require('../services/googleAuthService');
-const { accountHasCalendarScope } = require('../services/googleCalendarService');
 const { toPublicUser } = require('../utils/userPublic');
 const { successResponse } = require('../utils/response');
 
 async function getCurrentUser(req, res, next) {
   try {
     const row = await userService.findUserById(req.user.id);
-    const account = await googleAuthService.findGoogleAccountByUserId(req.user.id);
-
-    const google = account
-      ? {
-          linked: true,
-          email: account.email,
-          calendarLinked: accountHasCalendarScope(account.scopes),
-        }
-      : { linked: false, calendarLinked: false };
+    const google = await googleAuthService.getGoogleAccountStatus(req.user.id);
 
     return successResponse(res, 200, 'User fetched successfully.', {
       user: {

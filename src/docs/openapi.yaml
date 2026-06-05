@@ -1275,14 +1275,31 @@ paths:
     get:
       tags: [GoogleAuth]
       summary: Google link status for current user
-      description: Requires Bearer access token.
+      description: |
+        Requires Bearer access token.
+        `linked` is true only when Google APIs are usable (valid access token, or refresh succeeded).
+        When the access token is expired and refresh fails or no refresh token exists,
+        returns `linked: false`, `tokenExpired: true`, and `needsReconnect: true`.
       responses:
         '200':
-          description: Linked or not
+          description: Google connection status
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
+              example:
+                success: true
+                data:
+                  linked: false
+                  calendarLinked: false
+                  tokenExpired: true
+                  needsReconnect: true
+                  email: user@gmail.com
+                  name: Example User
+                  avatarUrl: https://lh3.googleusercontent.com/a/example
+                  scopes:
+                    - https://www.googleapis.com/auth/gmail.send
+                  tokenExpiresAt: '2026-05-22T23:21:24.352+00:00'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':

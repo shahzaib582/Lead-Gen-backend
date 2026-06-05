@@ -1,6 +1,7 @@
 const { google } = require('googleapis');
 const supabase = require('../config/supabase');
 const userService = require('./userService');
+const { accountHasCalendarScope } = require('./googleCalendarService');
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
 
@@ -213,8 +214,67 @@ async function getValidGoogleAccessToken(userId) {
   return credentials.access_token;
 }
 
+const TOKEN_EXPIRY_BUFFER_MS = 60_000;
+
+function isAccessTokenFresh(tokenExpiresAt, nowMs = Date.now()) {
+  if (!tokenExpiresAt) return false;
+  const expiresAt = new Date(tokenExpiresAt).getTime();
+  return Number.isFinite(expiresAt) && nowMs < expiresAt - TOKEN_EXPIRY_BUFFER_MS;
+}
+
+/**
+ * Whether Google APIs can be used for this user (fresh access token or successful refresh).
+ * Updates stored tokens when a refresh succeeds.
+ */
+async function getGoogleAccountStatus(userId) {
+  const account = await findGoogleAccountByUserId(userId);
+  if (!account) {
+    return {
+      linked: false,
+      calendarLinked: false,
+      tokenExpired: false,
+      needsReconnect: false,
+    };
+  }
+
+  let tokenExpiresAt = account.token_expires_at;
+  let linked = isAccessTokenFresh(tokenExpiresAt);
+
+  if (!linked && account.google_refresh_token) {
+    try {
+      await getValidGoogleAccessToken(userId);
+      const refreshed = await findGoogleAccountByUserId(userId);
+      tokenExpiresAt = refreshed?.token_expires_at ?? tokenExpiresAt;
+      linked = isAccessTokenFresh(tokenExpiresAt);
+    } catch (err) {
+      logger.warn('[google] status refresh failed', {
+        userId,
+        message: err.message,
+        code: err.code,
+      });
+      linked = false;
+    }
+  }
+
+  const needsReconnect = !linked;
+
+  return {
+    linked,
+    calendarLinked: linked && accountHasCalendarScope(account.scopes),
+    tokenExpired: needsReconnect,
+    needsReconnect,
+    email: account.email,
+    name: account.name,
+    avatarUrl: account.avatar_url,
+    scopes: account.scopes,
+    tokenExpiresAt,
+  };
+}
+
 module.exports = {
   getValidGoogleAccessToken,
+  getGoogleAccountStatus,
+  isAccessTokenFresh,
   findGoogleAccountByEmail,
   findGoogleAccountByUserId,
   upsertGoogleAccount,
