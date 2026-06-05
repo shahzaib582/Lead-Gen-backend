@@ -3,18 +3,38 @@ const AppError = require('../utils/AppError');
 const { toPublicPlan, toPublicUserQuota } = require('../utils/billingPublic');
 const { DAILY_SEND_LIMIT, getTodaySentCount } = require('./mailSendLimitService');
 
+const STARTER_PLAN_ID = 'starter';
+const SUBSCRIPTION_LIMIT_STATUSES = new Set(['trialing', 'active', 'past_due']);
+
+/**
+ * Plan used for quota enforcement — prefer active subscription row, then users.current_plan_id.
+ */
+function resolvePlanIdForLimits({ subscription, currentPlanId }) {
+  if (subscription && SUBSCRIPTION_LIMIT_STATUSES.has(subscription.status)) {
+    return subscription.plan_id || currentPlanId || STARTER_PLAN_ID;
+  }
+  return currentPlanId || subscription?.plan_id || STARTER_PLAN_ID;
+}
+
 async function getUserPlanLimits(userId) {
-  const { data: user, error: userErr } = await supabase
-    .from('users')
-    .select('current_plan_id')
-    .eq('id', userId)
-    .is('deleted_at', null)
-    .maybeSingle();
+  const [{ data: user, error: userErr }, { data: subscription, error: subErr }] = await Promise.all([
+    supabase
+      .from('users')
+      .select('current_plan_id')
+      .eq('id', userId)
+      .is('deleted_at', null)
+      .maybeSingle(),
+    supabase.from('user_subscriptions').select('plan_id, status').eq('user_id', userId).maybeSingle(),
+  ]);
 
   if (userErr) throw new AppError('Failed to load user plan.', 500);
+  if (subErr) throw new AppError('Failed to load subscription.', 500);
   if (!user) throw new AppError('User not found.', 404);
 
-  const planId = user.current_plan_id || 'starter';
+  const planId = resolvePlanIdForLimits({
+    subscription,
+    currentPlanId: user.current_plan_id,
+  });
 
   const { data: plan, error: planErr } = await supabase
     .from('plans')
@@ -24,7 +44,7 @@ async function getUserPlanLimits(userId) {
 
   if (planErr) throw new AppError('Failed to load plan limits.', 500);
   if (!plan) {
-    const { data: starter } = await supabase.from('plans').select('*').eq('id', 'starter').single();
+    const { data: starter } = await supabase.from('plans').select('*').eq('id', STARTER_PLAN_ID).single();
     return starter;
   }
 
@@ -116,6 +136,9 @@ async function getUserQuota(userId) {
 }
 
 module.exports = {
+  STARTER_PLAN_ID,
+  SUBSCRIPTION_LIMIT_STATUSES,
+  resolvePlanIdForLimits,
   getUserPlanLimits,
   getUserQuota,
   assertCanCreateCampaign,
