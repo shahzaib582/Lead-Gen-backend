@@ -183,12 +183,18 @@ async function logoutAll(req, res, next) {
 async function forgotPassword(req, res, next) {
   try {
     const { email } = req.body;
-    const generic =
-      'If an account with this email exists and has a password, a reset code has been sent.';
 
     const user = await userService.findUserByEmail(email);
-    if (!user?.password_hash) {
-      return successResponse(res, 200, generic, undefined);
+    if (!user) {
+      throw new AppError('No account found with this email.', 404);
+    }
+
+    if (!user.password_hash) {
+      throw new AppError(
+        'This account uses Google sign-in only. Sign in with Google or contact support.',
+        400,
+        'GOOGLE_AUTH_ONLY'
+      );
     }
 
     const otp = await otpService.createOtp(
@@ -198,7 +204,7 @@ async function forgotPassword(req, res, next) {
     );
     sendPasswordResetOtpEmailInBackground(user.email, otp);
 
-    return successResponse(res, 200, generic, undefined);
+    return successResponse(res, 200, 'A password reset OTP has been sent to your email.', undefined);
   } catch (err) {
     next(err);
   }

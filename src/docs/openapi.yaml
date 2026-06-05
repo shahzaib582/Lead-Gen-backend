@@ -971,8 +971,8 @@ paths:
       summary: Request password-reset OTP by email
       security: []
       description: >-
-        Same response for unknown emails (no enumeration). Email is sent only when the account has a password.
-        Ensure `otp_codes.purpose` exists (`sql/schema.sql`).
+        Sends a 6-digit password reset OTP when the account exists and has a password set.
+        Returns 404 if no account exists for the email, or 400 for Google-only accounts.
       requestBody:
         required: true
         content:
@@ -986,11 +986,23 @@ paths:
                   format: email
       responses:
         '200':
-          description: Generic acknowledgment (check inbox).
+          description: Password reset OTP sent to the user's email.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
+        '400':
+          description: Google-only account (no password to reset)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No account found for this email
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
         '429':
