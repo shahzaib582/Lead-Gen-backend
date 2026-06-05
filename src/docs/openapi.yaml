@@ -1175,7 +1175,9 @@ paths:
     get:
       tags: [GoogleAuth]
       summary: Google OAuth callback (browser redirect flow)
-      description: Google redirects here with `?code=` after consent. Returns JSON token payload (not an HTML redirect to your SPA).
+      description: |
+        Google redirects here with `?code=` after consent. Returns JSON token payload (not an HTML redirect to your SPA).
+        Users who sign up or sign in with a Google-verified email are marked `isVerified: true` automatically (no OTP step).
       security: []
       parameters:
         - in: query
@@ -1214,6 +1216,8 @@ paths:
     post:
       tags: [GoogleAuth]
       summary: Exchange Google ID token for app JWT pair
+      description: |
+        Users who sign up or sign in with a Google-verified email are marked `isVerified: true` automatically (no OTP step).
       security: []
       requestBody:
         required: true

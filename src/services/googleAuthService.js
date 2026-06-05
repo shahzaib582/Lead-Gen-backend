@@ -68,6 +68,13 @@ async function upsertGoogleAccount(userId, { email, name, avatarUrl, googleToken
   }
 }
 
+/** Google has already verified the email; ensure our users row reflects that. */
+async function ensureGoogleEmailVerified(user) {
+  if (!user || user.is_verified) return user;
+  await userService.markUserVerified(user.id);
+  return { ...user, is_verified: true };
+}
+
 async function createGoogleUser({ email, name, avatarUrl, googleTokens, googleId }) {
   await userService.assertEmailAvailableForSignup(email);
 
@@ -115,7 +122,7 @@ async function resolveUserFromGoogleProfile({ email, name, avatarUrl, googleToke
     const user = existingGoogleAccount.users;
     userService.assertUserActive(user);
     await upsertGoogleAccount(user.id, { email, name, avatarUrl, googleTokens, googleId });
-    return user;
+    return ensureGoogleEmailVerified(user);
   }
 
   const existingUser = await userService.findUserByEmail(email);
@@ -139,7 +146,7 @@ async function resolveUserFromGoogleProfile({ email, name, avatarUrl, googleToke
       googleId,
     });
     await userService.updateAuthProvider(existingUser.id, 'google');
-    return existingUser;
+    return ensureGoogleEmailVerified(existingUser);
   }
 
   return createGoogleUser({ email, name, avatarUrl, googleTokens, googleId });
