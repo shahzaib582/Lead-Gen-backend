@@ -18,6 +18,7 @@ router.use(authenticate);
 router.use(campaignLimiter);
 
 router.get('/subscription', billingController.getSubscription);
+router.get('/quota', billingController.getQuota);
 router.post('/checkout', checkoutValidation, validateRequest, billingController.checkout);
 router.post('/portal', billingController.portal);
 router.post('/upgrade', changePlanValidation, validateRequest, billingController.upgrade);

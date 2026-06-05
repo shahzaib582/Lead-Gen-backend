@@ -32,6 +32,40 @@ function toPublicSubscription(subRow, planRow) {
   };
 }
 
+function toQuotaUsage(limit, used) {
+  const safeLimit = Math.max(0, Number(limit) || 0);
+  const safeUsed = Math.max(0, Number(used) || 0);
+  return {
+    limit: safeLimit,
+    used: safeUsed,
+    available: Math.max(0, safeLimit - safeUsed),
+  };
+}
+
+function toPublicUserQuota({ plan, campaignsUsed, campaignLeadUsage, dailyEmailsUsed, dailyEmailLimit }) {
+  const planPublic = plan ? toPublicPlan(plan) : null;
+  const leadsLimit = plan?.max_leads_per_campaign ?? 0;
+
+  return {
+    plan: planPublic
+      ? {
+          id: planPublic.id,
+          name: planPublic.name,
+        }
+      : null,
+    campaigns: toQuotaUsage(plan?.max_campaigns ?? 0, campaignsUsed),
+    leadsPerCampaign: {
+      limit: leadsLimit,
+      campaigns: (campaignLeadUsage || []).map((row) => ({
+        campaignId: row.campaignId,
+        campaignName: row.campaignName,
+        ...toQuotaUsage(leadsLimit, row.leadsUsed),
+      })),
+    },
+    dailyEmails: toQuotaUsage(dailyEmailLimit, dailyEmailsUsed),
+  };
+}
+
 function toPublicPaymentMethod(pm, isDefault) {
   if (!pm || pm.type !== 'card' || !pm.card) return null;
   return {
@@ -47,5 +81,7 @@ function toPublicPaymentMethod(pm, isDefault) {
 module.exports = {
   toPublicPlan,
   toPublicSubscription,
+  toQuotaUsage,
+  toPublicUserQuota,
   toPublicPaymentMethod,
 };

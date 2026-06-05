@@ -1,4 +1,5 @@
 const billingService = require('../services/billingService');
+const { getUserQuota } = require('../services/planLimitService');
 const { successResponse } = require('../utils/response');
 
 async function listPlans(req, res, next) {
@@ -14,6 +15,15 @@ async function getSubscription(req, res, next) {
   try {
     const subscription = await billingService.getUserSubscription(req.user.id);
     return successResponse(res, 200, undefined, { subscription });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function getQuota(req, res, next) {
+  try {
+    const quota = await getUserQuota(req.user.id);
+    return successResponse(res, 200, undefined, { quota });
   } catch (err) {
     next(err);
   }
@@ -108,6 +118,7 @@ async function removePaymentMethod(req, res, next) {
 module.exports = {
   listPlans,
   getSubscription,
+  getQuota,
   checkout,
   portal,
   upgrade,

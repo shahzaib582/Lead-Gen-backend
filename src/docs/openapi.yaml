@@ -3316,6 +3316,45 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /api/billing/quota:
+    get:
+      tags: [Billing]
+      summary: Current plan quota and usage
+      description: |
+        Returns limit, used, and available counts for campaigns, leads per campaign, and daily emails sent today.
+      responses:
+        '200':
+          description: Quota usage for the authenticated user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+              example:
+                success: true
+                data:
+                  quota:
+                    plan:
+                      id: starter
+                      name: Starter
+                    campaigns:
+                      limit: 5
+                      used: 2
+                      available: 3
+                    leadsPerCampaign:
+                      limit: 100
+                      campaigns:
+                        - campaignId: 11111111-2222-3333-4444-555555555555
+                          campaignName: Q1 Outreach
+                          limit: 100
+                          used: 42
+                          available: 58
+                    dailyEmails:
+                      limit: 500
+                      used: 12
+                      available: 488
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /api/billing/checkout:
     post:
       tags: [Billing]
