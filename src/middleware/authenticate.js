@@ -6,8 +6,8 @@ const AppError = require('../utils/AppError');
 
 /**
  * Middleware — verify Bearer access token and attach user to req.user.
- * Also silently attaches googleAccessToken if the user has a linked Google account,
- * so controllers can use req.user.googleAccessToken without a separate DB call.
+ * Also attaches a cached googleAccessToken when the stored Google token is still fresh
+ * (no OAuth refresh on every request — mail/calendar routes refresh on demand).
  *
  * Usage: router.get('/protected', authenticate, handler)
  */
@@ -32,11 +32,10 @@ async function authenticate(req, res, next) {
       googleAccessToken: null,
     };
 
-    // Silently attach Google access token if the user has linked their Google account.
-    // This works for BOTH email/password users and Google-login users.
-    // We catch all errors so a missing/expired Google account never blocks authentication.
+    // Attach cached Google token only when still fresh — never refresh here (avoids multi-second
+    // OAuth calls on unrelated routes like PATCH /api/user password change).
     try {
-      const googleToken = await googleAuthService.getValidGoogleAccessToken(user.id);
+      const googleToken = await googleAuthService.peekGoogleAccessToken(user.id);
       if (googleToken) {
         req.user.googleAccessToken = googleToken;
       }

@@ -41,6 +41,9 @@ async function patchCurrentUser(req, res, next) {
     if (password !== undefined && password !== null && String(password).trim() !== '') {
       const old = oldPassword ?? old_password;
       updated = await userService.changePassword(req.user.id, old, password);
+      return successResponse(res, 200, 'Password updated successfully.', {
+        user: toPublicUser(updated),
+      });
     }
 
     const fields = {};

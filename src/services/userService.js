@@ -8,7 +8,10 @@ const ACCOUNT_CLOSED_MSG =
   'This account has been closed. Please contact support if you need assistance.';
 const ACCOUNT_CLOSED_CODE = 'ACCOUNT_CLOSED';
 
-const BCRYPT_ROUNDS = 12; // higher than OTP hashing — passwords deserve extra rounds
+const BCRYPT_ROUNDS = Math.min(
+  14,
+  Math.max(10, Number(process.env.BCRYPT_ROUNDS) || 10)
+);
 
 const PROFILE_MAX = {
   name: 200,
@@ -157,9 +160,22 @@ async function changePassword(userId, oldPassword, newPassword) {
   const match = await checkPassword(oldPassword, user.password_hash);
   if (!match) throw new AppError('Current password is incorrect.', 401);
 
+  if (String(oldPassword) === String(newPassword)) {
+    throw new AppError(PASSWORD_SAME_AS_OLD_MSG, 422, 'PASSWORD_SAME_AS_OLD');
+  }
   await assertNewPasswordDiffersFromCurrent(newPassword, user.password_hash);
-  await updatePassword(userId, newPassword);
-  return findUserById(userId);
+
+  const passwordHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+  const { data, error } = await supabase
+    .from('users')
+    .update({ password_hash: passwordHash })
+    .eq('id', userId)
+    .is('deleted_at', null)
+    .select()
+    .single();
+
+  if (error) throw new AppError('Failed to update password.', 500);
+  return data;
 }
 
 // ─── Password ─────────────────────────────────────────────────────────────────

@@ -223,6 +223,17 @@ function isAccessTokenFresh(tokenExpiresAt, nowMs = Date.now()) {
 }
 
 /**
+ * Returns a cached Google access token only when still fresh — no OAuth refresh (fast).
+ * Use in auth middleware; callers that send mail/calendar should use getValidGoogleAccessToken.
+ */
+async function peekGoogleAccessToken(userId) {
+  const account = await findGoogleAccountByUserId(userId);
+  if (!account?.google_access_token) return null;
+  if (!isAccessTokenFresh(account.token_expires_at)) return null;
+  return account.google_access_token;
+}
+
+/**
  * Whether Google APIs can be used for this user (fresh access token or successful refresh).
  * Updates stored tokens when a refresh succeeds.
  */
@@ -273,6 +284,7 @@ async function getGoogleAccountStatus(userId) {
 
 module.exports = {
   getValidGoogleAccessToken,
+  peekGoogleAccessToken,
   getGoogleAccountStatus,
   isAccessTokenFresh,
   findGoogleAccountByEmail,
