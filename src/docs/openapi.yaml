@@ -1016,6 +1016,7 @@ paths:
       description: |
         Revokes all refresh sessions. Returns a success message only — sign in with the new password to get tokens.
         Returns 422 if the new password matches the current password.
+        The OTP stays valid for retry when only password validation fails (OTP is consumed after a successful reset).
       requestBody:
         required: true
         content:

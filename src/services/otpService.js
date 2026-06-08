@@ -114,13 +114,16 @@ async function hasActiveOtp(userId, purpose = OTP_PURPOSE_EMAIL_VERIFY) {
 /**
  * Verify a submitted OTP for a given user.
  * - Increments attempt counter on failure (brute-force protection)
- * - Marks OTP as used on success
+ * - Marks OTP as used on success when consume is true (default)
  *
  * @param {string} userId
  * @param {string} submittedOtp  - Plaintext OTP from the user
  * @param {string} purpose       - `email_verify` | `password_reset`
+ * @param {{ consume?: boolean }} [options] - Set consume:false to validate without marking used
+ * @returns {Promise<string>} otp record id (for deferred consume)
  */
-async function verifyOtp(userId, submittedOtp, purpose = OTP_PURPOSE_EMAIL_VERIFY) {
+async function verifyOtp(userId, submittedOtp, purpose = OTP_PURPOSE_EMAIL_VERIFY, options = {}) {
+  const { consume = true } = options;
   const { data: otpRecord, error } = await supabase
     .from('otp_codes')
     .select('*')
@@ -154,12 +157,22 @@ async function verifyOtp(userId, submittedOtp, purpose = OTP_PURPOSE_EMAIL_VERIF
     throw new AppError(`Invalid verification code. ${remaining} attempt(s) remaining.`, 400);
   }
 
-  await supabase.from('otp_codes').update({ used: true }).eq('id', otpRecord.id);
+  if (consume) {
+    await supabase.from('otp_codes').update({ used: true }).eq('id', otpRecord.id);
+  }
+
+  return otpRecord.id;
+}
+
+async function consumeOtp(otpId) {
+  const { error } = await supabase.from('otp_codes').update({ used: true }).eq('id', otpId);
+  if (error) throw new AppError('Failed to finalize verification code.', 500);
 }
 
 module.exports = {
   createOtp,
   verifyOtp,
+  consumeOtp,
   hasActiveOtp,
   OTP_PURPOSE_EMAIL_VERIFY,
   OTP_PURPOSE_PASSWORD_RESET,
