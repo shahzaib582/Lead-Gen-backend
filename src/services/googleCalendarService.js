@@ -1,23 +1,20 @@
 const { google } = require('googleapis');
 const { createOAuthClient } = require('../config/googleOAuth');
-const googleAuthService = require('./googleAuthService');
+const {
+  CALENDAR_SCOPE_WRITE,
+  CALENDAR_SCOPE_READ,
+  accountHasCalendarScope,
+  accountCanWriteCalendar,
+} = require('../utils/googleCalendarScopes');
 const AppError = require('../utils/AppError');
 
-const CALENDAR_SCOPE_WRITE = 'https://www.googleapis.com/auth/calendar.events';
-const CALENDAR_SCOPE_READ = 'https://www.googleapis.com/auth/calendar.events.readonly';
-
-function accountHasCalendarScope(scopes) {
-  const list = Array.isArray(scopes) ? scopes : [];
-  return list.includes(CALENDAR_SCOPE_WRITE) || list.includes(CALENDAR_SCOPE_READ);
-}
-
-function accountCanWriteCalendar(scopes) {
-  const list = Array.isArray(scopes) ? scopes : [];
-  return list.includes(CALENDAR_SCOPE_WRITE);
+/** Lazy require avoids circular dependency with googleAuthService. */
+function googleAuthService() {
+  return require('./googleAuthService');
 }
 
 async function getCalendarClientForUser(userId) {
-  const account = await googleAuthService.findGoogleAccountByUserId(userId);
+  const account = await googleAuthService().findGoogleAccountByUserId(userId);
   if (!account) {
     throw new AppError('Google account not linked.', 400, 'GOOGLE_NOT_LINKED');
   }
@@ -25,11 +22,11 @@ async function getCalendarClientForUser(userId) {
     throw new AppError(
       'Google Calendar not authorized. Reconnect Google (GET /api/auth/google) to grant calendar access.',
       403,
-      'GOOGLE_CALENDAR_SCOPE_MISSING',
+      'GOOGLE_CALENDAR_SCOPE_MISSING'
     );
   }
 
-  const accessToken = await googleAuthService.getValidGoogleAccessToken(userId);
+  const accessToken = await googleAuthService().getValidGoogleAccessToken(userId);
   const client = createOAuthClient();
   client.setCredentials({ access_token: accessToken });
   return google.calendar({ version: 'v3', auth: client });

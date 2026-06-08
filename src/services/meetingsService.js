@@ -1,14 +1,42 @@
 const supabase = require('../config/supabase');
 const AppError = require('../utils/AppError');
+const logger = require('../utils/logger');
 const { resolveUserTimezone } = require('../utils/timezone');
 const googleAuthService = require('./googleAuthService');
+const { accountCanWriteCalendar } = require('../utils/googleCalendarScopes');
 const {
-  accountCanWriteCalendar,
   createCalendarEvent,
   updateCalendarEvent,
   deleteCalendarEvent,
 } = require('./googleCalendarService');
 const { assertMeetingStartNotInPast } = require('../utils/meetingScheduleRules');
+
+async function assertGoogleCalendarReadyForSync(userId) {
+  const account = await googleAuthService.findGoogleAccountByUserId(userId);
+  if (!account) {
+    throw new AppError(
+      'Google account is not connected. Link Google in Settings or turn off "Sync to Google Calendar".',
+      400,
+      'GOOGLE_NOT_LINKED'
+    );
+  }
+  if (!accountCanWriteCalendar(account.scopes)) {
+    throw new AppError(
+      'Google Calendar permission is missing. Reconnect Google with calendar access or turn off calendar sync.',
+      403,
+      'GOOGLE_CALENDAR_SCOPE_MISSING'
+    );
+  }
+}
+
+function wrapGoogleCalendarError(err) {
+  if (err instanceof AppError) return err;
+  const raw = err?.message || '';
+  const message = /invalid_grant|token|revoked|expired/i.test(raw)
+    ? 'Google connection expired. Reconnect Google and try again.'
+    : 'Google Calendar sync failed. Try again or turn off "Sync to Google Calendar".';
+  return new AppError(message, 502, 'GOOGLE_CALENDAR_SYNC_FAILED');
+}
 
 async function resolveCampaignLeadContext(userId, campaignLeadId) {
   if (!campaignLeadId) return { campaignId: null, attendeeEmail: null };
@@ -148,6 +176,10 @@ async function createMeeting(userId, userRow, body) {
 
   const timeZone = resolveUserTimezone(userRow);
 
+  if (syncGoogle) {
+    await assertGoogleCalendarReadyForSync(userId);
+  }
+
   const { data: row, error: insertErr } = await supabase
     .from('meetings')
     .insert({
@@ -172,11 +204,6 @@ async function createMeeting(userId, userRow, body) {
   void notifyMeetingBooked(userId, row);
 
   if (!syncGoogle) return row;
-
-  const account = await googleAuthService.findGoogleAccountByUserId(userId);
-  if (!account || !accountCanWriteCalendar(account.scopes)) {
-    return row;
-  }
 
   try {
     const google = await createCalendarEvent(userId, {
@@ -204,7 +231,12 @@ async function createMeeting(userId, userRow, body) {
     return updated;
   } catch (err) {
     await supabase.from('meetings').delete().eq('id', row.id);
-    throw err;
+    logger.warn('[meetings] Google Calendar sync failed', {
+      userId,
+      meetingId: row.id,
+      error: err?.message,
+    });
+    throw wrapGoogleCalendarError(err);
   }
 }
 

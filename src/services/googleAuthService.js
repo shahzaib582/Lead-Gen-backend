@@ -1,7 +1,7 @@
 const { google } = require('googleapis');
 const supabase = require('../config/supabase');
 const userService = require('./userService');
-const { accountHasCalendarScope } = require('./googleCalendarService');
+const { accountHasCalendarScope } = require('../utils/googleCalendarScopes');
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
 
