@@ -1,0 +1,137 @@
+services:
+  - type: web
+    name: leadgen-api
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node src/index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+      - key: LOG_LEVEL
+        value: info
+
+      - key: TRUST_PROXY
+        value: '1'
+
+      - key: REDIS_HOST
+        fromService:
+          type: redis
+          name: leadgen-redis
+          property: host
+
+      - key: REDIS_PORT
+        fromService:
+          type: redis
+          name: leadgen-redis
+          property: port
+
+      - key: SUPABASE_URL
+        sync: false
+
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: BREVO_API_KEY
+        sync: false
+      - key: BREVO_SENDER_EMAIL
+        sync: false
+      - key: BREVO_SENDER_NAME
+        sync: false
+
+  - type: worker
+    name: campaign-mail-worker
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node src/workers/campaignMailWorker.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+      - key: REDIS_HOST
+        fromService:
+          type: redis
+          name: leadgen-redis
+          property: host
+
+      - key: REDIS_PORT
+        fromService:
+          type: redis
+          name: leadgen-redis
+          property: port
+
+      - key: SUPABASE_URL
+        sync: false
+
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+
+  - type: worker
+    name: follow-up-scheduler-worker
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node src/workers/followUpSchedulerWorker.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+      - key: REDIS_HOST
+        fromService:
+          type: redis
+          name: leadgen-redis
+          property: host
+
+      - key: REDIS_PORT
+        fromService:
+          type: redis
+          name: leadgen-redis
+          property: port
+
+      - key: SUPABASE_URL
+        sync: false
+
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+
+  - type: worker
+    name: mail-template-worker
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node src/workers/mailTemplateWorker.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+      - key: REDIS_HOST
+        fromService:
+          type: redis
+          name: leadgen-redis
+          property: host
+
+      - key: REDIS_PORT
+        fromService:
+          type: redis
+          name: leadgen-redis
+          property: port
+
+      - key: SUPABASE_URL
+        sync: false
+
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+
+      - key: OPENAI_API_KEY
+        sync: false
+
+  - type: redis
+    name: leadgen-redis
+    plan: free
+    ipAllowList:
+      - source: 0.0.0.0/0
+        description: allow all

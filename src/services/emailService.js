@@ -1,123 +1,177 @@
-const nodemailer = require('nodemailer');
-const logger = require('../utils/logger');
+const { google } = require('googleapis');
+const { sendBrevoEmail } = require('../config/brevo');
+const { getOtpExpiryMinutes } = require('../config/otp');
+const {
+  buildVerificationEmail,
+  buildPasswordResetEmail,
+} = require('../emails/otpTemplates');
+const { normalizeMessageId } = require('../utils/gmailThread');
 
-let transporter;
-
-function getTransporter() {
-  if (transporter) return transporter;
-
-  transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT) || 587,
-    secure: process.env.SMTP_SECURE === 'true',
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
-    },
-  });
-
-  return transporter;
-}
-
-/**
- * Send an OTP verification email.
- * @param {string} to       - Recipient email address
- * @param {string} otp      - Plaintext 6-digit OTP (we send it clear, the DB stores the hash)
- */
 async function sendOtpEmail(to, otp) {
-  const transport = getTransporter();
-
-  const html = `
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="UTF-8" />
-      <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-      <title>Email Verification</title>
-    </head>
-    <body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,sans-serif;">
-      <table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 0;">
-        <tr>
-          <td align="center">
-            <table width="480" cellpadding="0" cellspacing="0"
-                   style="background:#ffffff;border-radius:8px;padding:40px;
-                          box-shadow:0 2px 8px rgba(0,0,0,0.08);">
-              <tr>
-                <td align="center" style="padding-bottom:24px;">
-                  <h2 style="margin:0;color:#1a1a1a;font-size:22px;">Verify Your Email</h2>
-                </td>
-              </tr>
-              <tr>
-                <td align="center" style="padding-bottom:16px;color:#555;font-size:15px;line-height:1.6;">
-                  Use the code below to verify your email address.
-                  This code expires in <strong>${process.env.OTP_EXPIRY_MINUTES || 10} minutes</strong>.
-                </td>
-              </tr>
-              <tr>
-                <td align="center" style="padding:20px 0;">
-                  <div style="display:inline-block;background:#f0f4ff;border:1px solid #c7d4f7;
-                              border-radius:8px;padding:16px 40px;">
-                    <span style="font-size:36px;font-weight:bold;letter-spacing:12px;color:#3b5bdb;">
-                      ${otp}
-                    </span>
-                  </div>
-                </td>
-              </tr>
-              <tr>
-                <td align="center" style="padding-top:16px;color:#888;font-size:13px;">
-                  If you did not request this, please ignore this email.
-                </td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-      </table>
-    </body>
-    </html>
-  `;
-
-  const info = await transport.sendMail({
-    from: process.env.EMAIL_FROM,
-    to,
-    subject: 'Your verification code',
-    html,
-    text: `Your verification code is: ${otp}\nIt expires in ${process.env.OTP_EXPIRY_MINUTES || 10} minutes.`,
-  });
-
-  logger.info('OTP email sent', { to, messageId: info.messageId });
-  return info;
+  const expiry = getOtpExpiryMinutes();
+  const { subject, html, text } = buildVerificationEmail(otp, expiry);
+  return sendBrevoEmail({ to, subject, html, text });
 }
 
-/**
- * Send a general email with custom subject and body.
- * @param {string|string[]} to - Recipient email address(es)
- * @param {string} subject     - Email subject line
- * @param {string} body        - Email body (plain text)
- * @param {string} [html]      - Optional HTML version of the body
- */
-async function sendCustomEmail(to, subject, body, html = null) {
-  const transport = getTransporter();
+async function sendPasswordResetOtpEmail(to, otp) {
+  const expiry = getOtpExpiryMinutes();
+  const { subject, html, text } = buildPasswordResetEmail(otp, expiry);
+  return sendBrevoEmail({ to, subject, html, text });
+}
 
-  const mailOptions = {
-    from: process.env.EMAIL_FROM,
-    to: Array.isArray(to) ? to.join(', ') : to,
-    subject,
-    text: body,
-  };
+function encodeMimeDisplayName(name) {
+  const trimmed = String(name).trim();
+  if (!trimmed) return '';
+  if (/[\r\n]/.test(trimmed)) return '';
+  if (/^[\x20-\x7e]+$/.test(trimmed)) {
+    return `"${trimmed.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+  }
+  return `=?UTF-8?B?${Buffer.from(trimmed, 'utf8').toString('base64')}?=`;
+}
 
-  if (html) {
-    mailOptions.html = html;
+function buildMimeMessage(to, subject, body, html, mimeOptions) {
+  const opts = mimeOptions && typeof mimeOptions === 'object' ? mimeOptions : {};
+  const recipients = Array.isArray(to) ? to.join(', ') : to;
+  const lines = [];
+
+  if (opts.fromDisplayName && opts.fromEmail) {
+    const enc = encodeMimeDisplayName(opts.fromDisplayName);
+    if (enc) lines.push(`From: ${enc} <${opts.fromEmail}>`);
   }
 
-  const info = await transport.sendMail(mailOptions);
+  if (opts.replyTo) {
+    lines.push(`Reply-To: ${opts.replyTo}`);
+  }
 
-  logger.info('Custom email sent', {
-    to: Array.isArray(to) ? to : [to],
-    subject,
-    messageId: info.messageId
-  });
+  if (opts.inReplyTo) {
+    lines.push(`In-Reply-To: ${normalizeMessageId(opts.inReplyTo)}`);
+  }
+  if (opts.references) {
+    const refs = Array.isArray(opts.references) ? opts.references : [opts.references];
+    const normalized = refs.filter(Boolean).map((r) => normalizeMessageId(r));
+    if (normalized.length) {
+      lines.push(`References: ${normalized.join(' ')}`);
+    }
+  }
 
-  return info;
+  lines.push(`To: ${recipients}`, `Subject: ${subject}`, 'MIME-Version: 1.0');
+
+  if (html) {
+    const boundary = `boundary_${Date.now()}`;
+    lines.push(`Content-Type: multipart/alternative; boundary="${boundary}"`, '');
+    lines.push(`--${boundary}`);
+    lines.push('Content-Type: text/plain; charset=utf-8', '', body);
+    lines.push(`--${boundary}`);
+    lines.push('Content-Type: text/html; charset=utf-8', '', html);
+    lines.push(`--${boundary}--`);
+  } else {
+    lines.push('Content-Type: text/plain; charset=utf-8', '', body);
+  }
+
+  return lines.join('\r\n');
 }
 
-module.exports = { sendOtpEmail, sendCustomEmail };
+/**
+ * @param {object} [threading]
+ * @param {string} [threading.threadId] Gmail thread to append to
+ * @param {string} [threading.inReplyTo] RFC Message-ID of parent
+ * @param {string|string[]} [threading.references] RFC References chain
+ */
+async function sendCustomEmail(
+  to,
+  subject,
+  body,
+  html = null,
+  accessToken,
+  mimeOptions = undefined,
+  threading = undefined
+) {
+  if (!accessToken) {
+    throw new Error('Google access token is required to send email via Gmail API.');
+  }
+
+  const auth = new google.auth.OAuth2();
+  auth.setCredentials({ access_token: accessToken });
+
+  const gmail = google.gmail({ version: 'v1', auth });
+
+  const mergedMime = { ...(mimeOptions || {}) };
+  if (threading?.inReplyTo) {
+    mergedMime.inReplyTo = threading.inReplyTo;
+    mergedMime.references = threading.references || threading.inReplyTo;
+  }
+
+  const rawMime = buildMimeMessage(to, subject, body, html, mergedMime);
+
+  const raw = Buffer.from(rawMime)
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+
+  const requestBody = { raw };
+  if (threading?.threadId) {
+    requestBody.threadId = threading.threadId;
+  }
+
+  const result = await gmail.users.messages.send({
+    userId: 'me',
+    requestBody,
+  });
+
+  return {
+    messageId: result.data.id,
+    threadId: result.data.threadId || threading?.threadId || null,
+  };
+}
+
+/**
+ * Create a Gmail draft (not sent). Requires gmail.compose scope.
+ * @returns {Promise<{ draftId: string, messageId: string|null }>}
+ */
+async function createGmailDraft(accessToken, { to, subject, body, mimeOptions, threading }) {
+  if (!accessToken) {
+    throw new Error('Google access token is required to create a Gmail draft.');
+  }
+
+  const auth = new google.auth.OAuth2();
+  auth.setCredentials({ access_token: accessToken });
+
+  const gmail = google.gmail({ version: 'v1', auth });
+
+  const mergedMime = { ...(mimeOptions || {}) };
+  if (threading?.inReplyTo) {
+    mergedMime.inReplyTo = threading.inReplyTo;
+    mergedMime.references = threading.references || threading.inReplyTo;
+  }
+
+  const rawMime = buildMimeMessage(to, subject, body, null, mergedMime);
+  const raw = Buffer.from(rawMime)
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+
+  const message = { raw };
+  if (threading?.threadId) {
+    message.threadId = threading.threadId;
+  }
+
+  const { data } = await gmail.users.drafts.create({
+    userId: 'me',
+    requestBody: { message },
+  });
+
+  return {
+    draftId: data.id,
+    messageId: data.message?.id || null,
+  };
+}
+
+module.exports = {
+  sendOtpEmail,
+  sendPasswordResetOtpEmail,
+  sendCustomEmail,
+  createGmailDraft,
+  buildMimeMessage,
+};

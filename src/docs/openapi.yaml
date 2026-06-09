@@ -1,0 +1,3574 @@
+# maintain this file when routes or response shapes change.
+openapi: 3.0.3
+info:
+  title: Rapid AI API
+  description: Rapid AI API is a RESTful API for managing leads and campaigns.
+  version: 1.0.0
+  contact:
+    name: Rapid AI API
+
+servers:
+  - url: http://localhost:3000
+    description: Local development
+  - url: https://api.rapidai2x.com
+    description: Production (Render)
+
+tags:
+  - name: Health
+    description: Liveness.
+  - name: Auth
+    description: Email/password signup, OTP, login, tokens, logout.
+  - name: GoogleAuth
+    description: Google OAuth and ID-token login.
+  - name: Dashboard
+    description: Dashboard KPIs, performance chart, active campaigns, and recent activity.
+  - name: Analytics
+    description: Analytics screen — overview KPIs, campaign chart, comparison table, weekly bars, reply breakdown donut.
+  - name: Notifications
+    description: In-app notifications, FCM web push token registration, list, unread count, mark read, and SSE.
+  - name: Campaigns
+    description: Campaign CRUD and listing (authenticated).
+  - name: CampaignLeads
+    description: Campaign leads — bulk add (not in draft), templates, send, list, CRUD.
+  - name: CampaignFollowUps
+    description: Per-campaign follow-up cadence (name, waiting_days); CRUD under a campaign.
+  - name: Tester
+    description: Tester utilities for fast QA (create test lead, trigger follow-ups ignoring waiting days).
+  - name: LeadsData
+    description: Global leads pool search and fetch by id.
+  - name: User
+    description: Current user profile (GET / PATCH).
+  - name: Meetings
+    description: Lead Gen meetings stored in the database (not personal Google Calendar events).
+  - name: Billing
+    description: Stripe subscriptions, plans, checkout, portal, and payment methods.
+
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >-
+        JWT access token. Send as HTTP header Authorization Bearer (scheme bearer in Authorize).
+
+  headers:
+    X-Response-Time:
+      description: Request duration on the server (e.g. `12.4ms`).
+      schema:
+        type: string
+        example: "12.4ms"
+    Server-Timing:
+      description: Timing hint; includes `total;dur=<ms>`.
+      schema:
+        type: string
+        example: 'total;dur=12.4'
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid Bearer access token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    UnprocessableEntity:
+      description: Request validation failed (body, query, or path parameters).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Authenticated but not allowed — typically email not yet verified for Bearer routes.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    TooManyRequests:
+      description: Rate limit exceeded for this route or client.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    CampaignRunMode:
+      type: string
+      enum: [manual, scheduled, auto]
+    CampaignTargetTone:
+      type: string
+      enum: [Friendly, Professional, Direct, Consultative]
+      description: Voice for generated outreach emails; defaults to Professional when omitted on create.
+    CampaignStatus:
+      type: string
+      enum: [draft, active, paused, completed]
+    LeadSource:
+      type: string
+      enum: [new, old, both]
+    MailTemplateSample:
+      type: object
+      description: >
+        One reference email for generation (tone, structure, placeholders). At least one of subject, body, html, or text should be non-empty.
+      properties:
+        subject:
+          type: string
+          maxLength: 500
+          nullable: true
+        body:
+          type: string
+          maxLength: 50000
+          nullable: true
+        html:
+          type: string
+          maxLength: 50000
+          nullable: true
+        text:
+          type: string
+          maxLength: 50000
+          nullable: true
+    CampaignLeadStatus:
+      type: string
+      enum: [pending, template_generated, sent, failed, skipped]
+    LeadsSortBy:
+      type: string
+      enum: [created_at, fullName, email, company, country, fitScore, dateAdded]
+    SortOrder:
+      type: string
+      enum: [asc, desc]
+    ErrorResponse:
+      type: object
+      required: [success, message]
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+        code:
+          type: string
+          description: Optional machine-readable code (e.g. TOKEN_EXPIRED).
+        stack:
+          type: string
+          description: Present only for non-operational errors in non-production.
+
+    SuccessEnvelope:
+      type: object
+      required: [success]
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+        data:
+          description: Arbitrary payload; shape varies by endpoint.
+
+    Pagination:
+      type: object
+      required: [page, limit, total, totalPages]
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        totalPages:
+          type: integer
+
+    SuccessPaginated:
+      allOf:
+        - $ref: '#/components/schemas/SuccessEnvelope'
+        - type: object
+          required: [data, pagination]
+          properties:
+            data:
+              type: array
+              items: {}
+            pagination:
+              $ref: '#/components/schemas/Pagination'
+
+    # ─── Typed success bodies (high-traffic / integration-critical) ─────────────
+
+    UserRole:
+      type: string
+      enum: [user, superadmin]
+      description: Always `user` from signup/API; set `superadmin` only in the database.
+
+    UserPublic:
+      type: object
+      required: [id, email, isVerified, createdAt, role]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        isVerified:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+          description: ISO 8601 from `users.created_at`.
+        role:
+          $ref: '#/components/schemas/UserRole'
+        name:
+          type: string
+          nullable: true
+        profilePic:
+          type: string
+          nullable: true
+          description: Public Supabase Storage URL; set via POST /api/user/avatar (not PATCH/signup).
+        address:
+          type: string
+          nullable: true
+        contact:
+          type: string
+          nullable: true
+          description: Phone or other contact string.
+        timezone:
+          type: string
+          nullable: true
+          description: Optional IANA timezone (e.g. America/New_York). Used when syncing meetings to Google Calendar; defaults to UTC when unset.
+        notificationsEnabled:
+          type: boolean
+          description: When false, notifications are still saved but SSE and FCM push are not sent. Defaults to true.
+
+    MeetingPublic:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        campaignId:
+          type: string
+          format: uuid
+          nullable: true
+        campaignLeadId:
+          type: string
+          format: uuid
+          nullable: true
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        attendeeEmail:
+          type: string
+          format: email
+          nullable: true
+        startAt:
+          type: string
+          format: date-time
+        endAt:
+          type: string
+          format: date-time
+        meetLink:
+          type: string
+          nullable: true
+        googleEventId:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [scheduled, cancelled, completed]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    MeUser:
+      allOf:
+        - $ref: '#/components/schemas/UserPublic'
+        - type: object
+          properties:
+            googleAccessToken:
+              type: string
+              nullable: true
+              description: Present when Google is linked — treat as secret.
+
+    MeResponse:
+      type: object
+      required: [success, message, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        message:
+          type: string
+          example: User fetched successfully.
+        data:
+          type: object
+          required: [user]
+          properties:
+            user:
+              $ref: '#/components/schemas/MeUser'
+
+    AuthLoginData:
+      type: object
+      required: [accessToken, refreshToken, user]
+      properties:
+        accessToken:
+          type: string
+          description: >-
+            Short-lived JWT. In requests send it as a Bearer token in the HTTP Authorization header
+            (Swagger Authorize uses the token value only).
+        refreshToken:
+          type: string
+          description: Opaque refresh token for `POST /api/auth/refresh`.
+        user:
+          $ref: '#/components/schemas/UserPublic'
+
+    AuthLoginResponse:
+      type: object
+      required: [success, message, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        message:
+          type: string
+          example: Login successful.
+        data:
+          $ref: '#/components/schemas/AuthLoginData'
+
+    AuthTokenPairData:
+      type: object
+      required: [accessToken, refreshToken]
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+
+    AuthVerifyOtpResponse:
+      type: object
+      required: [success, message, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        message:
+          type: string
+          example: Email verified successfully.
+        data:
+          $ref: '#/components/schemas/AuthLoginData'
+
+    AuthRefreshResponse:
+      type: object
+      required: [success, message, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        message:
+          type: string
+          example: Tokens refreshed successfully.
+        data:
+          $ref: '#/components/schemas/AuthTokenPairData'
+
+    SignupResponseData:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+
+    SignupResponse:
+      type: object
+      required: [success, message, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/SignupResponseData'
+
+    AuthGoogleUser:
+      allOf:
+        - $ref: '#/components/schemas/UserPublic'
+        - type: object
+          required: [authProvider]
+          properties:
+            authProvider:
+              type: string
+              enum: [google]
+
+    AuthGoogleLoginData:
+      type: object
+      required: [accessToken, refreshToken, user]
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        user:
+          $ref: '#/components/schemas/AuthGoogleUser'
+
+    AuthGoogleLoginResponse:
+      type: object
+      required: [success, message, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        message:
+          type: string
+          example: Google authentication successful.
+        data:
+          $ref: '#/components/schemas/AuthGoogleLoginData'
+
+    Campaign:
+      type: object
+      description: Campaign row as stored (snake_case columns from PostgreSQL/Supabase).
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        goal:
+          type: string
+        target_zone:
+          type: string
+        call_to_action:
+          type: string
+        run_mode:
+          $ref: '#/components/schemas/CampaignRunMode'
+        target_tone:
+          $ref: '#/components/schemas/CampaignTargetTone'
+        mail_training_instruction:
+          type: string
+          nullable: true
+          description: Optional instructions for tone, voice, and constraints when generating emails.
+        mail_template_samples:
+          type: array
+          maxItems: 30
+          items:
+            $ref: '#/components/schemas/MailTemplateSample'
+          description: Example emails (subject/body/html/text) the model should emulate.
+        target_leads:
+          type: integer
+        lead_source:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/LeadSource'
+        status:
+          $ref: '#/components/schemas/CampaignStatus'
+        sender_display_name:
+          type: string
+          nullable: true
+        sender_address:
+          type: string
+          nullable: true
+        sender_phone:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CampaignFollowUp:
+      type: object
+      description: Follow-up step for a campaign (stored snake_case).
+      properties:
+        id:
+          type: string
+          format: uuid
+        campaign_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        waiting_days:
+          type: integer
+          minimum: 0
+          maximum: 3650
+          description: Calendar days after initial campaign email sent_at before this follow-up is due.
+        body_template:
+          type: string
+          maxLength: 50000
+          nullable: true
+          description: |
+            Plain-text email body. Optional leading `Subject:` line.
+            Placeholders `{{firstName}}`, `{{fullName}}`, `{{email}}`.
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    AssignLeadsSummary:
+      type: object
+      description: Shape returned as `autoAssign` when `CAMPAIGN_ACTIVE_CREATE_AUTO_ASSIGN` is enabled on campaign create (random pool assignment).
+      properties:
+        inserted:
+          type: array
+          items:
+            type: object
+        duplicates:
+          type: array
+          items:
+            type: string
+        filters:
+          type: object
+          nullable: true
+          properties:
+            country:
+              type: string
+              nullable: true
+            industry:
+              type: string
+              nullable: true
+        leadSource:
+          $ref: '#/components/schemas/LeadSource'
+        totalRequested:
+          type: integer
+        totalAvailable:
+          type: integer
+        totalInserted:
+          type: integer
+        totalDuplicates:
+          type: integer
+        error:
+          type: string
+          description: Present when auto-assign on create failed.
+
+    CampaignCreatedData:
+      type: object
+      required: [campaign]
+      properties:
+        campaign:
+          $ref: '#/components/schemas/Campaign'
+        autoAssign:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/AssignLeadsSummary'
+
+    CampaignCreatedResponse:
+      type: object
+      required: [success, message, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        message:
+          type: string
+          example: Campaign created successfully.
+        data:
+          $ref: '#/components/schemas/CampaignCreatedData'
+
+    CampaignActivationSummary:
+      type: object
+      properties:
+        enqueued:
+          type: integer
+        skippedDuplicate:
+          type: integer
+        skippedWrongState:
+          type: integer
+        examined:
+          type: integer
+        note:
+          type: string
+          description: e.g. `already_active` when the campaign was already active.
+
+    CampaignUpdateData:
+      type: object
+      required: [campaign]
+      properties:
+        campaign:
+          $ref: '#/components/schemas/Campaign'
+        activation:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/CampaignActivationSummary'
+
+    CampaignUpdateResponse:
+      type: object
+      required: [success, message, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        message:
+          type: string
+          example: Campaign updated successfully.
+        data:
+          $ref: '#/components/schemas/CampaignUpdateData'
+
+    CampaignGetData:
+      type: object
+      required: [campaign]
+      properties:
+        campaign:
+          $ref: '#/components/schemas/Campaign'
+
+    CampaignGetResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/CampaignGetData'
+
+    GoogleErrorSummary:
+      type: object
+      properties:
+        code:
+          type: string
+          example: GOOGLE_REFRESH_FAILED
+        message:
+          type: string
+
+    CampaignSendEmailResultItem:
+      type: object
+      properties:
+        campaignLeadId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [sent, failed, skipped]
+        to:
+          type: string
+          format: email
+        subject:
+          type: string
+        messageId:
+          type: string
+        reason:
+          type: string
+          description: When `status` is `skipped` (e.g. no email on lead).
+        error:
+          type: string
+        fatalCode:
+          type: string
+          description: Machine-readable code when send failed.
+
+    CampaignSendEmailsData:
+      type: object
+      required:
+        - sent
+        - failed
+        - skipped
+        - tokensRefreshed
+        - total
+        - dailyLimitReached
+        - alreadySentToday
+        - totalSentToday
+        - dailyLimit
+        - results
+      properties:
+        sent:
+          type: integer
+        failed:
+          type: integer
+        skipped:
+          type: integer
+        tokensRefreshed:
+          type: integer
+        total:
+          type: integer
+        dailyLimitReached:
+          type: boolean
+        alreadySentToday:
+          type: integer
+        totalSentToday:
+          type: integer
+        dailyLimit:
+          type: integer
+          example: 500
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/CampaignSendEmailResultItem'
+        googleError:
+          description: Present when the server could not refresh Google credentials before a send attempt.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/GoogleErrorSummary'
+
+    CampaignSendEmailsResponse:
+      type: object
+      required: [success, message, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        message:
+          type: string
+          example: 2 email(s) sent, 0 failed, 0 skipped.
+        data:
+          $ref: '#/components/schemas/CampaignSendEmailsData'
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Liveness probe
+      security: []
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Response-Time:
+              $ref: '#/components/headers/X-Response-Time'
+            Server-Timing:
+              $ref: '#/components/headers/Server-Timing'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                        example: ok
+
+  /api/auth/signup:
+    post:
+      tags: [Auth]
+      summary: Register and send OTP email
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  description: Normalized by the server (e.g. lowercasing rules from validator).
+                password:
+                  type: string
+                  minLength: 8
+                  description: |
+                    Required rules: ≥8 characters, at least one uppercase, one lowercase, one digit, and one special character (non-alphanumeric).
+                name:
+                  type: string
+                  maxLength: 200
+                address:
+                  type: string
+                  maxLength: 500
+                contact:
+                  type: string
+                  maxLength: 120
+              description: |
+                Role is always `user` from signup (`superadmin` is database-only). Ensure DB matches `sql/schema.sql` for profile columns.
+      responses:
+        '201':
+          description: Created; check email for 6-digit OTP.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignupResponse'
+              example:
+                success: true
+                message: Account created. Check your email for your 6-digit verification code.
+                data:
+                  email: hamzaansari6060@gmail.com
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '409':
+          description: Email already registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /api/auth/verify-otp:
+    post:
+      tags: [Auth]
+      summary: Verify email OTP and receive tokens
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, otp]
+              properties:
+                email:
+                  type: string
+                  format: email
+                otp:
+                  type: string
+                  pattern: '^[0-9]{6}$'
+                  minLength: 6
+                  maxLength: 6
+                  description: Six-digit numeric code from email.
+      responses:
+        '200':
+          description: Verified; returns access + refresh tokens.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthVerifyOtpResponse'
+              example:
+                success: true
+                message: Email verified successfully.
+                data:
+                  accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.example
+                  refreshToken: a1b2c3d4e5f678901234567890abcdef0123456789abcdef0123456789abcd
+                  user:
+                    id: 11111111-2222-3333-4444-555555555555
+                    email: hamzaansari6060@gmail.com
+                    isVerified: true
+                    createdAt: '2026-05-04T11:44:20.112293+00:00'
+                    role: user
+                    name: null
+                    profilePic: null
+                    address: null
+                    contact: null
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '400':
+          description: Already verified or invalid OTP state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Login with email and password
+      description: |
+        If the account exists and the password is correct but email is not verified, returns **403**
+        with `code: EMAIL_NOT_VERIFIED` and sends a fresh verification OTP to the email (same as resend-otp).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  description: Non-empty string (no strength check on login).
+            example:
+              email: hamzaansari6060@gmail.com
+              password: SecureP@ss1
+      responses:
+        '200':
+          description: Tokens issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthLoginResponse'
+              example:
+                success: true
+                message: Login successful.
+                data:
+                  accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.example
+                  refreshToken: a1b2c3d4e5f678901234567890abcdef0123456789abcdef0123456789abcd
+                  user:
+                    id: 11111111-2222-3333-4444-555555555555
+                    email: hamzaansari6060@gmail.com
+                    isVerified: true
+                    createdAt: '2026-05-04T11:44:20.112293+00:00'
+                    role: user
+                    name: null
+                    profilePic: null
+                    address: null
+                    contact: null
+        '401':
+          description: Invalid email or password
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Email not verified — a new OTP was sent (see `code` EMAIL_NOT_VERIFIED)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: Email not verified. A new verification code has been sent to your email.
+                code: EMAIL_NOT_VERIFIED
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /api/auth/resend-otp:
+    post:
+      tags: [Auth]
+      summary: Resend email-verification OTP
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          description: OTP resent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /api/auth/forgot-password:
+    post:
+      tags: [Auth]
+      summary: Request password-reset OTP by email
+      security: []
+      description: >-
+        Sends a 6-digit password reset OTP when the account exists and has a password set.
+        Returns 404 if no account exists for the email, or 400 for Google-only accounts.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          description: Password reset OTP sent to the user's email.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '400':
+          description: Google-only account (no password to reset)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No account found for this email
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /api/auth/reset-password:
+    post:
+      tags: [Auth]
+      summary: Set new password with email + reset OTP
+      security: []
+      description: |
+        Revokes all refresh sessions. Returns a success message only — sign in with the new password to get tokens.
+        Returns 422 if the new password matches the current password.
+        The OTP stays valid for retry when only password validation fails (OTP is consumed after a successful reset).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, otp, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                otp:
+                  type: string
+                  pattern: '^[0-9]{6}$'
+                password:
+                  type: string
+                  minLength: 8
+                  description: Same strength rules as signup.
+      responses:
+        '200':
+          description: Password updated; sign in with the new password.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '400':
+          description: Invalid or expired reset code / weak requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /api/auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Rotate refresh token and get new access + refresh pair
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken:
+                  type: string
+                  description: Opaque refresh token string from prior login/verify/refresh response.
+      responses:
+        '200':
+          description: New tokens
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthRefreshResponse'
+              example:
+                success: true
+                message: Tokens refreshed successfully.
+                data:
+                  accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.example
+                  refreshToken: b2c3d4e5f678901234567890abcdef0123456789abcdef0123456789abcdef0
+        '400':
+          description: Missing refresh token in body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid or revoked refresh token, or user missing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /api/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Revoke refresh token (optional body)
+      description: If `refreshToken` is omitted, the server still returns success but may not revoke a specific session.
+      security: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken:
+                  type: string
+      responses:
+        '200':
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /api/auth/logout-all:
+    post:
+      tags: [Auth]
+      summary: Revoke all refresh tokens for the current user
+      description: Requires valid access JWT.
+      responses:
+        '200':
+          description: All sessions revoked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/auth/google:
+    get:
+      tags: [GoogleAuth]
+      summary: Start Google OAuth (redirect or JSON auth URL)
+      description: Default returns 302 to Google. Use `?format=json` for `{ authUrl }` (e.g. Swagger). Or use `POST /api/auth/google/token`.
+      security: []
+      parameters:
+        - name: format
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [json]
+          description: When `json`, respond with `authUrl` in JSON instead of redirecting.
+      responses:
+        '302':
+          description: Redirect to Google (when `format` is not `json`).
+          headers:
+            Location:
+              description: Google OAuth authorization URL
+              schema:
+                type: string
+                format: uri
+        '200':
+          description: When `format=json` — open `data.authUrl` in a browser to sign in with Google.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    required: [authUrl]
+                    properties:
+                      authUrl:
+                        type: string
+                        format: uri
+                        description: Same URL the 302 redirect would use.
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /api/auth/google/callback:
+    get:
+      tags: [GoogleAuth]
+      summary: Google OAuth callback (browser redirect flow)
+      description: |
+        Google redirects here with `?code=` after consent. Returns JSON token payload (not an HTML redirect to your SPA).
+        Users who sign up or sign in with a Google-verified email are marked `isVerified: true` automatically (no OTP step).
+      security: []
+      parameters:
+        - in: query
+          name: code
+          required: false
+          schema:
+            type: string
+          description: Authorization code from Google (required unless `error` is set).
+        - in: query
+          name: error
+          required: false
+          schema:
+            type: string
+          description: OAuth error code from Google if the user denied access.
+      responses:
+        '200':
+          description: JSON with accessToken, refreshToken, and user (API-style response).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '400':
+          description: Missing code, Google error query param, or unverified Google email
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Email already registered with a different auth provider
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/google/token:
+    post:
+      tags: [GoogleAuth]
+      summary: Exchange Google ID token for app JWT pair
+      description: |
+        Users who sign up or sign in with a Google-verified email are marked `isVerified: true` automatically (no OTP step).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id_token]
+              properties:
+                id_token:
+                  type: string
+                  description: Google Sign-In ID token (JWT string from client SDK).
+      responses:
+        '200':
+          description: Tokens issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthGoogleLoginResponse'
+              example:
+                success: true
+                message: Google authentication successful.
+                data:
+                  accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.example
+                  refreshToken: c3d4e5f678901234567890abcdef0123456789abcdef0123456789abcdef01
+                  user:
+                    id: 11111111-2222-3333-4444-555555555555
+                    email: user@example.com
+                    isVerified: true
+                    createdAt: '2026-05-04T11:44:20.112293+00:00'
+                    role: user
+                    name: Example User
+                    profilePic: https://lh3.googleusercontent.com/a/example
+                    address: null
+                    contact: null
+                    authProvider: google
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /api/auth/google/status:
+    get:
+      tags: [GoogleAuth]
+      summary: Google link status for current user
+      description: |
+        Requires Bearer access token.
+        `linked` is true only when Google APIs are usable (valid access token, or refresh succeeded).
+        When the access token is expired and refresh fails or no refresh token exists,
+        returns `linked: false`, `tokenExpired: true`, and `needsReconnect: true`.
+      responses:
+        '200':
+          description: Google connection status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+              example:
+                success: true
+                data:
+                  linked: false
+                  calendarLinked: false
+                  tokenExpired: true
+                  needsReconnect: true
+                  email: user@gmail.com
+                  name: Example User
+                  avatarUrl: https://lh3.googleusercontent.com/a/example
+                  scopes:
+                    - https://www.googleapis.com/auth/gmail.send
+                  tokenExpiresAt: '2026-05-22T23:21:24.352+00:00'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/user:
+    get:
+      tags: [User]
+      summary: Current user profile
+      description: |
+        Requires Bearer access token. Returns profile from the database plus Google link status.
+        `googleAccessToken` is included when Google is linked (treat as secret).
+      responses:
+        '200':
+          description: User and Google status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    patch:
+      tags: [User]
+      summary: Update current user profile
+      description: |
+        Update `name`, `address`, `contact`, `timezone`, or `notificationsEnabled`.
+        Profile image uses POST/DELETE `/api/user/avatar` only (not `profilePic` here).
+        To change `password`, send `oldPassword` (or `old_password`) and a new `password` (same strength rules as signup).
+        New password must differ from the current one (422 if identical).
+        Email and role cannot be changed here. Set `timezone` to `null` to clear.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  nullable: true
+                address:
+                  type: string
+                  nullable: true
+                contact:
+                  type: string
+                  nullable: true
+                timezone:
+                  type: string
+                  nullable: true
+                  description: IANA timezone (e.g. America/New_York) or null to clear.
+                notificationsEnabled:
+                  type: boolean
+                  description: Enable or disable new in-app notifications.
+                oldPassword:
+                  type: string
+                  description: Required when `password` is sent (current password).
+                password:
+                  type: string
+                  description: New password (min 8 chars, upper, lower, number, special).
+      responses:
+        '200':
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          description: Wrong current password when changing password
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+    delete:
+      tags: [User]
+      summary: Soft-delete current user account
+      description: |
+        Sets `deleted_at` on the user, revokes all refresh tokens, and removes FCM push tokens.
+        Login, Google sign-in, token refresh, and Bearer access are blocked afterward.
+        Signup or Google registration with the same email returns 403 — contact support (account cannot be self-restored).
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Account deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+              example:
+                success: true
+                message: Account deleted successfully.
+        '400':
+          description: Account already deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/user/avatar:
+    post:
+      tags: [User]
+      summary: Upload profile image
+      description: |
+        Multipart upload to Supabase Storage bucket `SUPABASE_STORAGE_BUCKET` (default `lead_generation_bucket`).
+        Field name must be `image`. Max 10 MB; JPEG, PNG, or WebP. Replaces any existing avatar in storage.
+        Saves full public URL on `users.profile_pic`.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [image]
+              properties:
+                image:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Uploaded; data.user.profilePic is the public URL
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '413':
+          description: File larger than 10 MB
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+    delete:
+      tags: [User]
+      summary: Delete profile image
+      description: Removes avatar object(s) from storage and clears profilePic on the user.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Removed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/meetings:
+    get:
+      tags: [Meetings]
+      summary: List Lead Gen meetings (database only)
+      description: |
+        Returns meetings created through this API. Personal Google Calendar events are not included.
+        Dashboard metrics use the same `meetings` table.
+        Before listing, scheduled meetings whose `end_at` is in the past are automatically marked `completed`.
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [scheduled, cancelled, completed]
+        - in: query
+          name: campaign_id
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: from
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: to
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        '200':
+          description: Paginated meetings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [Meetings]
+      summary: Book a meeting (DB + optional Google Calendar)
+      description: |
+        Inserts a row in `meetings` (used for dashboard counts). When `sync_google` is true (default)
+        and the user has granted `calendar.events`, creates a Google Calendar event with optional Meet link.
+        Link a lead via `campaign_lead_id` to tie the booking to a campaign. Scheduling uses the user's
+        `timezone` when set, otherwise UTC.
+        `start_at` must not be in the past (422 `MEETING_PAST_DATETIME`).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, start_at, end_at]
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                start_at:
+                  type: string
+                  format: date-time
+                end_at:
+                  type: string
+                  format: date-time
+                attendee_email:
+                  type: string
+                  format: email
+                campaign_id:
+                  type: string
+                  format: uuid
+                campaign_lead_id:
+                  type: string
+                  format: uuid
+                sync_google:
+                  type: boolean
+                  default: true
+                add_google_meet:
+                  type: boolean
+                  default: true
+      responses:
+        '201':
+          description: Meeting created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /api/meetings/{id}:
+    get:
+      tags: [Meetings]
+      summary: Get one meeting
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Meeting
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Meetings]
+      summary: Update a meeting
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                start_at:
+                  type: string
+                  format: date-time
+                end_at:
+                  type: string
+                  format: date-time
+                attendee_email:
+                  type: string
+                  format: email
+                status:
+                  type: string
+                  enum: [scheduled, completed]
+      responses:
+        '200':
+          description: Updated
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Meetings]
+      summary: Cancel a meeting
+      description: Sets status to `cancelled` and removes the Google event when linked.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Cancelled
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/dashboard/summary:
+    get:
+      tags: [Dashboard]
+      summary: Dashboard KPI summary
+      description: |
+        Aggregate metrics for the authenticated user: total campaigns, **`total_leads`** (all rows in
+        `campaign_leads` across the user's campaigns), total emails sent, reply rate, and
+        `meeting_booking_count` (scheduled meetings in the `meetings` table only).
+      responses:
+        '200':
+          description: Summary metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/dashboard/meeting-stats:
+    get:
+      tags: [Dashboard]
+      summary: Meeting stats (week, month, conversion)
+      description: |
+        KPIs from the `meetings` table (non-cancelled, by `created_at`) and conversion vs campaign emails sent (`sent_at`).
+        - **meetings_this_week** — count for current UTC week (Monday–Sunday) and **vs_last_week** (absolute change vs prior week).
+        - **meetings_this_month** — count for current UTC calendar month and **vs_last_month_percent** (relative % change).
+        - **conversion_rate** — meetings ÷ emails sent in the same month, as a percent (one decimal), and **vs_last_month_points** (percentage-point change vs prior month).
+      responses:
+        '200':
+          description: Meeting stats
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+              example:
+                success: true
+                data:
+                  meetings_this_week:
+                    count: 8
+                    vs_last_week: 3
+                  meetings_this_month:
+                    count: 37
+                    vs_last_month_percent: 12
+                  conversion_rate:
+                    percent: 4.4
+                    vs_last_month_points: 0.6
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/analytics/overview:
+    get:
+      tags: [Analytics]
+      summary: Analytics overview KPIs
+      description: |
+        Top cards for the Analytics screen: emails sent, reply rate, meetings booked, and open rate placeholder.
+        Includes comparison vs the previous period of equal length (`vs_previous_period_*`).
+      parameters:
+        - in: query
+          name: period
+          schema:
+            type: string
+            enum: [last_7_days, last_30_days, last_month, last_90_days, this_month, custom]
+            default: last_30_days
+        - in: query
+          name: from
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: to
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Overview metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/analytics/campaign-chart:
+    get:
+      tags: [Analytics]
+      summary: Campaign reply volume chart (multi-line)
+      description: Daily reply counts per campaign for the selected date range.
+      parameters:
+        - in: query
+          name: period
+          schema:
+            type: string
+            enum: [last_7_days, last_30_days, last_month, last_90_days, this_month, custom]
+            default: last_30_days
+        - in: query
+          name: from
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: to
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Per-campaign time series
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/analytics/campaign-comparison:
+    get:
+      tags: [Analytics]
+      summary: Campaign comparison table (paginated)
+      description: |
+        Campaigns ordered by `updated_at` (newest first) with leads, emails sent, reply rate %, meetings,
+        status label, and reply sparkline (last 14 reply days). `open_rate_percent` is null until open tracking exists.
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+      responses:
+        '200':
+          description: Campaign rows with pagination
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+              example:
+                success: true
+                data:
+                  campaigns: []
+                  pagination:
+                    page: 1
+                    limit: 10
+                    total: 7
+                    totalPages: 1
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /api/analytics/sent-vs-replies:
+    get:
+      tags: [Analytics]
+      summary: Emails sent vs replies by week
+      description: Grouped bar chart data for the last N UTC weeks (default 4).
+      parameters:
+        - in: query
+          name: weeks
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 12
+            default: 4
+      responses:
+        '200':
+          description: Weekly sent and reply counts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/analytics/reply-breakdown:
+    get:
+      tags: [Analytics]
+      summary: Reply breakdown (donut / circle chart)
+      description: |
+        Four segments for a circle graph: replies received, sent awaiting reply, in pipeline, failed/skipped.
+        Percents sum to 100 over `total` in the selected period.
+      parameters:
+        - in: query
+          name: period
+          schema:
+            type: string
+            enum: [last_7_days, last_30_days, last_month, last_90_days, this_month, custom]
+            default: last_30_days
+        - in: query
+          name: from
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: to
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Breakdown segments
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+              example:
+                success: true
+                data:
+                  period: last_30_days
+                  total: 100
+                  segments:
+                    - key: replies_received
+                      label: Replies received
+                      count: 14
+                      percent: 14
+                    - key: sent_awaiting_reply
+                      label: Sent — awaiting reply
+                      count: 62
+                      percent: 62
+                    - key: in_pipeline
+                      label: In pipeline (not sent)
+                      count: 20
+                      percent: 20
+                    - key: failed_or_skipped
+                      label: Failed / skipped
+                      count: 4
+                      percent: 4
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/notifications/push/status:
+    get:
+      tags: [Notifications]
+      summary: Web push (FCM) status for current user
+      description: Whether FCM is configured on the server and how many device tokens are registered.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: fcmConfigured and registeredDevices
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/notifications/push/register:
+    post:
+      tags: [Notifications]
+      summary: Register FCM token (web push)
+      description: |
+        Call after the browser obtains an FCM registration token (Firebase JS SDK + service worker).
+        Requires server env FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY.
+        Tokens are stored regardless of notificationsEnabled. Push and live SSE are skipped when notificationsEnabled is false; notification rows are still saved.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fcmToken]
+              properties:
+                fcmToken:
+                  type: string
+                  description: FCM registration token from getToken() on the web client.
+                deviceLabel:
+                  type: string
+                  nullable: true
+                  description: Optional label (e.g. Chrome on MacBook).
+      responses:
+        '200':
+          description: Token registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '503':
+          description: FCM not configured on server
+    delete:
+      tags: [Notifications]
+      summary: Unregister FCM token
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fcmToken]
+              properties:
+                fcmToken:
+                  type: string
+      responses:
+        '200':
+          description: Token removed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/notifications:
+    get:
+      tags: [Notifications]
+      summary: List notifications
+      description: Paginated notifications for the authenticated user. Use `unread=true` for unread only.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+        - in: query
+          name: unread
+          schema:
+            type: string
+            enum: ['true', 'false', '1', '0']
+      responses:
+        '200':
+          description: Response data includes items and pagination.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/notifications/unread-count:
+    get:
+      tags: [Notifications]
+      summary: Unread notification count
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Response data includes unreadCount.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/notifications/read-all:
+    post:
+      tags: [Notifications]
+      summary: Mark all notifications as read
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Returns updated unreadCount (0).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/notifications/{id}/read:
+    patch:
+      tags: [Notifications]
+      summary: Mark one notification as read
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Response data includes notification.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/notifications/events/session:
+    post:
+      tags: [Notifications]
+      summary: Create short-lived SSE session (Bearer)
+      description: |
+        Returns `sid` (~5 min TTL) for `GET /api/notifications/events?sid=...`.
+        Use with browser `EventSource` (no Authorization header on the stream).
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Session created; `data` includes `sid`, `expiresInSec`, `eventsUrl`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/notifications/events:
+    get:
+      tags: [Notifications]
+      summary: Server-Sent Events stream for user notifications
+      description: |
+        Query `sid` from `POST /api/notifications/events/session`.
+        Initial event `notifications_snapshot` includes `unreadCount`.
+        New rows emit `notification` with full `notification` object.
+        Types created by the API include `reply_received`, `email_failed`, `meeting_booked`, `outreach_finished`.
+      security: []
+      parameters:
+        - name: sid
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: SSE stream (`text/event-stream`)
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        '401':
+          description: Invalid or expired `sid`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/dashboard/performance:
+    get:
+      tags: [Dashboard]
+      summary: Campaign performance time series (chart)
+      description: |
+        Triple-line chart data: `sent`, `replies`, and `bookings` (scheduled meetings by `start_at` from DB).
+        One row per UTC day in the selected range.
+      parameters:
+        - in: query
+          name: period
+          schema:
+            type: string
+            enum: [last_7_days, last_30_days, last_month, last_90_days, this_month, custom]
+            default: last_30_days
+        - in: query
+          name: from
+          schema:
+            type: string
+            format: date
+          description: Required when `period=custom` (YYYY-MM-DD).
+        - in: query
+          name: to
+          schema:
+            type: string
+            format: date
+          description: Required when `period=custom` (YYYY-MM-DD).
+      responses:
+        '200':
+          description: Time series for chart
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /api/dashboard/active-campaigns:
+    get:
+      tags: [Dashboard]
+      summary: Active campaigns with progress
+      description: |
+        Returns `total_running` (campaigns with `status=active`) and a paginated list with
+        `total_leads`, `sent_count`, `reply_count`, and `progress` (percent of leads sent).
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+      responses:
+        '200':
+          description: Active campaigns
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /api/dashboard/recent-activity:
+    get:
+      tags: [Dashboard]
+      summary: Recent outreach activity
+      description: |
+        Paginated feed of recent events: `email_sent`, `reply_received`, `follow_up_sent`.
+        Merged from the latest outreach actions (up to ~500 events considered per request).
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+      responses:
+        '200':
+          description: Activity feed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessPaginated'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /api/campaigns:
+    get:
+      tags: [Campaigns]
+      summary: List campaigns (paginated)
+      description: |
+        Returns a slim campaign summary per row: `id`, `name`, `goal`, `run_mode`, `target_leads`, `status`,
+        `sent_count`, `reply_rate` (0–1), and `reply_rate_percent` (0–100).
+        Reply metrics are based on `campaign_leads` with `status=sent` and `reply_received=true`.
+        Optional `search` matches campaign `name` or `goal` (case-insensitive).
+      parameters:
+        - in: query
+          name: search
+          schema:
+            type: string
+            maxLength: 200
+          description: Filter by campaign name or goal (partial match).
+        - in: query
+          name: status
+          schema:
+            $ref: '#/components/schemas/CampaignStatus'
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: Paginated campaigns
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessPaginated'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+    post:
+      tags: [Campaigns]
+      summary: Create campaign
+      description: |
+        Optional `status` defaults to `draft`. When `CAMPAIGN_ACTIVE_CREATE_AUTO_ASSIGN` is `1` or `true` and you create with `status: active` and `target_leads > 0`, the server randomly assigns up to `target_leads` from `leads_data` (respecting `lead_source`), skipping duplicates.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, goal, target_zone, call_to_action, run_mode]
+              properties:
+                name:
+                  type: string
+                  maxLength: 200
+                goal:
+                  type: string
+                  maxLength: 500
+                target_zone:
+                  type: string
+                  maxLength: 300
+                call_to_action:
+                  type: string
+                  maxLength: 200
+                run_mode:
+                  $ref: '#/components/schemas/CampaignRunMode'
+                target_tone:
+                  $ref: '#/components/schemas/CampaignTargetTone'
+                mail_training_instruction:
+                  type: string
+                  nullable: true
+                mail_template_samples:
+                  type: array
+                  maxItems: 30
+                  items:
+                    $ref: '#/components/schemas/MailTemplateSample'
+                target_leads:
+                  type: integer
+                  minimum: 0
+                  description: Optional; non-negative integer.
+                lead_source:
+                  $ref: '#/components/schemas/LeadSource'
+                sender_display_name:
+                  type: string
+                  maxLength: 120
+                  description: Optional display name for MIME From and sign-off. Falls back to `users.name` when omitted.
+                sender_address:
+                  type: string
+                  maxLength: 500
+                  description: Optional signature line in email body. Falls back to `users.address` when omitted.
+                sender_phone:
+                  type: string
+                  maxLength: 80
+                  description: Optional signature line in email body. Falls back to `users.contact` when omitted.
+                status:
+                  $ref: '#/components/schemas/CampaignStatus'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CampaignCreatedResponse'
+              example:
+                success: true
+                message: Campaign created successfully.
+                data:
+                  campaign:
+                    id: 22222222-3333-4444-5555-666666666666
+                    user_id: 11111111-2222-3333-4444-555555555555
+                    name: Q2 outbound
+                    goal: Book 10 demos
+                    target_zone: North America
+                    call_to_action: Reply for a 15-min call
+                    run_mode: manual
+                    target_tone: Professional
+                    mail_training_instruction: null
+                    mail_template_samples: []
+                    target_leads: 50
+                    lead_source: both
+                    status: draft
+                    sender_display_name: null
+                    sender_address: null
+                    sender_phone: null
+                    created_at: '2026-05-13T10:00:00.000Z'
+                    updated_at: '2026-05-13T10:00:00.000Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /api/campaigns/{id}/events/session:
+    post:
+      tags: [Campaigns]
+      summary: Create short-lived SSE session (Bearer)
+      description: |
+        Returns an opaque `sid` (~5 minute TTL in Redis) used with `GET /api/campaigns/{id}/events?sid=...`.
+        Requires Bearer JWT and campaign ownership.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Session created; `data` includes `sid`, `expiresInSec`, and `eventsUrl`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Campaign not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /api/campaigns/{id}/events:
+    get:
+      tags: [Campaigns]
+      summary: Server-Sent Events stream for campaign progress
+      description: |
+        Query `sid` from `POST .../events/session`. No Bearer header required—the `sid` binds to the owning user and campaign.
+        Initial event `campaign_progress` is a snapshot; subsequent events mirror Redis payloads (`template_started`, `template_done`, `mail_sent`, `mail_failed`, etc.).
+        Comment heartbeats (`: ping`) arrive about every 15 seconds.
+      security: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: sid
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Opaque session id from POST `/events/session`.
+      responses:
+        '200':
+          description: SSE stream (`text/event-stream`)
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        '401':
+          description: Invalid or expired `sid`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /api/campaigns/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [Campaigns]
+      summary: Get one campaign
+      responses:
+        '200':
+          description: Campaign
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CampaignGetResponse'
+              example:
+                success: true
+                data:
+                  campaign:
+                    id: 22222222-3333-4444-5555-666666666666
+                    user_id: 11111111-2222-3333-4444-555555555555
+                    name: Q2 outbound
+                    goal: Book 10 demos
+                    target_zone: North America
+                    call_to_action: Reply for a 15-min call
+                    run_mode: manual
+                    target_tone: Professional
+                    mail_training_instruction: null
+                    mail_template_samples: []
+                    target_leads: 50
+                    lead_source: both
+                    status: draft
+                    created_at: '2026-05-13T10:00:00.000Z'
+                    updated_at: '2026-05-13T10:00:00.000Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+    patch:
+      tags: [Campaigns]
+      summary: Partial update campaign
+      description: |
+        All body fields optional; when present they must satisfy the same constraints as create (non-empty strings where applicable).
+        Setting `status` to `active` when the campaign was not already active enqueues template-generation jobs for leads that are `pending` with an empty `mail_template` (see activation behavior in product docs).
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              minProperties: 1
+              properties:
+                name:
+                  type: string
+                  maxLength: 200
+                goal:
+                  type: string
+                  maxLength: 500
+                target_zone:
+                  type: string
+                  maxLength: 300
+                call_to_action:
+                  type: string
+                  maxLength: 200
+                run_mode:
+                  $ref: '#/components/schemas/CampaignRunMode'
+                target_tone:
+                  $ref: '#/components/schemas/CampaignTargetTone'
+                mail_training_instruction:
+                  type: string
+                  nullable: true
+                mail_template_samples:
+                  type: array
+                  maxItems: 30
+                  items:
+                    $ref: '#/components/schemas/MailTemplateSample'
+                target_leads:
+                  type: integer
+                  minimum: 0
+                lead_source:
+                  $ref: '#/components/schemas/LeadSource'
+                sender_display_name:
+                  type: string
+                  maxLength: 120
+                  nullable: true
+                sender_address:
+                  type: string
+                  maxLength: 500
+                  nullable: true
+                sender_phone:
+                  type: string
+                  maxLength: 80
+                  nullable: true
+                status:
+                  $ref: '#/components/schemas/CampaignStatus'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CampaignUpdateResponse'
+              example:
+                success: true
+                message: Campaign updated successfully.
+                data:
+                  campaign:
+                    id: 22222222-3333-4444-5555-666666666666
+                    user_id: 11111111-2222-3333-4444-555555555555
+                    name: Q2 outbound
+                    goal: Book 10 demos
+                    target_zone: North America
+                    call_to_action: Reply for a 15-min call
+                    run_mode: manual
+                    target_tone: Professional
+                    mail_training_instruction: null
+                    mail_template_samples: []
+                    target_leads: 50
+                    lead_source: both
+                    status: active
+                    created_at: '2026-05-13T10:00:00.000Z'
+                    updated_at: '2026-05-13T11:00:00.000Z'
+                  activation:
+                    enqueued: 12
+                    skippedDuplicate: 0
+                    skippedWrongState: 38
+                    examined: 50
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+    delete:
+      tags: [Campaigns]
+      summary: Delete campaign
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /api/campaigns/{id}/follow-ups:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [CampaignFollowUps]
+      summary: List campaign follow-ups
+      responses:
+        '200':
+          description: Ordered by waiting_days then created_at
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    required: [followUps]
+                    properties:
+                      followUps:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/CampaignFollowUp'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Campaign not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+    post:
+      tags: [CampaignFollowUps]
+      summary: Create follow-up
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, waiting_days, body_template]
+              properties:
+                name:
+                  type: string
+                  maxLength: 200
+                waiting_days:
+                  type: integer
+                  minimum: 0
+                  maximum: 3650
+                body_template:
+                  type: string
+                  maxLength: 50000
+                  example: |
+                    Subject: Quick follow-up
+
+                    Hi {{firstName}},
+
+                    Just checking in after my last note.
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, message, data]
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    required: [followUp]
+                    properties:
+                      followUp:
+                        $ref: '#/components/schemas/CampaignFollowUp'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /api/campaigns/{id}/follow-ups/{followUpId}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: followUpId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [CampaignFollowUps]
+      summary: Get one follow-up
+      responses:
+        '200':
+          description: Follow-up row
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    required: [followUp]
+                    properties:
+                      followUp:
+                        $ref: '#/components/schemas/CampaignFollowUp'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Campaign or follow-up not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+    patch:
+      tags: [CampaignFollowUps]
+      summary: Update follow-up
+      description: Include at least one of `name`, `waiting_days`, `body_template`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              minProperties: 1
+              properties:
+                name:
+                  type: string
+                  maxLength: 200
+                waiting_days:
+                  type: integer
+                  minimum: 0
+                  maximum: 3650
+                body_template:
+                  type: string
+                  nullable: true
+                  maxLength: 50000
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, message, data]
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    required: [followUp]
+                    properties:
+                      followUp:
+                        $ref: '#/components/schemas/CampaignFollowUp'
+        '400':
+          description: No fields to update
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Campaign or follow-up not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+    delete:
+      tags: [CampaignFollowUps]
+      summary: Delete follow-up
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Campaign or follow-up not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /api/campaigns/{id}/leads:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [CampaignLeads]
+      summary: List campaign leads (paginated)
+      description: |
+        Each item includes `lead_name`, `lead_email`, and `lead_company` from `leads_data`
+        (`lead_name` is `fullName`, then `firstName`, then `email`).
+      parameters:
+        - in: query
+          name: status
+          schema:
+            $ref: '#/components/schemas/CampaignLeadStatus'
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: Paginated leads
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessPaginated'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /api/campaigns/{id}/leads/bulk:
+    post:
+      tags: [CampaignLeads]
+      summary: Bulk add leads
+      description: |
+        Allowed only when campaign `status` is `active`, `paused`, or `completed` (not `draft`).
+        Use a single-item `leads` array to add one lead.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [leads]
+              properties:
+                leads:
+                  type: array
+                  minItems: 1
+                  maxItems: 500
+                  items:
+                    type: object
+                    required: [lead_data_id]
+                    properties:
+                      lead_data_id:
+                        type: string
+      responses:
+        '201':
+          description: Bulk result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '400':
+          description: Campaign is still `draft` (leads cannot be added)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /api/campaigns/{id}/leads/generate-templates:
+    post:
+      tags: [CampaignLeads]
+      summary: Generate AI mail templates for campaign leads
+      description: Optional body to target a single campaign lead row.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                campaign_lead_id:
+                  type: string
+                  format: uuid
+                  nullable: true
+      responses:
+        '200':
+          description: Generation summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /api/campaigns/{id}/leads/run:
+    post:
+      tags: [CampaignLeads]
+      summary: Start manual campaign outreach (async)
+      description: |
+        For **`run_mode: manual`** campaigns that are **`active`** only.
+        Validates the request, then starts template generation and Gmail sends **in the background**
+        and returns **202** immediately so the client is not blocked (sends use the same delay policy as `send-emails`).
+        Poll campaign leads or SSE for progress. Final counts are logged server-side only.
+        Returns **400** with `code: CAMPAIGN_NOT_MANUAL` for auto campaigns (they run via workers on bulk add).
+        Returns **400** with `code: CAMPAIGN_NOT_ACTIVE` when the campaign is not active.
+        Requires a linked Google account (`GET /api/auth/google`).
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '202':
+          description: Outreach accepted and running in the background
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+              example:
+                success: true
+                message: Campaign outreach started.
+                data:
+                  campaignId: 11111111-2222-3333-4444-555555555555
+                  status: processing
+                  leadsQueued: 12
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Campaign not found or no pending leads
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '400':
+          description: Not manual, not active, or Google not linked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /api/leads/tester:
+    post:
+      tags: [Tester]
+      summary: Tester - create a new lead
+      description: |
+        Creates a new row in `leads_data` only (no campaign attachment).
+        Useful for QA flows where testers need fresh leads and can use those emails for manual testing.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+                fullName:
+                  type: string
+                  maxLength: 200
+                  nullable: true
+                firstName:
+                  type: string
+                  maxLength: 120
+                  nullable: true
+                company:
+                  type: string
+                  maxLength: 200
+                  nullable: true
+                title:
+                  type: string
+                  maxLength: 200
+                  nullable: true
+      responses:
+        '201':
+          description: Lead created in leads_data.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /api/campaigns/{id}/leads/tester/follow-ups/run:
+    post:
+      tags: [Tester]
+      summary: Tester - run follow-ups now (optional ignore waiting days)
+      description: |
+        Executes follow-up sends for a campaign immediately for QA.
+        By default `ignoreWaitingDays=true`, so follow-ups are sent without waiting for due date.
+        Optional filters:
+        - `campaignLeadId` to target one campaign lead
+        - `followUpId` to target one follow-up definition
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ignoreWaitingDays:
+                  type: boolean
+                  default: true
+                campaignLeadId:
+                  type: string
+                  format: uuid
+                  nullable: true
+                followUpId:
+                  type: string
+                  format: uuid
+                  nullable: true
+      responses:
+        '200':
+          description: Follow-up run summary (`examined`, `sent`, `failed`, `skipped`, `results`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /api/campaigns/{id}/leads/send-emails:
+    post:
+      tags: [CampaignLeads]
+      summary: Send campaign emails (Gmail)
+      description: |
+        Campaign must be **`active`**; otherwise **400** with `code: CAMPAIGN_NOT_ACTIVE`.
+        Optional `campaign_lead_id` scopes to one lead. Optional `access_token` overrides the user's stored Google token.
+        Rate limits and daily caps apply server-side.
+        Between each send the server waits a random interval between **`MAIL_DELAY_MIN_MS`** and **`MAIL_DELAY_MAX_MS`** (defaults 3–5 minutes), same policy as the BullMQ mail worker.
+        On Google auth failures, the JSON summary may include **`googleError`** (`code` + message) without exposing tokens.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                campaign_lead_id:
+                  type: string
+                  format: uuid
+                  nullable: true
+                access_token:
+                  type: string
+                  nullable: true
+      responses:
+        '200':
+          description: Send summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CampaignSendEmailsResponse'
+              example:
+                success: true
+                message: 2 email(s) sent, 0 failed, 0 skipped.
+                data:
+                  sent: 2
+                  failed: 0
+                  skipped: 0
+                  tokensRefreshed: 1
+                  total: 2
+                  dailyLimitReached: false
+                  alreadySentToday: 0
+                  totalSentToday: 2
+                  dailyLimit: 500
+                  results:
+                    - campaignLeadId: 33333333-4444-5555-6666-777777777777
+                      status: sent
+                      to: lead@example.com
+                      subject: Hello
+                      messageId: msg_abc123
+                    - campaignLeadId: 44444444-5555-6666-7777-888888888888
+                      status: sent
+                      to: other@example.com
+                      subject: Hello
+                      messageId: msg_def456
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /api/campaigns/{id}/leads/{leadId}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: leadId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    patch:
+      tags: [CampaignLeads]
+      summary: Update a campaign lead
+      description: All fields optional; include at least one property to change. `sent_at` must be ISO 8601 if provided.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              minProperties: 1
+              properties:
+                status:
+                  $ref: '#/components/schemas/CampaignLeadStatus'
+                sent_at:
+                  type: string
+                  format: date-time
+                  nullable: true
+                mail_template:
+                  type: string
+                  nullable: true
+                  maxLength: 50000
+                error_message:
+                  type: string
+                  nullable: true
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+    delete:
+      tags: [CampaignLeads]
+      summary: Remove lead from campaign
+      responses:
+        '200':
+          description: Removed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /api/leads:
+    get:
+      tags: [LeadsData]
+      summary: List leads_data with filters and pagination
+      parameters:
+        - in: query
+          name: search
+          schema:
+            type: string
+            maxLength: 200
+        - in: query
+          name: emailStatus
+          schema:
+            type: string
+        - in: query
+          name: country
+          schema:
+            type: string
+        - in: query
+          name: state
+          schema:
+            type: string
+        - in: query
+          name: city
+          schema:
+            type: string
+        - in: query
+          name: industry
+          schema:
+            type: string
+        - in: query
+          name: seniority
+          schema:
+            type: string
+        - in: query
+          name: department
+          schema:
+            type: string
+        - in: query
+          name: company
+          schema:
+            type: string
+        - in: query
+          name: outreachStatus
+          schema:
+            type: string
+        - in: query
+          name: fitTag
+          schema:
+            type: string
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+        - in: query
+          name: sortBy
+          schema:
+            $ref: '#/components/schemas/LeadsSortBy'
+        - in: query
+          name: sortOrder
+          schema:
+            $ref: '#/components/schemas/SortOrder'
+      responses:
+        '200':
+          description: Paginated leads
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessPaginated'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /api/leads/{id}:
+    get:
+      tags: [LeadsData]
+      summary: Get one lead by numeric id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Lead
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /api/billing/plans:
+    get:
+      tags: [Billing]
+      summary: List billing plans
+      security: []
+      responses:
+        '200':
+          description: Active plans with limits and pricing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /api/billing/subscription:
+    get:
+      tags: [Billing]
+      summary: Current user subscription
+      responses:
+        '200':
+          description: Plan, status, period end, limits
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/billing/quota:
+    get:
+      tags: [Billing]
+      summary: Current plan quota and usage
+      description: |
+        Returns limit, used, and available counts for campaigns, leads per campaign, and daily emails sent today.
+      responses:
+        '200':
+          description: Quota usage for the authenticated user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+              example:
+                success: true
+                data:
+                  quota:
+                    plan:
+                      id: starter
+                      name: Starter
+                    campaigns:
+                      limit: 5
+                      used: 2
+                      available: 3
+                    leadsPerCampaign:
+                      limit: 100
+                      campaigns:
+                        - campaignId: 11111111-2222-3333-4444-555555555555
+                          campaignName: Q1 Outreach
+                          limit: 100
+                          used: 42
+                          available: 58
+                    dailyEmails:
+                      limit: 500
+                      used: 12
+                      available: 488
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/billing/checkout:
+    post:
+      tags: [Billing]
+      summary: Start Stripe Checkout for Growth or Pro
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [planId]
+              properties:
+                planId:
+                  type: string
+                  enum: [growth, pro]
+      responses:
+        '200':
+          description: checkoutUrl and sessionId
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/billing/portal:
+    post:
+      tags: [Billing]
+      summary: Stripe Customer Portal session
+      responses:
+        '200':
+          description: portalUrl
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/billing/upgrade:
+    post:
+      tags: [Billing]
+      summary: Upgrade plan (or checkout if on Starter)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [planId]
+              properties:
+                planId:
+                  type: string
+                  enum: [starter, growth, pro]
+      responses:
+        '200':
+          description: Upgrade result or checkout session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/billing/downgrade:
+    post:
+      tags: [Billing]
+      summary: Downgrade plan (applies at period end for paid tiers; Starter cancels)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [planId]
+              properties:
+                planId:
+                  type: string
+                  enum: [starter, growth, pro]
+      responses:
+        '200':
+          description: Downgrade initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/billing/cancel:
+    post:
+      tags: [Billing]
+      summary: Cancel paid subscription at period end
+      responses:
+        '200':
+          description: cancelAtPeriodEnd true
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/billing/reactivate:
+    post:
+      tags: [Billing]
+      summary: Undo scheduled cancellation
+      responses:
+        '200':
+          description: Subscription reactivated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/billing/payment-methods:
+    get:
+      tags: [Billing]
+      summary: List saved cards
+      responses:
+        '200':
+          description: paymentMethods array (brand, last4, exp, isDefault)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/billing/payment-methods/default:
+    post:
+      tags: [Billing]
+      summary: Set default payment method
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [paymentMethodId]
+              properties:
+                paymentMethodId:
+                  type: string
+                  example: pm_123
+      responses:
+        '200':
+          description: Updated payment methods list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/billing/payment-methods/{paymentMethodId}:
+    delete:
+      tags: [Billing]
+      summary: Remove a saved card
+      parameters:
+        - name: paymentMethodId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Payment method detached
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/billing/webhooks/stripe:
+    post:
+      tags: [Billing]
+      summary: Stripe webhook (raw body, no Bearer)
+      security: []
+      description: Verified via stripe-signature header. Use Stripe CLI for local testing.
+      responses:
+        '200':
+          description: Event processed or duplicate ignored
+        '400':
+          description: Invalid signature

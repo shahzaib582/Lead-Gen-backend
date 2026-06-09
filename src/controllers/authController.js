@@ -1,225 +1,281 @@
-const { validationResult } = require('express-validator');
-const userService          = require('../services/userService');
-const otpService           = require('../services/otpService');
-const emailService         = require('../services/emailService');
-const {
-  generateAccessToken,
-  generateRefreshToken,
-  signToken,                  // legacy alias
-} = require('../utils/jwt');
-const refreshTokenService  = require('../services/refreshTokenService');
-const AppError             = require('../utils/AppError');
-const logger               = require('../utils/logger');
+const userService = require('../services/userService');
+const otpService = require('../services/otpService');
+const emailService = require('../services/emailService');
+const { issueTokenPair } = require('../services/authTokenService');
+const refreshTokenService = require('../services/refreshTokenService');
+const AppError = require('../utils/AppError');
+const logger = require('../utils/logger');
+const { successResponse } = require('../utils/response');
+const { toPublicUser } = require('../utils/userPublic');
 
-// ─── Helper ───────────────────────────────────────────────────────────────────
-
-function handleValidationErrors(req) {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    const messages = errors.array().map((e) => e.msg).join(', ');
-    throw new AppError(messages, 422);
-  }
+function logEmailFailure(label, email, err) {
+  logger.error(label, {
+    email,
+    error: err?.message || String(err),
+    code: err?.code,
+    response: err?.response,
+  });
 }
 
-/**
- * Issue a fresh access + refresh token pair for a user and save the refresh
- * token to the database.
- */
-async function issueTokenPair(user) {
-  const accessToken  = generateAccessToken(user);
-  const rawRefresh   = generateRefreshToken();
-  await refreshTokenService.saveRefreshToken(user.id, rawRefresh);
-  return { accessToken, refreshToken: rawRefresh };
+/** Fire-and-forget; always attach .catch so Brevo OTP send failures do not become unhandledRejection. */
+function sendOtpEmailInBackground(email, otp) {
+  void emailService
+    .sendOtpEmail(email, otp)
+    .catch((err) => logEmailFailure('sendOtpEmail failed', email, err));
 }
 
-// ─── Signup ───────────────────────────────────────────────────────────────────
+function sendPasswordResetOtpEmailInBackground(email, otp) {
+  void emailService
+    .sendPasswordResetOtpEmail(email, otp)
+    .catch((err) => logEmailFailure('sendPasswordResetOtpEmail failed', email, err));
+}
 
 async function signup(req, res, next) {
   try {
-    handleValidationErrors(req);
-    const { email, password } = req.body;
+    const { email, password, name, address, contact } = req.body;
 
-    const user = await userService.createUser(email, password);
-    const otp  = await otpService.createOtp(user.id, user.email);
-    await emailService.sendOtpEmail(user.email, otp);
-
-    logger.info('User signed up', { userId: user.id, email: user.email });
-
-    return res.status(201).json({
-      success: true,
-      message: 'Account created. Check your email for your 6-digit verification code.',
-      data: { userId: user.id },
+    const user = await userService.createUser(email, password, {
+      name,
+      address,
+      contact,
     });
+    const otp = await otpService.createOtp(
+      user.id,
+      user.email,
+      otpService.OTP_PURPOSE_EMAIL_VERIFY
+    );
+    sendOtpEmailInBackground(user.email, otp);
+
+    return successResponse(
+      res,
+      201,
+      'Account created. Check your email for your 6-digit verification code.',
+      { email: user.email }
+    );
   } catch (err) {
     next(err);
   }
 }
-
-// ─── Verify OTP ───────────────────────────────────────────────────────────────
 
 async function verifyOtp(req, res, next) {
   try {
-    handleValidationErrors(req);
-    const { userId, otp } = req.body;
+    const { email, otp } = req.body;
 
-    const user = await userService.findUserById(userId);
-    if (!user)             throw new AppError('User not found.', 404);
-    if (user.is_verified)  throw new AppError('Email is already verified.', 400);
+    const user = await userService.findUserByEmailIncludingDeleted(email);
+    if (!user) throw new AppError('User not found.', 404);
+    userService.assertUserActive(user);
+    if (user.is_verified) throw new AppError('Email is already verified.', 400);
 
-    await otpService.verifyOtp(userId, otp);
-    await userService.markUserVerified(userId);
+    await otpService.verifyOtp(user.id, otp);
+    await userService.markUserVerified(user.id);
 
-    const { accessToken, refreshToken } = await issueTokenPair(user);
+    const freshUser = await userService.findUserById(user.id);
+    const { accessToken, refreshToken } = await issueTokenPair(freshUser);
 
-    logger.info('User verified email', { userId });
-
-    return res.status(200).json({
-      success: true,
-      message: 'Email verified successfully.',
-      data: { accessToken, refreshToken },
+    return successResponse(res, 200, 'Email verified successfully.', {
+      accessToken,
+      refreshToken,
+      user: toPublicUser(freshUser),
     });
   } catch (err) {
     next(err);
   }
 }
 
-// ─── Login ────────────────────────────────────────────────────────────────────
-
 async function login(req, res, next) {
   try {
-    handleValidationErrors(req);
     const { email, password } = req.body;
     const INVALID_MSG = 'Invalid email or password.';
 
-    const user = await userService.findUserByEmail(email);
+    const anyUser = await userService.findUserByEmailIncludingDeleted(email);
+    if (anyUser && userService.isUserDeleted(anyUser)) {
+      userService.assertUserActive(anyUser);
+    }
+
+    const user =
+      anyUser && !userService.isUserDeleted(anyUser) ? anyUser : null;
     const dummyHash = '$2a$12$invalidhashfortimingprotectiononly000000000000000000000';
     const passwordMatch = user
       ? await userService.checkPassword(password, user.password_hash)
       : await userService.checkPassword(password, dummyHash).catch(() => false);
 
     if (!user || !passwordMatch) throw new AppError(INVALID_MSG, 401);
+
     if (!user.is_verified) {
-      throw new AppError('Email not verified. Please verify your email before logging in.', 403);
+      const hasCode = await otpService.hasActiveOtp(
+        user.id,
+        otpService.OTP_PURPOSE_EMAIL_VERIFY
+      );
+      if (!hasCode) {
+        const otp = await otpService.createOtp(
+          user.id,
+          user.email,
+          otpService.OTP_PURPOSE_EMAIL_VERIFY
+        );
+        sendOtpEmailInBackground(user.email, otp);
+      }
+      throw new AppError(
+        hasCode
+          ? 'Email not verified. Check your inbox for the verification code.'
+          : 'Email not verified. A new verification code has been sent to your email.',
+        403,
+        'EMAIL_NOT_VERIFIED'
+      );
     }
 
     const { accessToken, refreshToken } = await issueTokenPair(user);
 
-    logger.info('User logged in', { userId: user.id });
-
-    return res.status(200).json({
-      success: true,
-      message: 'Login successful.',
-      data: {
-        accessToken,
-        refreshToken,
-        user: {
-          id:         user.id,
-          email:      user.email,
-          isVerified: user.is_verified,
-          createdAt:  user.created_at,
-        },
-      },
+    return successResponse(res, 200, 'Login successful.', {
+      accessToken,
+      refreshToken,
+      user: toPublicUser(user),
     });
   } catch (err) {
     next(err);
   }
 }
 
-// ─── Refresh Token ────────────────────────────────────────────────────────────
-
-/**
- * POST /auth/refresh
- * Body: { refreshToken }
- *
- * Token rotation: the old refresh token is deleted and a brand-new pair is issued.
- * This limits the window for replay attacks.
- */
 async function refreshTokens(req, res, next) {
   try {
     const { refreshToken } = req.body;
     if (!refreshToken) throw new AppError('Refresh token is required.', 400);
 
-    // Validate and fetch DB record
     const record = await refreshTokenService.validateRefreshToken(refreshToken);
 
-    // Fetch user
     const user = await userService.findUserById(record.user_id);
     if (!user) throw new AppError('User not found.', 401);
+    userService.assertUserActive(user);
 
-    // Rotate: delete old refresh token, issue new pair
     await refreshTokenService.deleteRefreshToken(record.id);
     const { accessToken, refreshToken: newRefreshToken } = await issueTokenPair(user);
 
-    logger.info('Tokens refreshed', { userId: user.id });
-
-    return res.status(200).json({
-      success: true,
-      message: 'Tokens refreshed successfully.',
-      data: { accessToken, refreshToken: newRefreshToken },
+    return successResponse(res, 200, 'Tokens refreshed successfully.', {
+      accessToken,
+      refreshToken: newRefreshToken,
     });
   } catch (err) {
     next(err);
   }
 }
 
-// ─── Logout ───────────────────────────────────────────────────────────────────
-
-/**
- * POST /auth/logout
- * Body: { refreshToken }
- * Header: Authorization: Bearer <accessToken>
- */
 async function logout(req, res, next) {
   try {
     const { refreshToken } = req.body;
     if (refreshToken) {
       await refreshTokenService.revokeRefreshToken(refreshToken);
     }
-    logger.info('User logged out', { userId: req.user?.id });
-    return res.status(200).json({ success: true, message: 'Logged out successfully.' });
+    return successResponse(res, 200, 'Logged out successfully.', undefined);
   } catch (err) {
     next(err);
   }
 }
 
-/**
- * POST /auth/logout-all
- * Header: Authorization: Bearer <accessToken>
- * Revoke ALL refresh tokens for the authenticated user.
- */
 async function logoutAll(req, res, next) {
   try {
     await refreshTokenService.revokeAllUserRefreshTokens(req.user.id);
-    logger.info('User logged out from all devices', { userId: req.user.id });
-    return res.status(200).json({ success: true, message: 'Logged out from all devices.' });
+    return successResponse(res, 200, 'Logged out from all devices.', undefined);
   } catch (err) {
     next(err);
   }
 }
 
-// ─── Resend OTP ───────────────────────────────────────────────────────────────
+// Password reset OTP only — resend by calling this again; purpose is server-side, not in request body.
+async function forgotPassword(req, res, next) {
+  try {
+    const { email } = req.body;
 
+    const user = await userService.findUserByEmail(email);
+    if (!user) {
+      throw new AppError('No account found with this email.', 404);
+    }
+
+    if (!user.password_hash) {
+      throw new AppError(
+        'This account uses Google sign-in only. Sign in with Google or contact support.',
+        400,
+        'GOOGLE_AUTH_ONLY'
+      );
+    }
+
+    const otp = await otpService.createOtp(
+      user.id,
+      user.email,
+      otpService.OTP_PURPOSE_PASSWORD_RESET
+    );
+    sendPasswordResetOtpEmailInBackground(user.email, otp);
+
+    return successResponse(res, 200, 'A password reset OTP has been sent to your email.', undefined);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function resetPassword(req, res, next) {
+  try {
+    const { email, otp, password } = req.body;
+
+    const user = await userService.findUserByEmailIncludingDeleted(email);
+    if (!user?.password_hash) {
+      throw new AppError('Invalid or expired verification code.', 400);
+    }
+    userService.assertUserActive(user);
+
+    const otpId = await otpService.verifyOtp(
+      user.id,
+      otp,
+      otpService.OTP_PURPOSE_PASSWORD_RESET,
+      { consume: false }
+    );
+    await userService.assertNewPasswordDiffersFromCurrent(password, user.password_hash);
+    await userService.updatePassword(user.id, password);
+    await otpService.consumeOtp(otpId);
+    if (!user.is_verified) {
+      await userService.markUserVerified(user.id);
+    }
+    await refreshTokenService.revokeAllUserRefreshTokens(user.id);
+
+    return successResponse(res, 200, 'Password updated successfully.', undefined);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Email verification only — password reset resend uses POST /auth/forgot-password (no purpose in body).
 async function resendOtp(req, res, next) {
   try {
-    handleValidationErrors(req);
-    const { userId } = req.body;
+    const { email } = req.body;
 
-    const user = await userService.findUserById(userId);
-    if (!user)            throw new AppError('User not found.', 404);
+    const user = await userService.findUserByEmailIncludingDeleted(email);
+    if (!user) throw new AppError('User not found.', 404);
+    userService.assertUserActive(user);
     if (user.is_verified) throw new AppError('Email is already verified.', 400);
 
-    const otp = await otpService.createOtp(user.id, user.email);
-    await emailService.sendOtpEmail(user.email, otp);
+    const otp = await otpService.createOtp(
+      user.id,
+      user.email,
+      otpService.OTP_PURPOSE_EMAIL_VERIFY
+    );
+    sendOtpEmailInBackground(user.email, otp);
 
-    logger.info('OTP resent', { userId });
-
-    return res.status(200).json({
-      success: true,
-      message: 'A new verification code has been sent to your email.',
-    });
+    return successResponse(
+      res,
+      200,
+      'A new verification code has been sent to your email.',
+      undefined
+    );
   } catch (err) {
     next(err);
   }
 }
 
-module.exports = { signup, verifyOtp, login, refreshTokens, logout, logoutAll, resendOtp };
+module.exports = {
+  signup,
+  verifyOtp,
+  login,
+  forgotPassword,
+  resetPassword,
+  refreshTokens,
+  logout,
+  logoutAll,
+  resendOtp,
+};

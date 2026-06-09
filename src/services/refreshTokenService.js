@@ -1,6 +1,6 @@
-const supabase  = require('../config/supabase');
+const supabase = require('../config/supabase');
 const { hashRefreshToken, refreshTokenExpiry } = require('../utils/jwt');
-const AppError  = require('../utils/AppError');
+const AppError = require('../utils/AppError');
 
 /**
  * Persist a new refresh token in the database.
@@ -32,7 +32,7 @@ async function validateRefreshToken(rawToken) {
     .single();
 
   if (error || !data) throw new AppError('Invalid refresh token.', 401);
-  if (data.revoked)   throw new AppError('Refresh token has been revoked.', 401);
+  if (data.revoked) throw new AppError('Refresh token has been revoked.', 401);
   if (new Date(data.expires_at) < new Date()) {
     throw new AppError('Refresh token has expired. Please log in again.', 401);
   }

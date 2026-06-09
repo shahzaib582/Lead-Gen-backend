@@ -1,4 +1,5 @@
 const logger = require('../utils/logger');
+const { errorResponse } = require('../utils/response');
 
 /**
  * Express global error handler.
@@ -8,12 +9,23 @@ const logger = require('../utils/logger');
 function errorHandler(err, req, res, next) {
   const isProduction = process.env.NODE_ENV === 'production';
 
+  if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+    return errorResponse(res, 400, 'Invalid JSON in request body.');
+  }
+
+  if (err.type === 'entity.parse.failed') {
+    return errorResponse(res, 400, 'Invalid JSON in request body.');
+  }
+
+  if (err.type === 'entity.too.large') {
+    return errorResponse(res, 413, 'Request body is too large.');
+  }
+
   // Operational errors: safe to expose message
   if (err.isOperational) {
-    return res.status(err.statusCode).json({
-      success: false,
-      message: err.message,
-    });
+    const extras = {};
+    if (err.code) extras.code = err.code;
+    return errorResponse(res, err.statusCode, err.message, extras);
   }
 
   // Programmer / unknown errors: log the full stack, return generic message
@@ -24,13 +36,9 @@ function errorHandler(err, req, res, next) {
     method: req.method,
   });
 
-  return res.status(500).json({
-    success: false,
-    message: isProduction
-      ? 'Something went wrong. Please try again later.'
-      : err.message,
-    ...(isProduction ? {} : { stack: err.stack }),
-  });
+  const message = isProduction ? 'Something went wrong. Please try again later.' : err.message;
+  const extras = isProduction ? {} : { stack: err.stack };
+  return errorResponse(res, 500, message, extras);
 }
 
 module.exports = errorHandler;

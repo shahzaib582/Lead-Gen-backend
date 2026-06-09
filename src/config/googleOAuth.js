@@ -8,7 +8,7 @@ function createOAuthClient() {
   return new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
-    process.env.GOOGLE_REDIRECT_URI  // e.g. http://localhost:3000/auth/google/callback
+    process.env.GOOGLE_REDIRECT_URI // e.g. http://localhost:3000/api/auth/google/callback
   );
 }
 
@@ -19,6 +19,9 @@ function createOAuthClient() {
  *  - profile        → display name, avatar
  *  - gmail.send     → send emails on behalf of the user (mail permission)
  *  - gmail.readonly → read inbox / labels (optional — remove if not needed)
+ *  - calendar.events → create/update Lead Gen meetings on Google Calendar
+ *  - calendar.events.readonly → read calendar link status
+ *  - gmail.compose → create thank-you drafts (not auto-send)
  */
 const GOOGLE_SCOPES = [
   'openid',
@@ -26,6 +29,9 @@ const GOOGLE_SCOPES = [
   'profile',
   'https://www.googleapis.com/auth/gmail.send',
   'https://www.googleapis.com/auth/gmail.readonly',
+  'https://www.googleapis.com/auth/gmail.compose',
+  'https://www.googleapis.com/auth/calendar.events',
+  'https://www.googleapis.com/auth/calendar.events.readonly',
 ];
 
 /**
