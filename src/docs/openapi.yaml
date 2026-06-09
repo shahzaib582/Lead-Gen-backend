@@ -1,16 +1,16 @@
 # maintain this file when routes or response shapes change.
 openapi: 3.0.3
 info:
-  title: Lead Gen API
-  description: Lead Gen API is a RESTful API for managing leads and campaigns.
+  title: Rapid AI API
+  description: Rapid AI API is a RESTful API for managing leads and campaigns.
   version: 1.0.0
   contact:
-    name: Lead Gen API
+    name: Rapid AI API
 
 servers:
   - url: http://localhost:3000
     description: Local development
-  - url: https://leadgen-api-xct7.onrender.com
+  - url: https://api.rapidai2x.com
     description: Production (Render)
 
 tags:
