@@ -3425,15 +3425,33 @@ paths:
     post:
       tags: [Billing]
       summary: Stripe Customer Portal session
+      description: |
+        Creates a short-lived Stripe Customer Portal URL. **Important:** the frontend must open
+        `data.url` (or `data.portalUrl`) with a full browser navigation such as
+        `window.location.assign(url)`. Do **not** POST or fetch the Stripe URL with axios/fetch —
+        that causes Stripe `invalid_request_error` / `Unrecognized request URL (POST: /ajax/client_init_timeout)`.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                returnPath:
+                  type: string
+                  example: /settings/billing
+                  description: Path on the frontend app for Stripe return_url (must start with /).
       responses:
         '200':
-          description: portalUrl
+          description: Portal session URL (`url` and `portalUrl` are the same Stripe-hosted link)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '503':
+          description: Stripe portal not configured or invalid return URL
 
   /api/billing/upgrade:
     post:

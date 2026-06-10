@@ -41,8 +41,13 @@ async function checkout(req, res, next) {
 
 async function portal(req, res, next) {
   try {
-    const result = await billingService.createPortalSession(req.user.id);
-    return successResponse(res, 200, 'Billing portal session created.', result);
+    const returnPath = req.body?.returnPath;
+    const result = await billingService.createPortalSession(req.user.id, { returnPath });
+    return successResponse(res, 200, 'Billing portal session created.', {
+      ...result,
+      redirectHint:
+        'Open the returned url with a full browser navigation (window.location.assign). Do not POST or fetch the Stripe URL.',
+    });
   } catch (err) {
     next(err);
   }

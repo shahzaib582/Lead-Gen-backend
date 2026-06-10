@@ -29,7 +29,23 @@ function requireStripe() {
 
 function getFrontendUrl() {
   const raw = process.env.FRONTEND_URL || process.env.CORS_ORIGIN || 'http://localhost:8080';
-  return String(raw).split(',')[0].trim() || 'http://localhost:8080';
+  const first = String(raw).split(',')[0].trim() || 'http://localhost:8080';
+  return first.replace(/\/$/, '');
+}
+
+/** Safe billing return URL on the app frontend (Stripe Customer Portal return_url). */
+function buildBillingReturnUrl(returnPath = '/billing') {
+  const base = getFrontendUrl();
+  const path = String(returnPath || '/billing').trim();
+  if (!path.startsWith('/') || path.startsWith('//')) {
+    return `${base}/billing`;
+  }
+  return `${base}${path}`;
+}
+
+function getBillingPortalConfigurationId() {
+  const id = process.env.STRIPE_BILLING_PORTAL_CONFIGURATION_ID;
+  return id && String(id).trim() ? String(id).trim() : null;
 }
 
 module.exports = {
@@ -37,4 +53,6 @@ module.exports = {
   requireStripe,
   isStripeConfigured,
   getFrontendUrl,
+  buildBillingReturnUrl,
+  getBillingPortalConfigurationId,
 };

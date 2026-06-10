@@ -8,6 +8,7 @@ const {
   changePlanValidation,
   defaultPaymentMethodValidation,
   paymentMethodIdParam,
+  portalValidation,
 } = require('../validation/billingRoutesValidation');
 
 const router = express.Router();
@@ -20,7 +21,7 @@ router.use(campaignLimiter);
 router.get('/subscription', billingController.getSubscription);
 router.get('/quota', billingController.getQuota);
 router.post('/checkout', checkoutValidation, validateRequest, billingController.checkout);
-router.post('/portal', billingController.portal);
+router.post('/portal', portalValidation, validateRequest, billingController.portal);
 router.post('/upgrade', changePlanValidation, validateRequest, billingController.upgrade);
 router.post('/downgrade', changePlanValidation, validateRequest, billingController.downgrade);
 router.post('/cancel', billingController.cancel);

@@ -1,6 +1,10 @@
 const supabase = require('../config/supabase');
 const AppError = require('../utils/AppError');
-const { requireStripe, getFrontendUrl } = require('../config/stripe');
+const {
+  requireStripe,
+  buildBillingReturnUrl,
+  getBillingPortalConfigurationId,
+} = require('../config/stripe');
 const { toPublicPlan, toPublicSubscription, toPublicPaymentMethod } = require('../utils/billingPublic');
 const { isUpgrade, isDowngrade, isPaidPlan } = require('../utils/billingPlanOrder');
 const stripeCustomerService = require('./stripeCustomerService');
@@ -63,14 +67,13 @@ async function createCheckoutSession(userId, planId) {
 
   const stripe = requireStripe();
   const customerId = await stripeCustomerService.ensureStripeCustomer(userId);
-  const frontend = getFrontendUrl();
 
   const session = await stripe.checkout.sessions.create({
     mode: 'subscription',
     customer: customerId,
     line_items: [{ price: plan.stripe_price_id, quantity: 1 }],
-    success_url: `${frontend}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${frontend}/billing/cancel`,
+    success_url: `${buildBillingReturnUrl('/billing/success')}?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: buildBillingReturnUrl('/billing/cancel'),
     metadata: {
       userId: String(userId),
       planId: String(planId),
@@ -83,21 +86,56 @@ async function createCheckoutSession(userId, planId) {
     },
   });
 
-  return { checkoutUrl: session.url, sessionId: session.id };
+  return { url: session.url, checkoutUrl: session.url, sessionId: session.id };
 }
 
-async function createPortalSession(userId) {
+function mapStripePortalError(err) {
+  const message = err?.message || 'Failed to create billing portal session.';
+  if (/no configuration provided and default.*has been created/i.test(message)) {
+    return new AppError(
+      'Stripe Customer Portal is not configured. Enable it in Stripe Dashboard → Settings → Billing → Customer portal.',
+      503,
+      'STRIPE_PORTAL_NOT_CONFIGURED'
+    );
+  }
+  if (/invalid.*return_url/i.test(message)) {
+    return new AppError(
+      'Billing portal return URL is invalid. Set FRONTEND_URL to your app origin (e.g. https://rapidai2x.com).',
+      503,
+      'STRIPE_PORTAL_RETURN_URL_INVALID'
+    );
+  }
+  return new AppError(message, err?.statusCode || 502, err?.code || 'STRIPE_PORTAL_ERROR');
+}
+
+async function createPortalSession(userId, { returnPath } = {}) {
   await assertBillingUser(userId);
   const stripe = requireStripe();
   const customerId = await stripeCustomerService.ensureStripeCustomer(userId);
-  const frontend = getFrontendUrl();
+  const returnUrl = buildBillingReturnUrl(returnPath);
 
-  const session = await stripe.billingPortal.sessions.create({
+  const payload = {
     customer: customerId,
-    return_url: `${frontend}/billing`,
-  });
+    return_url: returnUrl,
+  };
 
-  return { portalUrl: session.url };
+  const configurationId = getBillingPortalConfigurationId();
+  if (configurationId) {
+    payload.configuration = configurationId;
+  }
+
+  let session;
+  try {
+    session = await stripe.billingPortal.sessions.create(payload);
+  } catch (err) {
+    throw mapStripePortalError(err);
+  }
+
+  return {
+    url: session.url,
+    portalUrl: session.url,
+    returnUrl,
+  };
 }
 
 async function getStripeSubscriptionForUser(userId) {
