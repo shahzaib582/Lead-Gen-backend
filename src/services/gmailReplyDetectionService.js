@@ -12,7 +12,7 @@ const REPLY_SCAN_SELECT =
  * Check Gmail threads for lead replies and set campaign_leads.reply_received.
  * @returns {Promise<{ scanned: number, marked: number, errors: number }>}
  */
-async function syncReplyFlagsForUser(userId) {
+async function syncReplyFlagsForUser(userId, { campaignId } = {}) {
   const summary = { scanned: 0, marked: 0, errors: 0 };
 
   let accessToken;
@@ -32,13 +32,19 @@ async function syncReplyFlagsForUser(userId) {
   const userEmail = googleAcct?.email ? String(googleAcct.email).trim() : null;
   if (!userEmail) return summary;
 
-  const { data: leads, error } = await supabase
+  let leadQuery = supabase
     .from('campaign_leads')
     .select(REPLY_SCAN_SELECT)
     .eq('user_id', userId)
     .eq('status', 'sent')
     .eq('reply_received', false)
     .not('gmail_thread_id', 'is', null);
+
+  if (campaignId) {
+    leadQuery = leadQuery.eq('campaign_id', campaignId);
+  }
+
+  const { data: leads, error } = await leadQuery;
 
   if (error) {
     logger.error('[ReplyDetection] Failed to load leads', { userId, error: error.message });
@@ -117,20 +123,24 @@ async function syncReplyFlagsForUser(userId) {
 }
 
 /**
- * Sync replies for all users with active campaigns that have follow-up definitions.
+ * Sync replies for every user with sent leads awaiting reply detection.
  */
 async function syncReplyFlagsBeforeFollowUps() {
-  const { data: campaigns, error } = await supabase
-    .from('campaigns')
+  const { data: rows, error } = await supabase
+    .from('campaign_leads')
     .select('user_id')
-    .eq('status', 'active');
+    .eq('status', 'sent')
+    .eq('reply_received', false)
+    .not('gmail_thread_id', 'is', null);
 
   if (error) {
-    logger.error('[ReplyDetection] Failed to load active campaigns', { error: error.message });
+    logger.error('[ReplyDetection] Failed to load leads pending reply scan', {
+      error: error.message,
+    });
     return { users: 0, scanned: 0, marked: 0, errors: 0 };
   }
 
-  const userIds = [...new Set((campaigns || []).map((c) => c.user_id))];
+  const userIds = [...new Set((rows || []).map((r) => r.user_id))];
   const totals = { users: userIds.length, scanned: 0, marked: 0, errors: 0 };
 
   for (const userId of userIds) {
@@ -147,7 +157,14 @@ async function syncReplyFlagsBeforeFollowUps() {
   return totals;
 }
 
+function scheduleReplySyncForUser(userId, options = {}) {
+  void syncReplyFlagsForUser(userId, options).catch((err) => {
+    logger.warn('[ReplyDetection] Background sync failed', { userId, error: err.message });
+  });
+}
+
 module.exports = {
   syncReplyFlagsForUser,
   syncReplyFlagsBeforeFollowUps,
+  scheduleReplySyncForUser,
 };

@@ -8,6 +8,7 @@ const swaggerUi = require('swagger-ui-express');
 const YAML = require('yamljs');
 const apiRoutes = require('./routes/index');
 const billingWebhookRoutes = require('./routes/billingWebhookRoutes');
+const trackingRoutes = require('./routes/trackingRoutes');
 const errorHandler = require('./middleware/errorHandler');
 const responseTime = require('./middleware/responseTime');
 const { errorResponse, successResponse } = require('./utils/response');
@@ -107,6 +108,9 @@ const swaggerUiOptions = {
 };
 
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(null, swaggerUiOptions));
+
+// Open-tracking pixel (no auth; excluded from global API rate limit)
+app.use('/api/tracking', trackingRoutes);
 
 app.use(globalLimiter);
 

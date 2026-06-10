@@ -195,6 +195,11 @@ async function runManualCampaignOutreach(userId, campaignId) {
     ...(await getCampaignProgressSnapshot(userId, campaignId)),
   });
 
+  if (summary.sent > 0) {
+    const { scheduleReplySyncForUser } = require('./gmailReplyDetectionService');
+    scheduleReplySyncForUser(userId, { campaignId });
+  }
+
   return summary;
 }
 

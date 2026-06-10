@@ -228,6 +228,9 @@ CREATE TABLE IF NOT EXISTS campaign_leads (
   gmail_rfc_message_id  TEXT,
   reply_received        BOOLEAN     NOT NULL DEFAULT false,
   reply_received_at     TIMESTAMPTZ,
+  email_opened          BOOLEAN     NOT NULL DEFAULT false,
+  email_opened_at       TIMESTAMPTZ,
+  open_tracking_token   TEXT,
   thank_you_draft_gmail_id TEXT,
   thank_you_draft_created_at TIMESTAMPTZ,
 

@@ -1,4 +1,6 @@
 const campaignLeadsService = require('../services/campaignLeadsService');
+const { syncReplyFlagsForUser } = require('../services/gmailReplyDetectionService');
+const supabase = require('../config/supabase');
 const AppError = require('../utils/AppError');
 const { successResponse, successResponsePaginated } = require('../utils/response');
 
@@ -123,9 +125,36 @@ async function removeLead(req, res, next) {
   }
 }
 
+// ─── POST /campaigns/:id/leads/sync-replies ───────────────────────────────────
+// Scan Gmail threads for lead replies and update reply_received metrics.
+
+async function syncReplies(req, res, next) {
+  try {
+    const campaignId = req.params.id;
+    const userId = req.user.id;
+
+    const { data: campaign, error } = await supabase
+      .from('campaigns')
+      .select('id')
+      .eq('id', campaignId)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (error || !campaign) {
+      throw new AppError('Campaign not found.', 404);
+    }
+
+    const summary = await syncReplyFlagsForUser(userId, { campaignId });
+    return successResponse(res, 200, 'Reply sync completed.', summary);
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   bulkAddLeads,
   listLeads,
   updateLead,
   removeLead,
+  syncReplies,
 };

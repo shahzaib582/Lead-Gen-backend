@@ -1,8 +1,10 @@
 const dashboardService = require('../services/dashboardService');
+const { scheduleReplySyncForUser } = require('../services/gmailReplyDetectionService');
 const { successResponse, successResponsePaginated } = require('../utils/response');
 
 async function summary(req, res, next) {
   try {
+    scheduleReplySyncForUser(req.user.id);
     const data = await dashboardService.getDashboardSummary(req.user.id);
     return successResponse(res, 200, undefined, data);
   } catch (err) {

@@ -79,7 +79,7 @@ async function getDashboardSummary(userId) {
         .from('campaigns')
         .select('id', { count: 'exact', head: true })
         .eq('user_id', userId),
-      loadUserLeadRows(userId, { columns: 'status, reply_received' }),
+      loadUserLeadRows(userId, { columns: 'status, reply_received, email_opened' }),
       countScheduledMeetings(userId),
     ]);
 
@@ -87,12 +87,15 @@ async function getDashboardSummary(userId) {
 
   let sentCount = 0;
   let replyCount = 0;
+  let openCount = 0;
   for (const row of leadRows) {
     if (row.status === 'sent') sentCount += 1;
     if (row.reply_received === true) replyCount += 1;
+    if (row.email_opened === true) openCount += 1;
   }
 
   const reply = computeReplyMetrics(sentCount, replyCount);
+  const open = computeReplyMetrics(sentCount, openCount);
 
   return {
     total_campaigns: totalCampaigns ?? 0,
@@ -100,6 +103,8 @@ async function getDashboardSummary(userId) {
     total_emails_sent: sentCount,
     reply_rate: reply.reply_rate,
     reply_rate_percent: reply.reply_rate_percent,
+    open_rate: open.reply_rate,
+    open_rate_percent: open.reply_rate_percent,
     meeting_booking_count: meetingBookingCount,
   };
 }
