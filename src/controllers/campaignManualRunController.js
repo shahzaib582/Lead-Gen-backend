@@ -12,7 +12,7 @@ async function runOutreach(req, res, next) {
     const campaignId = req.params.id;
     const userId = req.user.id;
 
-    const { leadCount } = await validateManualCampaignRunStart(userId, campaignId);
+    const { leadCount, progress } = await validateManualCampaignRunStart(userId, campaignId);
 
     void runManualCampaignOutreach(userId, campaignId)
       .then(async (result) => {
@@ -28,19 +28,27 @@ async function runOutreach(req, res, next) {
         const { notifyOutreachFinished } = require('../services/notificationService');
         await notifyOutreachFinished(userId, campaignId, result);
       })
-      .catch((err) => {
+      .catch(async (err) => {
         logger.error('[ManualRun] Background outreach failed', {
           campaignId,
           userId,
           error: err.message,
           code: err.code,
         });
+        const { publishCampaignEvent } = require('../services/campaignEventsPublisher');
+        await publishCampaignEvent(campaignId, {
+          type: 'outreach_failed',
+          userId,
+          message: err.message,
+          code: err.code || null,
+        }).catch(() => {});
       });
 
-    return successResponse(res, 202, 'Campaign outreach started.', {
+    const message = progress.userMessage || 'Campaign outreach started.';
+    return successResponse(res, 202, message, {
       campaignId,
       status: 'processing',
-      leadsQueued: leadCount,
+      ...progress,
     });
   } catch (err) {
     next(err);

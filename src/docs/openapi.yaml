@@ -2931,8 +2931,11 @@ paths:
       description: |
         For **`run_mode: manual`** campaigns that are **`active`** only.
         Validates the request, then starts template generation and Gmail sends **in the background**
-        and returns **202** immediately so the client is not blocked (sends use the same delay policy as `send-emails`).
-        Poll campaign leads or SSE for progress. Final counts are logged server-side only.
+        and returns **202** immediately.
+        - **≤15 leads (default):** fast batch — ~2s between sends.
+        - **>15 leads:** throttled — 3–5 minute delay between sends (same as workers).
+        Response includes `showProgressBanner`, `userMessage`, and `estimatedDurationMinutes` for the UI.
+        Subscribe to campaign SSE for `outreach_started`, `outreach_progress`, and `outreach_finished` events.
         Returns **400** with `code: CAMPAIGN_NOT_MANUAL` for auto campaigns (they run via workers on bulk add).
         Returns **400** with `code: CAMPAIGN_NOT_ACTIVE` when the campaign is not active.
         Requires a linked Google account (`GET /api/auth/google`).
@@ -2952,11 +2955,19 @@ paths:
                 $ref: '#/components/schemas/SuccessEnvelope'
               example:
                 success: true
-                message: Campaign outreach started.
+                message: Sending emails in batches. This process may take a few minutes. Please check back shortly.
                 data:
                   campaignId: 11111111-2222-3333-4444-555555555555
                   status: processing
-                  leadsQueued: 12
+                  leadsQueued: 120
+                  processingMode: background
+                  batchMode: throttled
+                  showProgressBanner: true
+                  estimatedDurationMinutes: 485
+                  delayBetweenEmailsSecondsMin: 180
+                  delayBetweenEmailsSecondsMax: 300
+                  userMessage: Sending emails in batches. This process may take a few minutes. Please check back shortly.
+                  pollHint: Use campaign SSE events or refresh leads for live status.
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':

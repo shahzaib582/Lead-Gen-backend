@@ -4,7 +4,14 @@ const googleAuthService = require('./googleAuthService');
 const { generateMailTemplates } = require('./mailTemplateService');
 const { sendCampaignEmails } = require('./campaignMailerService');
 const { assertCampaignActiveForSend } = require('./campaignSendRules');
-const { randomDelayMs } = require('../config/mailDelay');
+const {
+  manualRunInterLeadDelayMs,
+  buildManualRunProgressMeta,
+} = require('../utils/manualRunProgress');
+const {
+  publishCampaignEvent,
+  getCampaignProgressSnapshot,
+} = require('./campaignEventsPublisher');
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -62,7 +69,7 @@ async function validateManualCampaignRunStart(userId, campaignId) {
     );
   }
 
-  return { leadCount: leads.length };
+  return { leadCount: leads.length, progress: buildManualRunProgressMeta(leads.length) };
 }
 
 /**
@@ -96,6 +103,14 @@ async function runManualCampaignOutreach(userId, campaignId) {
   }
 
   const accessToken = await googleAuthService.getValidGoogleAccessToken(userId);
+  const progressMeta = buildManualRunProgressMeta(leads.length);
+
+  await publishCampaignEvent(campaignId, {
+    type: 'outreach_started',
+    userId,
+    ...progressMeta,
+    ...(await getCampaignProgressSnapshot(userId, campaignId)),
+  });
 
   const summary = {
     examined: leads.length,
@@ -156,10 +171,29 @@ async function runManualCampaignOutreach(userId, campaignId) {
 
     summary.results.push(leadResult);
 
+    await publishCampaignEvent(campaignId, {
+      type: 'outreach_progress',
+      userId,
+      index: i + 1,
+      total: leads.length,
+      sent: summary.sent,
+      sendFailed: summary.sendFailed,
+      sendSkipped: summary.sendSkipped,
+      campaignLeadId: cl.id,
+      ...(await getCampaignProgressSnapshot(userId, campaignId)),
+    });
+
     if (i < leads.length - 1 && !summary.dailyLimitReached) {
-      await sleep(randomDelayMs());
+      await sleep(manualRunInterLeadDelayMs(leads.length, i));
     }
   }
+
+  await publishCampaignEvent(campaignId, {
+    type: 'outreach_finished',
+    userId,
+    ...summary,
+    ...(await getCampaignProgressSnapshot(userId, campaignId)),
+  });
 
   return summary;
 }
