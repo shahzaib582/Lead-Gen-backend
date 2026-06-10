@@ -937,6 +937,57 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /api/auth/validate-otp:
+    post:
+      tags: [Auth]
+      summary: Check OTP validity without consuming it
+      description: |
+        Validates the 6-digit code for the given email **without marking it used**.
+        Wrong codes still count toward the max-attempt limit. Call `POST /api/auth/verify-otp`
+        (signup) or `POST /api/auth/reset-password` (password reset) to finish the flow.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, otp]
+              properties:
+                email:
+                  type: string
+                  format: email
+                otp:
+                  type: string
+                  pattern: '^[0-9]{6}$'
+                  minLength: 6
+                  maxLength: 6
+                purpose:
+                  type: string
+                  enum: [email_verify, password_reset]
+                  default: email_verify
+                  description: Defaults to signup email verification; use `password_reset` after forgot-password.
+      responses:
+        '200':
+          description: OTP is valid and still usable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+              example:
+                success: true
+                message: Verification code is valid.
+                data:
+                  valid: true
+        '400':
+          description: Invalid or expired code
+        '404':
+          description: User not found
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /api/auth/resend-otp:
     post:
       tags: [Auth]

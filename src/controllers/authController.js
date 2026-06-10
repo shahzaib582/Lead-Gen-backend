@@ -57,6 +57,35 @@ async function signup(req, res, next) {
   }
 }
 
+function resolveOtpPurpose(purpose) {
+  if (purpose === 'password_reset') return otpService.OTP_PURPOSE_PASSWORD_RESET;
+  return otpService.OTP_PURPOSE_EMAIL_VERIFY;
+}
+
+async function validateOtpCheck(req, res, next) {
+  try {
+    const { email, otp, purpose = 'email_verify' } = req.body;
+
+    const user = await userService.findUserByEmailIncludingDeleted(email);
+    if (!user) throw new AppError('User not found.', 404);
+    userService.assertUserActive(user);
+
+    if (purpose === 'password_reset' && !user.password_hash) {
+      throw new AppError('Invalid or expired verification code.', 400);
+    }
+
+    if (purpose === 'email_verify' && user.is_verified) {
+      throw new AppError('Email is already verified.', 400);
+    }
+
+    await otpService.validateOtp(user.id, otp, resolveOtpPurpose(purpose));
+
+    return successResponse(res, 200, 'Verification code is valid.', { valid: true });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function verifyOtp(req, res, next) {
   try {
     const { email, otp } = req.body;
@@ -271,6 +300,7 @@ async function resendOtp(req, res, next) {
 module.exports = {
   signup,
   verifyOtp,
+  validateOtpCheck,
   login,
   forgotPassword,
   resetPassword,

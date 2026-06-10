@@ -169,9 +169,16 @@ async function consumeOtp(otpId) {
   if (error) throw new AppError('Failed to finalize verification code.', 500);
 }
 
+/** Check OTP without marking it used (increments attempts on wrong code). */
+async function validateOtp(userId, submittedOtp, purpose = OTP_PURPOSE_EMAIL_VERIFY) {
+  await verifyOtp(userId, submittedOtp, purpose, { consume: false });
+  return true;
+}
+
 module.exports = {
   createOtp,
   verifyOtp,
+  validateOtp,
   consumeOtp,
   hasActiveOtp,
   OTP_PURPOSE_EMAIL_VERIFY,

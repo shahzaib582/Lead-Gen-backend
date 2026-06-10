@@ -45,6 +45,19 @@ const verifyOtpValidation = [
     .withMessage('OTP must be numeric.'),
 ];
 
+const validateOtpValidation = [
+  body('email').isEmail().withMessage('Please provide a valid email address.'),
+  body('otp')
+    .isLength({ min: 6, max: 6 })
+    .withMessage('OTP must be exactly 6 digits.')
+    .isNumeric()
+    .withMessage('OTP must be numeric.'),
+  body('purpose')
+    .optional()
+    .isIn(['email_verify', 'password_reset'])
+    .withMessage('purpose must be email_verify or password_reset.'),
+];
+
 const loginValidation = [
   body('email').isEmail().withMessage('Please provide a valid email address.'),
   body('password').notEmpty().withMessage('Password is required.'),
@@ -81,6 +94,7 @@ const resetPasswordValidation = [
 module.exports = {
   signupValidation,
   verifyOtpValidation,
+  validateOtpValidation,
   loginValidation,
   resendOtpValidation,
   forgotPasswordValidation,
