@@ -80,10 +80,14 @@ const sendEmailsValidation = [
     .optional({ nullable: true })
     .isUUID()
     .withMessage('campaign_lead_id must be a valid UUID.'),
-  body('access_token')
-    .optional({ nullable: true })
-    .isString()
-    .withMessage('access_token must be a string.'),
+  body('access_token').custom((value) => {
+    if (value !== undefined && value !== null && value !== '') {
+      throw new Error(
+        'access_token is not accepted. Link Google via GET /api/auth/google; the server uses your saved Gmail token.'
+      );
+    }
+    return true;
+  }),
 ];
 
 const runOutreachValidation = [campaignIdParam];

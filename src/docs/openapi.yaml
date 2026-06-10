@@ -3141,7 +3141,7 @@ paths:
       summary: Send campaign emails (Gmail)
       description: |
         Campaign must be **`active`**; otherwise **400** with `code: CAMPAIGN_NOT_ACTIVE`.
-        Optional `campaign_lead_id` scopes to one lead. Optional `access_token` overrides the user's stored Google token.
+        Optional `campaign_lead_id` scopes to one lead. Gmail uses the user's linked Google account from the database (refreshed automatically); do not send `access_token` in the body.
         Rate limits and daily caps apply server-side.
         Between each send the server waits a random interval between **`MAIL_DELAY_MIN_MS`** and **`MAIL_DELAY_MAX_MS`** (defaults 3–5 minutes), same policy as the BullMQ mail worker.
         On Google auth failures, the JSON summary may include **`googleError`** (`code` + message) without exposing tokens.
@@ -3162,9 +3162,6 @@ paths:
                 campaign_lead_id:
                   type: string
                   format: uuid
-                  nullable: true
-                access_token:
-                  type: string
                   nullable: true
       responses:
         '200':

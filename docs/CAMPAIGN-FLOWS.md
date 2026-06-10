@@ -196,7 +196,7 @@ Ensure `campaign-mail-worker` is running. Mail sends sequentially with delays; w
 {}
 ```
 
-Optional: `{ "campaign_lead_id": "<uuid>" }` or `{ "access_token": "..." }`.
+Optional: `{ "campaign_lead_id": "<uuid>" }`. Gmail token is read from the linked Google account (not sent in the body).
 
 Sends leads in `pending` / `template_generated` / `failed` that have a non-empty `mail_template` (up to daily limit).
 
