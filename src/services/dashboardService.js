@@ -12,17 +12,30 @@ const {
   countScheduledMeetings,
   loadMeetingRowsInRange,
 } = require('./meetingsService');
+const {
+  fetchAllPaginated,
+  fetchCampaignAggregateStatsMap,
+  fetchUserLeadSummaryCounts,
+} = require('../utils/campaignLeadStats');
 
 async function loadUserLeadRows(
   userId,
   { columns, extraFilter, fallbackEmptyOnMissingReply = false } = {}
 ) {
   let selectCols = columns;
-  let query = supabase.from('campaign_leads').select(selectCols).eq('user_id', userId);
+  let data;
+  let error;
 
-  if (extraFilter) query = extraFilter(query);
-
-  let { data, error } = await query;
+  try {
+    data = await fetchAllPaginated(() => {
+      let q = supabase.from('campaign_leads').select(selectCols).eq('user_id', userId);
+      if (extraFilter) q = extraFilter(q);
+      return q;
+    });
+  } catch (paginateErr) {
+    error = paginateErr;
+    data = null;
+  }
 
   if (error && /reply_received|column/i.test(`${error.message} ${error.details}`)) {
     if (fallbackEmptyOnMissingReply) {
@@ -34,9 +47,17 @@ async function loadUserLeadRows(
       .map((c) => c.trim())
       .filter((c) => !c.startsWith('reply_received'))
       .join(', ');
-    query = supabase.from('campaign_leads').select(selectCols).eq('user_id', userId);
-    if (extraFilter) query = extraFilter(query);
-    ({ data, error } = await query);
+    try {
+      data = await fetchAllPaginated(() => {
+        let q = supabase.from('campaign_leads').select(selectCols).eq('user_id', userId);
+        if (extraFilter) q = extraFilter(q);
+        return q;
+      });
+      error = null;
+    } catch (retryErr) {
+      error = retryErr;
+      data = null;
+    }
   }
 
   if (error) {
@@ -45,22 +66,6 @@ async function loadUserLeadRows(
   }
 
   return data || [];
-}
-
-function aggregateStatsByCampaign(rows) {
-  const map = new Map();
-
-  for (const row of rows) {
-    if (!map.has(row.campaign_id)) {
-      map.set(row.campaign_id, { total_leads: 0, sent_count: 0, reply_count: 0 });
-    }
-    const stats = map.get(row.campaign_id);
-    stats.total_leads += 1;
-    if (row.status === 'sent') stats.sent_count += 1;
-    if (row.reply_received === true) stats.reply_count += 1;
-  }
-
-  return map;
 }
 
 function computeProgressPercent(sentCount, totalLeads) {
@@ -73,33 +78,25 @@ function computeProgressPercent(sentCount, totalLeads) {
 // ─── 1. Summary ───────────────────────────────────────────────────────────────
 
 async function getDashboardSummary(userId) {
-  const [{ count: totalCampaigns, error: campErr }, leadRows, meetingBookingCount] =
+  const [{ count: totalCampaigns, error: campErr }, leadCounts, meetingBookingCount] =
     await Promise.all([
       supabase
         .from('campaigns')
         .select('id', { count: 'exact', head: true })
         .eq('user_id', userId),
-      loadUserLeadRows(userId, { columns: 'status, reply_received, email_opened' }),
+      fetchUserLeadSummaryCounts(userId),
       countScheduledMeetings(userId),
     ]);
 
   if (campErr) throw new AppError('Failed to load dashboard summary.', 500);
 
-  let sentCount = 0;
-  let replyCount = 0;
-  let openCount = 0;
-  for (const row of leadRows) {
-    if (row.status === 'sent') sentCount += 1;
-    if (row.reply_received === true) replyCount += 1;
-    if (row.email_opened === true) openCount += 1;
-  }
-
+  const { totalLeads, sentCount, replyCount, openCount } = leadCounts;
   const reply = computeReplyMetrics(sentCount, replyCount);
   const open = computeReplyMetrics(sentCount, openCount);
 
   return {
     total_campaigns: totalCampaigns ?? 0,
-    total_leads: leadRows.length,
+    total_leads: totalLeads,
     total_emails_sent: sentCount,
     reply_rate: reply.reply_rate,
     reply_rate_percent: reply.reply_rate_percent,
@@ -182,14 +179,9 @@ async function getDashboardActiveCampaigns(userId, { page = 1, limit = 10 } = {}
   }
 
   const campaignIds = (campaigns || []).map((c) => c.id);
-  const leadRows = campaignIds.length
-    ? await loadUserLeadRows(userId, {
-        columns: 'campaign_id, status, reply_received',
-        extraFilter: (q) => q.in('campaign_id', campaignIds),
-      })
-    : [];
-
-  const statsMap = aggregateStatsByCampaign(leadRows);
+  const statsMap = campaignIds.length
+    ? await fetchCampaignAggregateStatsMap(userId, campaignIds)
+    : new Map();
 
   const items = (campaigns || []).map((c) => {
     const stats = statsMap.get(c.id) || { total_leads: 0, sent_count: 0, reply_count: 0 };

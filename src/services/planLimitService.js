@@ -2,6 +2,7 @@ const supabase = require('../config/supabase');
 const AppError = require('../utils/AppError');
 const { toPublicPlan, toPublicUserQuota } = require('../utils/billingPublic');
 const { DAILY_SEND_LIMIT, getTodaySentCount } = require('./mailSendLimitService');
+const { countCampaignLeads } = require('../utils/campaignLeadStats');
 
 const STARTER_PLAN_ID = 'starter';
 const SUBSCRIPTION_LIMIT_STATUSES = new Set(['trialing', 'active', 'past_due']);
@@ -103,26 +104,22 @@ async function getUserQuota(userId) {
   if (campaignsErr) throw new AppError('Failed to load campaigns.', 500);
 
   const campaignRows = campaigns || [];
-  const leadCountByCampaign = {};
 
-  if (campaignRows.length > 0) {
-    const { data: leadRows, error: leadsErr } = await supabase
-      .from('campaign_leads')
-      .select('campaign_id')
-      .eq('user_id', userId);
-
-    if (leadsErr) throw new AppError('Failed to count campaign leads.', 500);
-
-    for (const row of leadRows || []) {
-      leadCountByCampaign[row.campaign_id] = (leadCountByCampaign[row.campaign_id] || 0) + 1;
-    }
-  }
-
-  const campaignLeadUsage = campaignRows.map((campaign) => ({
-    campaignId: campaign.id,
-    campaignName: campaign.name,
-    leadsUsed: leadCountByCampaign[campaign.id] || 0,
-  }));
+  const campaignLeadUsage = await Promise.all(
+    campaignRows.map(async (campaign) => {
+      let leadsUsed = 0;
+      try {
+        leadsUsed = await countCampaignLeads(userId, { campaignId: campaign.id });
+      } catch (err) {
+        throw new AppError('Failed to count campaign leads.', 500);
+      }
+      return {
+        campaignId: campaign.id,
+        campaignName: campaign.name,
+        leadsUsed,
+      };
+    })
+  );
 
   const dailyEmailsUsed = await getTodaySentCount(userId);
 

@@ -14,6 +14,7 @@ const {
   resolvePreviousPeriod,
   computeRatePercent,
 } = require('../utils/analyticsPeriodCompare');
+const { fetchAllPaginated } = require('../utils/campaignLeadStats');
 
 const STATUS_UI = {
   active: 'Running',
@@ -281,12 +282,18 @@ async function getAnalyticsCampaignComparison(userId, { page = 1, limit = 10 } =
     };
   }
 
-  const { data: leads, error: leadErr } = await supabase
-    .from('campaign_leads')
-    .select('campaign_id, status, reply_received, sent_at, reply_received_at, email_opened')
-    .eq('user_id', userId)
-    .in('campaign_id', campaignIds);
-  if (leadErr) throw new AppError('Failed to load leads for comparison.', 500);
+  let leads;
+  try {
+    leads = await fetchAllPaginated(() =>
+      supabase
+        .from('campaign_leads')
+        .select('campaign_id, status, reply_received, sent_at, reply_received_at, email_opened')
+        .eq('user_id', userId)
+        .in('campaign_id', campaignIds)
+    );
+  } catch (leadErr) {
+    throw new AppError('Failed to load leads for comparison.', 500);
+  }
 
   const { data: meetings, error: meetErr } = await supabase
     .from('meetings')
