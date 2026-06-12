@@ -40,35 +40,60 @@ async function countCampaignLeads(userId, { campaignId, status, replyReceived, e
   return count ?? 0;
 }
 
+const EMPTY_CAMPAIGN_LEAD_STATS = {
+  total_leads: 0,
+  sent_count: 0,
+  reply_count: 0,
+  pending_count: 0,
+  failed_count: 0,
+};
+
 /**
- * Per-campaign sent/reply counts for campaign list (exact; no row cap).
+ * Per-campaign lead counts for campaign list/detail (exact; no row cap).
  */
 async function fetchCampaignLeadStatsMap(userId, campaignIds) {
   const map = new Map();
   for (const id of campaignIds) {
-    map.set(id, { sent_count: 0, reply_count: 0 });
+    map.set(id, { ...EMPTY_CAMPAIGN_LEAD_STATS });
   }
   if (!campaignIds.length) return map;
 
   await Promise.all(
     campaignIds.map(async (campaignId) => {
+      let total_leads = 0;
       let sent = 0;
       let reply_count = 0;
+      let pending_count = 0;
+      let failed_count = 0;
 
       try {
-        [sent, reply_count] = await Promise.all([
+        [total_leads, sent, reply_count, pending_count, failed_count] = await Promise.all([
+          countCampaignLeads(userId, { campaignId }),
           countCampaignLeads(userId, { campaignId, status: 'sent' }),
           countCampaignLeads(userId, { campaignId, replyReceived: true }),
+          countCampaignLeads(userId, { campaignId, status: 'pending' }),
+          countCampaignLeads(userId, { campaignId, status: 'failed' }),
         ]);
       } catch (err) {
         if (/reply_received|column/i.test(err.message || '')) {
-          sent = await countCampaignLeads(userId, { campaignId, status: 'sent' });
+          [total_leads, sent, pending_count, failed_count] = await Promise.all([
+            countCampaignLeads(userId, { campaignId }),
+            countCampaignLeads(userId, { campaignId, status: 'sent' }),
+            countCampaignLeads(userId, { campaignId, status: 'pending' }),
+            countCampaignLeads(userId, { campaignId, status: 'failed' }),
+          ]);
         } else {
           throw err;
         }
       }
 
-      map.set(campaignId, { sent_count: sent, reply_count });
+      map.set(campaignId, {
+        total_leads,
+        sent_count: sent,
+        reply_count,
+        pending_count,
+        failed_count,
+      });
     })
   );
 
@@ -178,6 +203,7 @@ async function fetchUserLeadSummaryCounts(userId) {
 
 module.exports = {
   PAGE_SIZE,
+  EMPTY_CAMPAIGN_LEAD_STATS,
   fetchAllPaginated,
   countCampaignLeads,
   fetchCampaignLeadStatsMap,

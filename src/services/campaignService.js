@@ -2,8 +2,11 @@ const supabase = require('../config/supabase');
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
 const { throwSupabaseError } = require('../utils/supabaseErrors');
-const { formatCampaignListItem } = require('../utils/campaignListMetrics');
-const { fetchCampaignLeadStatsMap } = require('../utils/campaignLeadStats');
+const { formatCampaignListItem, formatCampaignLeadCounts } = require('../utils/campaignListMetrics');
+const {
+  EMPTY_CAMPAIGN_LEAD_STATS,
+  fetchCampaignLeadStatsMap,
+} = require('../utils/campaignLeadStats');
 
 // ─── Create ───────────────────────────────────────────────────────────────────
 
@@ -65,7 +68,7 @@ async function getCampaigns(userId, { status, search, page = 1, limit = 20 } = {
     statsMap = await fetchCampaignLeadStatsMap(userId, campaignIds);
   } catch (err) {
     logger.warn('[Campaigns] Failed to load lead stats for list', { error: err.message });
-    statsMap = new Map(campaignIds.map((id) => [id, { sent_count: 0, reply_count: 0 }]));
+    statsMap = new Map(campaignIds.map((id) => [id, { ...EMPTY_CAMPAIGN_LEAD_STATS }]));
   }
   const campaigns = (data || []).map((c) => formatCampaignListItem(c, statsMap.get(c.id)));
 
@@ -81,7 +84,22 @@ async function getCampaignById(userId, campaignId) {
     .single();
 
   if (error || !data) throw new AppError('Campaign not found.', 404);
-  return data;
+
+  let stats = { ...EMPTY_CAMPAIGN_LEAD_STATS };
+  try {
+    const statsMap = await fetchCampaignLeadStatsMap(userId, [campaignId]);
+    stats = statsMap.get(campaignId) || stats;
+  } catch (err) {
+    logger.warn('[Campaigns] Failed to load lead stats for detail', {
+      campaignId,
+      error: err.message,
+    });
+  }
+
+  return {
+    ...data,
+    ...formatCampaignLeadCounts(stats),
+  };
 }
 
 // ─── Update ───────────────────────────────────────────────────────────────────

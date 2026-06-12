@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * Force-send all follow-ups for one campaign (ignores waiting_days / due date).
  * Usage: node scripts/force-campaign-follow-ups.js [campaignId]
