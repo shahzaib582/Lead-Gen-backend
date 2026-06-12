@@ -46,7 +46,10 @@ function throwSupabaseError(error, opts) {
     throw new AppError(duplicateMessage, 409);
   }
 
-  if (error.code === '23514' && /campaigns_lead_source_check/i.test(`${error.message} ${error.details}`)) {
+  if (
+    error.code === '23514' &&
+    /campaigns_lead_source_check/i.test(`${error.message} ${error.details}`)
+  ) {
     throw new AppError(
       'Invalid lead_source for this database. Allowed values: new, old, both. If "old" fails, run sql/migrations/20260519_campaigns_lead_source_allow_old.sql in Supabase.',
       400,

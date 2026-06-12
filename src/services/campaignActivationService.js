@@ -13,7 +13,13 @@ const { needsTemplateJob } = require('./campaignActivationRules');
  */
 async function enqueuePendingTemplateJobsForCampaign(userId, campaignId, { previousStatus } = {}) {
   if (previousStatus === 'active') {
-    return { enqueued: 0, skippedDuplicate: 0, skippedWrongState: 0, examined: 0, note: 'already_active' };
+    return {
+      enqueued: 0,
+      skippedDuplicate: 0,
+      skippedWrongState: 0,
+      examined: 0,
+      note: 'already_active',
+    };
   }
 
   const { data: campaign, error: cErr } = await supabase

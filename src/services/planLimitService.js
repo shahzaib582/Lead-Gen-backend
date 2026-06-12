@@ -18,15 +18,21 @@ function resolvePlanIdForLimits({ subscription, currentPlanId }) {
 }
 
 async function getUserPlanLimits(userId) {
-  const [{ data: user, error: userErr }, { data: subscription, error: subErr }] = await Promise.all([
-    supabase
-      .from('users')
-      .select('current_plan_id')
-      .eq('id', userId)
-      .is('deleted_at', null)
-      .maybeSingle(),
-    supabase.from('user_subscriptions').select('plan_id, status').eq('user_id', userId).maybeSingle(),
-  ]);
+  const [{ data: user, error: userErr }, { data: subscription, error: subErr }] = await Promise.all(
+    [
+      supabase
+        .from('users')
+        .select('current_plan_id')
+        .eq('id', userId)
+        .is('deleted_at', null)
+        .maybeSingle(),
+      supabase
+        .from('user_subscriptions')
+        .select('plan_id, status')
+        .eq('user_id', userId)
+        .maybeSingle(),
+    ]
+  );
 
   if (userErr) throw new AppError('Failed to load user plan.', 500);
   if (subErr) throw new AppError('Failed to load subscription.', 500);
@@ -45,7 +51,11 @@ async function getUserPlanLimits(userId) {
 
   if (planErr) throw new AppError('Failed to load plan limits.', 500);
   if (!plan) {
-    const { data: starter } = await supabase.from('plans').select('*').eq('id', STARTER_PLAN_ID).single();
+    const { data: starter } = await supabase
+      .from('plans')
+      .select('*')
+      .eq('id', STARTER_PLAN_ID)
+      .single();
     return starter;
   }
 
@@ -105,21 +115,18 @@ async function getUserQuota(userId) {
 
   const campaignRows = campaigns || [];
 
-  const campaignLeadUsage = await Promise.all(
-    campaignRows.map(async (campaign) => {
-      let leadsUsed = 0;
-      try {
-        leadsUsed = await countCampaignLeads(userId, { campaignId: campaign.id });
-      } catch (err) {
-        throw new AppError('Failed to count campaign leads.', 500);
-      }
-      return {
+  let campaignLeadUsage;
+  try {
+    campaignLeadUsage = await Promise.all(
+      campaignRows.map(async (campaign) => ({
         campaignId: campaign.id,
         campaignName: campaign.name,
-        leadsUsed,
-      };
-    })
-  );
+        leadsUsed: await countCampaignLeads(userId, { campaignId: campaign.id }),
+      }))
+    );
+  } catch {
+    throw new AppError('Failed to count campaign leads.', 500);
+  }
 
   const dailyEmailsUsed = await getTodaySentCount(userId);
 

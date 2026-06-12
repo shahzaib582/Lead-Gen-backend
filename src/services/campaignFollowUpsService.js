@@ -56,8 +56,7 @@ async function updateFollowUp(userId, campaignId, followUpId, updates) {
   if (updates.name !== undefined) payload.name = String(updates.name).trim();
   if (updates.waiting_days !== undefined) payload.waiting_days = updates.waiting_days;
   if (updates.body_template !== undefined) {
-    payload.body_template =
-      updates.body_template === null ? null : String(updates.body_template);
+    payload.body_template = updates.body_template === null ? null : String(updates.body_template);
   }
 
   if (Object.keys(payload).length === 0) {

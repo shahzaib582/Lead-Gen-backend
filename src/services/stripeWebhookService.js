@@ -36,22 +36,20 @@ async function syncSubscriptionFromStripe(stripeSub, fallbackPlanId = null) {
 
   const status = stripeSub.status || 'active';
 
-  await supabase
-    .from('user_subscriptions')
-    .upsert(
-      {
-        user_id: userId,
-        plan_id: plan.id,
-        status,
-        stripe_subscription_id: stripeSub.id,
-        stripe_price_id: priceId,
-        current_period_start: unixToIso(stripeSub.current_period_start),
-        current_period_end: unixToIso(stripeSub.current_period_end),
-        cancel_at_period_end: stripeSub.cancel_at_period_end === true,
-        canceled_at: stripeSub.canceled_at ? unixToIso(stripeSub.canceled_at) : null,
-      },
-      { onConflict: 'user_id' }
-    );
+  await supabase.from('user_subscriptions').upsert(
+    {
+      user_id: userId,
+      plan_id: plan.id,
+      status,
+      stripe_subscription_id: stripeSub.id,
+      stripe_price_id: priceId,
+      current_period_start: unixToIso(stripeSub.current_period_start),
+      current_period_end: unixToIso(stripeSub.current_period_end),
+      cancel_at_period_end: stripeSub.cancel_at_period_end === true,
+      canceled_at: stripeSub.canceled_at ? unixToIso(stripeSub.canceled_at) : null,
+    },
+    { onConflict: 'user_id' }
+  );
 
   await supabase.from('users').update({ current_plan_id: plan.id }).eq('id', userId);
 }

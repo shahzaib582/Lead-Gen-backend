@@ -121,8 +121,7 @@ async function login(req, res, next) {
       userService.assertUserActive(anyUser);
     }
 
-    const user =
-      anyUser && !userService.isUserDeleted(anyUser) ? anyUser : null;
+    const user = anyUser && !userService.isUserDeleted(anyUser) ? anyUser : null;
     const dummyHash = '$2a$12$invalidhashfortimingprotectiononly000000000000000000000';
     const passwordMatch = user
       ? await userService.checkPassword(password, user.password_hash)
@@ -131,10 +130,7 @@ async function login(req, res, next) {
     if (!user || !passwordMatch) throw new AppError(INVALID_MSG, 401);
 
     if (!user.is_verified) {
-      const hasCode = await otpService.hasActiveOtp(
-        user.id,
-        otpService.OTP_PURPOSE_EMAIL_VERIFY
-      );
+      const hasCode = await otpService.hasActiveOtp(user.id, otpService.OTP_PURPOSE_EMAIL_VERIFY);
       if (!hasCode) {
         const otp = await otpService.createOtp(
           user.id,
@@ -233,7 +229,12 @@ async function forgotPassword(req, res, next) {
     );
     sendPasswordResetOtpEmailInBackground(user.email, otp);
 
-    return successResponse(res, 200, 'A password reset OTP has been sent to your email.', undefined);
+    return successResponse(
+      res,
+      200,
+      'A password reset OTP has been sent to your email.',
+      undefined
+    );
   } catch (err) {
     next(err);
   }
@@ -249,12 +250,9 @@ async function resetPassword(req, res, next) {
     }
     userService.assertUserActive(user);
 
-    const otpId = await otpService.verifyOtp(
-      user.id,
-      otp,
-      otpService.OTP_PURPOSE_PASSWORD_RESET,
-      { consume: false }
-    );
+    const otpId = await otpService.verifyOtp(user.id, otp, otpService.OTP_PURPOSE_PASSWORD_RESET, {
+      consume: false,
+    });
     await userService.assertNewPasswordDiffersFromCurrent(password, user.password_hash);
     await userService.updatePassword(user.id, password);
     await otpService.consumeOtp(otpId);

@@ -68,8 +68,13 @@ async function loginWithGoogleToken(req, res, next) {
     });
 
     const payload = ticket.getPayload();
-    const { email, name, picture: avatarUrl, email_verified: emailVerified, sub: googleId } =
-      payload;
+    const {
+      email,
+      name,
+      picture: avatarUrl,
+      email_verified: emailVerified,
+      sub: googleId,
+    } = payload;
 
     if (!emailVerified) {
       throw new AppError('Google account email is not verified.', 400);

@@ -4,9 +4,7 @@ const { PERIOD_PRESETS } = require('../utils/dashboardDateRange');
 const periodQuery = query('period')
   .optional()
   .isIn([...PERIOD_PRESETS])
-  .withMessage(
-    `period must be one of: ${[...PERIOD_PRESETS].join(', ')}.`
-  );
+  .withMessage(`period must be one of: ${[...PERIOD_PRESETS].join(', ')}.`);
 
 const customFromQuery = query('from')
   .optional()

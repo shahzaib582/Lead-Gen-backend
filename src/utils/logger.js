@@ -35,7 +35,11 @@ const logger = createLogger({
     new transports.Console({
       format: isProduction
         ? format.combine(format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }), productionPrintf())
-        : format.combine(format.colorize(), format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }), developmentPrintf()),
+        : format.combine(
+            format.colorize(),
+            format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+            developmentPrintf()
+          ),
     }),
   ],
 });

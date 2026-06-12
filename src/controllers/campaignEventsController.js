@@ -68,7 +68,12 @@ async function streamCampaignEvents(req, res, next) {
     writeSse('campaign_progress', { type: 'campaign_progress', ...snapshot, campaignId });
   } catch (err) {
     logger.warn('[SSE] initial snapshot failed', { err: err.message, campaignId });
-    writeSse('campaign_progress', { type: 'campaign_progress', campaignId, byStatus: {}, total: 0 });
+    writeSse('campaign_progress', {
+      type: 'campaign_progress',
+      campaignId,
+      byStatus: {},
+      total: 0,
+    });
   }
 
   const sub = connection.duplicate();

@@ -12,7 +12,7 @@ async function runOutreach(req, res, next) {
     const campaignId = req.params.id;
     const userId = req.user.id;
 
-    const { leadCount, progress } = await validateManualCampaignRunStart(userId, campaignId);
+    const { progress } = await validateManualCampaignRunStart(userId, campaignId);
 
     void runManualCampaignOutreach(userId, campaignId)
       .then(async (result) => {

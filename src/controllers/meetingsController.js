@@ -24,7 +24,7 @@ async function list(req, res, next) {
         page: result.page,
         limit: result.limit,
         total: result.total,
-      },
+      }
     );
   } catch (err) {
     next(err);
@@ -57,12 +57,7 @@ async function create(req, res, next) {
 async function update(req, res, next) {
   try {
     const userRow = await userService.findUserById(req.user.id);
-    const row = await meetingsService.updateMeeting(
-      req.user.id,
-      userRow,
-      req.params.id,
-      req.body,
-    );
+    const row = await meetingsService.updateMeeting(req.user.id, userRow, req.params.id, req.body);
     return successResponse(res, 200, 'Meeting updated successfully.', {
       meeting: toPublicMeeting(row),
     });

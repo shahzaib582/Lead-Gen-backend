@@ -84,7 +84,7 @@ async function getMeetingStats(userId) {
       percent: monthCur.conversion_rate_percent,
       vs_last_month_points: pointsChange(
         monthCur.conversion_rate_percent,
-        monthPrev.conversion_rate_percent,
+        monthPrev.conversion_rate_percent
       ),
     },
     periods: {

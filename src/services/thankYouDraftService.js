@@ -35,7 +35,7 @@ function getThankYouBodyTemplate() {
 function buildThankYouBody(leadInfo, senderDisplayName) {
   const withSender = getThankYouBodyTemplate().replace(
     /\{\{\s*senderName\s*\}\}/gi,
-    senderDisplayName || '',
+    senderDisplayName || ''
   );
   return applyTemplatePlaceholders(withSender, leadInfo);
 }

@@ -250,10 +250,7 @@ async function getAnalyticsCampaignComparison(userId, { page = 1, limit = 10 } =
 
   const [{ count: total, error: countErr }, { data: campaigns, error: listErr }] =
     await Promise.all([
-      supabase
-        .from('campaigns')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', userId),
+      supabase.from('campaigns').select('id', { count: 'exact', head: true }).eq('user_id', userId),
       supabase
         .from('campaigns')
         .select('id, name, status')
@@ -291,7 +288,7 @@ async function getAnalyticsCampaignComparison(userId, { page = 1, limit = 10 } =
         .eq('user_id', userId)
         .in('campaign_id', campaignIds)
     );
-  } catch (leadErr) {
+  } catch {
     throw new AppError('Failed to load leads for comparison.', 500);
   }
 
@@ -313,7 +310,13 @@ async function getAnalyticsCampaignComparison(userId, { page = 1, limit = 10 } =
   const stats = new Map();
   for (const row of leads || []) {
     if (!stats.has(row.campaign_id)) {
-      stats.set(row.campaign_id, { leads: 0, emails_sent: 0, replies: 0, opens: 0, reply_trend: [] });
+      stats.set(row.campaign_id, {
+        leads: 0,
+        emails_sent: 0,
+        replies: 0,
+        opens: 0,
+        reply_trend: [],
+      });
     }
     const s = stats.get(row.campaign_id);
     s.leads += 1;

@@ -7,7 +7,9 @@ function createOpenTrackingToken() {
 
 function normalizeTrackingToken(raw) {
   if (!raw) return null;
-  const token = String(raw).replace(/\.gif$/i, '').trim();
+  const token = String(raw)
+    .replace(/\.gif$/i, '')
+    .trim();
   if (!/^[0-9a-f-]{36}$/i.test(token)) return null;
   return token;
 }

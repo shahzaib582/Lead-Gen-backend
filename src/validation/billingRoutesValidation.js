@@ -25,10 +25,7 @@ const defaultPaymentMethodValidation = [
 ];
 
 const paymentMethodIdParam = [
-  param('paymentMethodId')
-    .isString()
-    .matches(/^pm_/)
-    .withMessage('Invalid payment method id.'),
+  param('paymentMethodId').isString().matches(/^pm_/).withMessage('Invalid payment method id.'),
 ];
 
 const portalValidation = [

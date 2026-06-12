@@ -20,6 +20,11 @@ router.get('/', listValidation, validateRequest, campaignFollowUpsController.lis
 router.post('/', createValidation, validateRequest, campaignFollowUpsController.create);
 router.get('/:followUpId', getOneValidation, validateRequest, campaignFollowUpsController.getOne);
 router.patch('/:followUpId', updateValidation, validateRequest, campaignFollowUpsController.update);
-router.delete('/:followUpId', deleteValidation, validateRequest, campaignFollowUpsController.remove);
+router.delete(
+  '/:followUpId',
+  deleteValidation,
+  validateRequest,
+  campaignFollowUpsController.remove
+);
 
 module.exports = router;

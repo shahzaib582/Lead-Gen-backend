@@ -8,10 +8,7 @@ const {
   countByUtcDateKey,
   buildTimeSeries,
 } = require('../utils/dashboardDateRange');
-const {
-  countScheduledMeetings,
-  loadMeetingRowsInRange,
-} = require('./meetingsService');
+const { countScheduledMeetings, loadMeetingRowsInRange } = require('./meetingsService');
 const {
   fetchAllPaginated,
   fetchCampaignAggregateStatsMap,
@@ -80,10 +77,7 @@ function computeProgressPercent(sentCount, totalLeads) {
 async function getDashboardSummary(userId) {
   const [{ count: totalCampaigns, error: campErr }, leadCounts, meetingBookingCount] =
     await Promise.all([
-      supabase
-        .from('campaigns')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', userId),
+      supabase.from('campaigns').select('id', { count: 'exact', head: true }).eq('user_id', userId),
       fetchUserLeadSummaryCounts(userId),
       countScheduledMeetings(userId),
     ]);

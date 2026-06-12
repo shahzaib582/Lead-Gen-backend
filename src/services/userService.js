@@ -8,10 +8,7 @@ const ACCOUNT_CLOSED_MSG =
   'This account has been closed. Please contact support if you need assistance.';
 const ACCOUNT_CLOSED_CODE = 'ACCOUNT_CLOSED';
 
-const BCRYPT_ROUNDS = Math.min(
-  14,
-  Math.max(10, Number(process.env.BCRYPT_ROUNDS) || 10)
-);
+const BCRYPT_ROUNDS = Math.min(14, Math.max(10, Number(process.env.BCRYPT_ROUNDS) || 10));
 
 const PROFILE_MAX = {
   name: 200,

@@ -6,7 +6,10 @@ const googleAuthService = require('../services/googleAuthService');
 const { sendCampaignEmails } = require('../services/campaignMailerService');
 const { enqueueCampaignMailJob } = require('../jobs/campaignMailJob');
 const { randomDelayMs } = require('../config/mailDelay');
-const { publishCampaignEvent, getCampaignProgressSnapshot } = require('../services/campaignEventsPublisher');
+const {
+  publishCampaignEvent,
+  getCampaignProgressSnapshot,
+} = require('../services/campaignEventsPublisher');
 const { isCampaignActiveForSend } = require('../services/campaignSendRules');
 
 function calcNextDelay() {
@@ -277,7 +280,7 @@ if (require.main === module) {
     assertWorkerCampaignMailEnv();
   } catch (err) {
     console.error(err.message);
-    // eslint-disable-next-line n/no-process-exit -- standalone worker bootstrap
+
     process.exit(1);
   }
   start();

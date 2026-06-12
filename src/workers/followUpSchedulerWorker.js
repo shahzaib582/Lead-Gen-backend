@@ -4,15 +4,11 @@ const logger = require('../utils/logger');
 const { processDueFollowUps } = require('../services/followUpSchedulerService');
 const { ensureFollowUpSchedulerRepeatable } = require('../jobs/followUpSchedulerJob');
 
-const worker = new Worker(
-  'follow-up-scheduler-queue',
-  async () => processDueFollowUps(),
-  {
-    connection,
-    concurrency: 1,
-    lockDuration: 600000,
-  }
-);
+const worker = new Worker('follow-up-scheduler-queue', async () => processDueFollowUps(), {
+  connection,
+  concurrency: 1,
+  lockDuration: 600000,
+});
 
 worker.on('failed', (job, err) =>
   logger.error('[FollowUpSchedulerWorker] Job failed', { jobId: job?.id, error: err.message })
@@ -34,7 +30,7 @@ if (require.main === module) {
     assertWorkerFollowUpSchedulerEnv();
   } catch (err) {
     console.error(err.message);
-    // eslint-disable-next-line n/no-process-exit -- standalone worker bootstrap
+
     process.exit(1);
   }
   start().catch((err) => {

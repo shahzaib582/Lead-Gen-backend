@@ -11,7 +11,6 @@ function getStripe() {
     return null;
   }
   if (!stripeClient) {
-    // eslint-disable-next-line global-require
     const Stripe = require('stripe');
     stripeClient = new Stripe(process.env.STRIPE_SECRET_KEY);
   }

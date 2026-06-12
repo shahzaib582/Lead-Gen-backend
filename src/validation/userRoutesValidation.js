@@ -20,8 +20,14 @@ const patchUserValidation = [
       }
       return true;
     }),
-  body('notificationsEnabled').optional().isBoolean().withMessage('notificationsEnabled must be a boolean.'),
-  body('notifications_enabled').optional().isBoolean().withMessage('notifications_enabled must be a boolean.'),
+  body('notificationsEnabled')
+    .optional()
+    .isBoolean()
+    .withMessage('notificationsEnabled must be a boolean.'),
+  body('notifications_enabled')
+    .optional()
+    .isBoolean()
+    .withMessage('notifications_enabled must be a boolean.'),
   body('oldPassword').optional().isString().withMessage('oldPassword must be a string.'),
   body('old_password').optional().isString().withMessage('old_password must be a string.'),
   body('password')

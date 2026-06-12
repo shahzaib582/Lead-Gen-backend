@@ -20,7 +20,11 @@ describe('mailDelay', () => {
   });
 
   it('getMailDelayBoundsMs uses defaults when env unset', () => {
-    const { getMailDelayBoundsMs, DEFAULT_MIN_MS, DEFAULT_MAX_MS } = require('../src/config/mailDelay');
+    const {
+      getMailDelayBoundsMs,
+      DEFAULT_MIN_MS,
+      DEFAULT_MAX_MS,
+    } = require('../src/config/mailDelay');
     const { minMs, maxMs } = getMailDelayBoundsMs();
     assert.equal(minMs, DEFAULT_MIN_MS);
     assert.equal(maxMs, DEFAULT_MAX_MS);

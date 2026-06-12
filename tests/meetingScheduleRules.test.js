@@ -25,9 +25,7 @@ describe('meetingScheduleRules', () => {
   });
 
   it('allows start_at in the future', () => {
-    assert.doesNotThrow(() =>
-      assertMeetingStartNotInPast('2026-06-04T12:00:00.000Z', now)
-    );
+    assert.doesNotThrow(() => assertMeetingStartNotInPast('2026-06-04T12:00:00.000Z', now));
   });
 
   it('detects when meeting end is in the past', () => {

@@ -85,10 +85,7 @@ async function assertCampaignOwnership(userId, campaignId) {
 
 function assertCampaignAllowsLeadAdd(campaign) {
   if (!LEAD_ADD_CAMPAIGN_STATUSES.includes(campaign.status)) {
-    throw new AppError(
-      `Cannot add leads while campaign status is "${campaign.status}".`,
-      400
-    );
+    throw new AppError(`Cannot add leads while campaign status is "${campaign.status}".`, 400);
   }
 }
 

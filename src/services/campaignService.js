@@ -2,7 +2,10 @@ const supabase = require('../config/supabase');
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
 const { throwSupabaseError } = require('../utils/supabaseErrors');
-const { formatCampaignListItem, formatCampaignLeadCounts } = require('../utils/campaignListMetrics');
+const {
+  formatCampaignListItem,
+  formatCampaignLeadCounts,
+} = require('../utils/campaignListMetrics');
 const {
   EMPTY_CAMPAIGN_LEAD_STATS,
   fetchCampaignLeadStatsMap,

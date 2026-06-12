@@ -50,12 +50,8 @@ function buildManualRunProgressMeta(leadCount) {
     batchMode: isFastBatch ? 'fast' : 'throttled',
     showProgressBanner,
     estimatedDurationMinutes,
-    delayBetweenEmailsSecondsMin: isFastBatch
-      ? getManualRunSmallBatchGapMs() / 1000
-      : minMs / 1000,
-    delayBetweenEmailsSecondsMax: isFastBatch
-      ? getManualRunSmallBatchGapMs() / 1000
-      : maxMs / 1000,
+    delayBetweenEmailsSecondsMin: isFastBatch ? getManualRunSmallBatchGapMs() / 1000 : minMs / 1000,
+    delayBetweenEmailsSecondsMax: isFastBatch ? getManualRunSmallBatchGapMs() / 1000 : maxMs / 1000,
     userMessage,
     pollHint: 'Use campaign SSE events or refresh leads for live status.',
   };

@@ -11,9 +11,7 @@ function assertKeys(keys, label) {
 
 function assertJwtSecret() {
   if (!process.env.JWT_SECRET && !process.env.JWT_ACCESS_SECRET) {
-    throw new Error(
-      'Missing required environment variables: JWT_SECRET or JWT_ACCESS_SECRET'
-    );
+    throw new Error('Missing required environment variables: JWT_SECRET or JWT_ACCESS_SECRET');
   }
 }
 
@@ -30,11 +28,7 @@ const WEB_KEYS = [
   'BREVO_SENDER_EMAIL',
 ];
 
-const WORKER_MAIL_TEMPLATE_KEYS = [
-  'SUPABASE_URL',
-  'SUPABASE_SERVICE_ROLE_KEY',
-  'OPENAI_API_KEY',
-];
+const WORKER_MAIL_TEMPLATE_KEYS = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'OPENAI_API_KEY'];
 
 const WORKER_CAMPAIGN_MAIL_KEYS = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'];
 

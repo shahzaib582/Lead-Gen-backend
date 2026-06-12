@@ -21,17 +21,23 @@ function assertMailTemplateSamplesValid(value) {
     const keys = Object.keys(item);
     for (const k of keys) {
       if (!SAMPLE_KEYS.includes(k)) {
-        throw new Error(`mail_template_samples[${i}] has invalid field "${k}". Allowed: ${SAMPLE_KEYS.join(', ')}.`);
+        throw new Error(
+          `mail_template_samples[${i}] has invalid field "${k}". Allowed: ${SAMPLE_KEYS.join(', ')}.`
+        );
       }
       const v = item[k];
       if (v != null && typeof v !== 'string') {
         throw new Error(`mail_template_samples[${i}].${k} must be a string or null.`);
       }
       if (k === 'subject' && v != null && v.length > MAX_SUBJECT_LEN) {
-        throw new Error(`mail_template_samples[${i}].subject must be at most ${MAX_SUBJECT_LEN} characters.`);
+        throw new Error(
+          `mail_template_samples[${i}].subject must be at most ${MAX_SUBJECT_LEN} characters.`
+        );
       }
       if ((k === 'body' || k === 'html' || k === 'text') && v != null && v.length > MAX_BODY_LEN) {
-        throw new Error(`mail_template_samples[${i}].${k} must be at most ${MAX_BODY_LEN} characters.`);
+        throw new Error(
+          `mail_template_samples[${i}].${k} must be at most ${MAX_BODY_LEN} characters.`
+        );
       }
     }
     const hasContent = SAMPLE_KEYS.some((k) => {
@@ -39,7 +45,9 @@ function assertMailTemplateSamplesValid(value) {
       return typeof v === 'string' && v.trim().length > 0;
     });
     if (!hasContent) {
-      throw new Error(`mail_template_samples[${i}] must include at least one non-empty subject, body, html, or text field.`);
+      throw new Error(
+        `mail_template_samples[${i}] must include at least one non-empty subject, body, html, or text field.`
+      );
     }
   }
 }
@@ -56,7 +64,8 @@ function formatMailTemplateSamplesForPrompt(samples) {
   const blocks = arr.map((raw, i) => {
     const s = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
     const lines = [`### Sample ${i + 1}`];
-    if (typeof s.subject === 'string' && s.subject.trim()) lines.push(`Subject: ${s.subject.trim()}`);
+    if (typeof s.subject === 'string' && s.subject.trim())
+      lines.push(`Subject: ${s.subject.trim()}`);
     if (typeof s.body === 'string' && s.body.trim()) lines.push(`Body:\n${s.body}`);
     if (typeof s.html === 'string' && s.html.trim()) lines.push(`HTML:\n${s.html}`);
     if (typeof s.text === 'string' && s.text.trim()) lines.push(`Plain text:\n${s.text}`);

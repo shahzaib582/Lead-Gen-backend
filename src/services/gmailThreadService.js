@@ -168,7 +168,7 @@ async function threadHasUserReplyAfterLead(params) {
     messages,
     params.leadEmail,
     params.userEmail,
-    params.outboundGmailMessageId,
+    params.outboundGmailMessageId
   );
 }
 
@@ -178,7 +178,7 @@ async function getLatestLeadReplyInThread(params) {
     messages,
     params.leadEmail,
     params.userEmail,
-    params.outboundGmailMessageId,
+    params.outboundGmailMessageId
   );
 }
 

@@ -1,9 +1,6 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const {
-  computeFollowUpDueAt,
-  isFollowUpDue,
-} = require('../src/utils/followUpDueDate');
+const { computeFollowUpDueAt, isFollowUpDue } = require('../src/utils/followUpDueDate');
 
 describe('followUpDueDate', () => {
   const initialSentAt = '2026-05-10T12:00:00.000Z';

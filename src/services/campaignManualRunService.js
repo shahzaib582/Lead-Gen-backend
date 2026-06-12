@@ -8,10 +8,7 @@ const {
   manualRunInterLeadDelayMs,
   buildManualRunProgressMeta,
 } = require('../utils/manualRunProgress');
-const {
-  publishCampaignEvent,
-  getCampaignProgressSnapshot,
-} = require('./campaignEventsPublisher');
+const { publishCampaignEvent, getCampaignProgressSnapshot } = require('./campaignEventsPublisher');
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));

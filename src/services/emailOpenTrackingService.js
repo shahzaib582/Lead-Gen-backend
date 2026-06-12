@@ -36,7 +36,10 @@ async function recordEmailOpen(rawToken) {
     .eq('email_opened', false);
 
   if (upErr) {
-    logger.warn('[OpenTracking] Failed to record open', { campaignLeadId: lead.id, error: upErr.message });
+    logger.warn('[OpenTracking] Failed to record open', {
+      campaignLeadId: lead.id,
+      error: upErr.message,
+    });
     return { recorded: false };
   }
 

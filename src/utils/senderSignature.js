@@ -98,7 +98,9 @@ function applySenderPlaceholders(text, campaign) {
     .replace(/\{\{\s*sender_name\s*\}\}/gi, name);
 
   if (address) {
-    out = out.replace(/\[Your Address\]/gi, address).replace(/\{\{\s*senderAddress\s*\}\}/gi, address);
+    out = out
+      .replace(/\[Your Address\]/gi, address)
+      .replace(/\{\{\s*senderAddress\s*\}\}/gi, address);
   }
   if (phone) {
     out = out.replace(/\[Your Phone\]/gi, phone).replace(/\{\{\s*senderPhone\s*\}\}/gi, phone);

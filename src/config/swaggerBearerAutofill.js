@@ -11,13 +11,20 @@ function swaggerBearerAutofillResponseInterceptor(res) {
       .split('?')[0]
       .replace(/\/+$/, '');
     const isTokenEndpoint =
-      /\/api\/auth\/(login|verify-otp|refresh)$/.test(url) || /\/api\/auth\/google\/token$/.test(url);
+      /\/api\/auth\/(login|verify-otp|refresh)$/.test(url) ||
+      /\/api\/auth\/google\/token$/.test(url);
     if (!isTokenEndpoint) {
       return res;
     }
 
     const raw =
-      res.body != null ? res.body : res.text != null ? res.text : res.data != null ? res.data : null;
+      res.body != null
+        ? res.body
+        : res.text != null
+          ? res.text
+          : res.data != null
+            ? res.data
+            : null;
     if (raw == null) {
       return res;
     }

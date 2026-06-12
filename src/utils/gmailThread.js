@@ -33,7 +33,7 @@ function buildReplySubject(originalSubject) {
  */
 function sortGmailMessagesByDate(messages) {
   return [...(messages || [])].sort(
-    (a, b) => Number(a.internalDate || 0) - Number(b.internalDate || 0),
+    (a, b) => Number(a.internalDate || 0) - Number(b.internalDate || 0)
   );
 }
 
@@ -44,7 +44,7 @@ function threadHasUserReplyAfterLeadFromMessages(
   messages,
   leadEmail,
   userEmail,
-  outboundGmailMessageId,
+  outboundGmailMessageId
 ) {
   const sorted = sortGmailMessagesByDate(messages);
   let lastLeadIdx = -1;
@@ -71,12 +71,7 @@ function threadHasUserReplyAfterLeadFromMessages(
  * Latest inbound lead message in thread (for In-Reply-To on thank-you draft).
  * @returns {{ gmailMessageId: string, rfcMessageId: string|null }|null}
  */
-function findLatestLeadReplyFromMessages(
-  messages,
-  leadEmail,
-  userEmail,
-  outboundGmailMessageId,
-) {
+function findLatestLeadReplyFromMessages(messages, leadEmail, userEmail, outboundGmailMessageId) {
   const sorted = sortGmailMessagesByDate(messages);
   let latest = null;
 
@@ -95,7 +90,13 @@ function findLatestLeadReplyFromMessages(
   return latest;
 }
 
-function isInboundFromLead(fromHeader, leadEmail, userEmail, outboundGmailMessageId, messageGmailId) {
+function isInboundFromLead(
+  fromHeader,
+  leadEmail,
+  userEmail,
+  outboundGmailMessageId,
+  messageGmailId
+) {
   if (outboundGmailMessageId && messageGmailId === outboundGmailMessageId) {
     return false;
   }

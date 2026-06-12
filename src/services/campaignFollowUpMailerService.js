@@ -71,7 +71,6 @@ Do not add signatures or contact footer.
 If context is limited, generate a short professional generic follow-up based on the previous email topic.
 `;
 
-
 async function getLeadEmail(leadDataId) {
   const { data, error } = await supabase
     .from('leads_data')
@@ -82,7 +81,6 @@ async function getLeadEmail(leadDataId) {
   if (error || !data) return null;
   return data;
 }
-
 
 /**
  * @returns {Promise<{ claimed: boolean, id?: string, reason?: string }>}
@@ -201,9 +199,12 @@ function extractBodyFromMailTemplate(mailTemplate) {
   if (!mailTemplate) return null;
   const lines = String(mailTemplate).split('\n');
   // Find the first blank line after the Subject: header
-  const blankIndex = lines.findIndex(l => l.trim() === '');
+  const blankIndex = lines.findIndex((l) => l.trim() === '');
   if (blankIndex !== -1 && blankIndex < lines.length - 1) {
-    return lines.slice(blankIndex + 1).join('\n').trim();
+    return lines
+      .slice(blankIndex + 1)
+      .join('\n')
+      .trim();
   }
   // No Subject header found — return full template
   return mailTemplate.trim();
@@ -212,13 +213,7 @@ function extractBodyFromMailTemplate(mailTemplate) {
 /**
  * Build the AI prompt for generating a contextual follow-up email.
  */
-function buildFollowUpPrompt({
-  leadInfo,
-  campaign,
-  followUpTemplate,
-  threadHistory,
-  originalMailBody,
-}) {
+function buildFollowUpPrompt({ leadInfo, followUpTemplate, threadHistory, originalMailBody }) {
   return `
 LEAD INFORMATION
 Name: ${leadInfo.fullName || leadInfo.firstName}
@@ -227,24 +222,26 @@ Email: ${leadInfo.email}
 PREVIOUS EMAIL SENT
 ${originalMailBody || 'Not available'}
 
-${threadHistory
-      ? `
+${
+  threadHistory
+    ? `
 EMAIL THREAD HISTORY
 ${threadHistory}
 `
-      : ''
-    }
+    : ''
+}
 
-${followUpTemplate
-      ? `
+${
+  followUpTemplate
+    ? `
 FOLLOW-UP GUIDANCE TEMPLATE
 Use this for tone and intent only.
 Do NOT copy it directly.
 
 ${followUpTemplate}
 `
-      : ''
-    }
+    : ''
+}
 
 TASK:
 Write a contextual follow-up email for a lead who has not replied.
@@ -265,7 +262,14 @@ The previous sent email is the MOST IMPORTANT context.
  * Generate a contextual follow-up email body using the thread history and original mail.
  * Falls back to plain template substitution if AI call fails.
  */
-async function generateFollowUpBody({ leadInfo, campaign, followUpTemplate, threadMessages, senderDisplayName, originalMailBody }) {
+async function generateFollowUpBody({
+  leadInfo,
+  campaign,
+  followUpTemplate,
+  threadMessages,
+  senderDisplayName,
+  originalMailBody,
+}) {
   const threadHistory = formatThreadHistory(threadMessages);
 
   const prompt = buildFollowUpPrompt({
@@ -429,9 +433,7 @@ async function sendFollowUpEmail({ userId, campaignId, campaignLeadId, followUpI
   const { subject: rawSubject, body: rawBody } = parseMailTemplate(templated);
   const templateSubject = applyTemplatePlaceholders(rawSubject, leadInfo);
   const anchorSubject = campaignLead.gmail_subject || templateSubject;
-  const subject = campaignLead.gmail_thread_id
-    ? buildReplySubject(anchorSubject)
-    : templateSubject;
+  const subject = campaignLead.gmail_thread_id ? buildReplySubject(anchorSubject) : templateSubject;
 
   // Fetch live Gmail thread bodies for AI context (only if threaded)
   let threadMessages = [];
@@ -466,10 +468,10 @@ async function sendFollowUpEmail({ userId, campaignId, campaignLeadId, followUpI
   const threading =
     campaignLead.gmail_thread_id && campaignLead.gmail_rfc_message_id
       ? {
-        threadId: campaignLead.gmail_thread_id,
-        inReplyTo: campaignLead.gmail_rfc_message_id,
-        references: campaignLead.gmail_rfc_message_id,
-      }
+          threadId: campaignLead.gmail_thread_id,
+          inReplyTo: campaignLead.gmail_rfc_message_id,
+          references: campaignLead.gmail_rfc_message_id,
+        }
       : campaignLead.gmail_thread_id
         ? { threadId: campaignLead.gmail_thread_id }
         : undefined;
@@ -502,9 +504,7 @@ async function sendFollowUpEmail({ userId, campaignId, campaignLeadId, followUpI
     };
   } catch (sendErr) {
     const errMsg =
-      sendErr.code && sendErr.message
-        ? `[${sendErr.code}] ${sendErr.message}`
-        : sendErr.message;
+      sendErr.code && sendErr.message ? `[${sendErr.code}] ${sendErr.message}` : sendErr.message;
     await markFollowUpFailed(deliveryId, errMsg);
     logger.error('Follow-up send failed', {
       campaignLeadId,

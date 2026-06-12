@@ -73,9 +73,7 @@ describe('billingPublic', () => {
         sort_order: 2,
       },
       campaignsUsed: 1,
-      campaignLeadUsage: [
-        { campaignId: 'c1', campaignName: 'Alpha', leadsUsed: 40 },
-      ],
+      campaignLeadUsage: [{ campaignId: 'c1', campaignName: 'Alpha', leadsUsed: 40 }],
       dailyEmailsUsed: 25,
       dailyEmailLimit: 500,
     });

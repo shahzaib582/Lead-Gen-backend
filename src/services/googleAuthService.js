@@ -210,7 +210,11 @@ async function getValidGoogleAccessToken(userId) {
   }
 
   if (!credentials.access_token) {
-    throw new AppError('Google token refresh returned no access token.', 401, 'GOOGLE_REFRESH_FAILED');
+    throw new AppError(
+      'Google token refresh returned no access token.',
+      401,
+      'GOOGLE_REFRESH_FAILED'
+    );
   }
 
   await supabase

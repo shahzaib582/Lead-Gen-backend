@@ -12,7 +12,7 @@ export default [
     files: ['**/*.js'],
   },
   {
-    files: ['src/index.js'],
+    files: ['src/index.js', 'scripts/**/*.js', 'src/workers/**/*.js'],
     rules: {
       'n/no-process-exit': 'off',
     },

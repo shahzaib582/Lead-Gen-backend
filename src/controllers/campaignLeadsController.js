@@ -39,12 +39,7 @@ async function bulkAddLeads(req, res, next) {
 
     const result = await campaignLeadsService.bulkAddLeadsToCampaign(userId, campaignId, leads);
 
-    return successResponse(
-      res,
-      201,
-      bulkAddLeadsMessage(result),
-      result
-    );
+    return successResponse(res, 201, bulkAddLeadsMessage(result), result);
   } catch (err) {
     next(err);
   }

@@ -5,7 +5,11 @@ const {
   buildBillingReturnUrl,
   getBillingPortalConfigurationId,
 } = require('../config/stripe');
-const { toPublicPlan, toPublicSubscription, toPublicPaymentMethod } = require('../utils/billingPublic');
+const {
+  toPublicPlan,
+  toPublicSubscription,
+  toPublicPaymentMethod,
+} = require('../utils/billingPublic');
 const { isUpgrade, isDowngrade, isPaidPlan } = require('../utils/billingPlanOrder');
 const stripeCustomerService = require('./stripeCustomerService');
 const userService = require('./userService');
@@ -149,7 +153,11 @@ async function updatePaidSubscriptionPrice(userId, plan, { prorationBehavior }) 
   const stripe = requireStripe();
   const stripeSub = await getStripeSubscriptionForUser(userId);
   if (!stripeSub) {
-    throw new AppError('No active paid subscription. Use checkout to subscribe.', 400, 'NO_PAID_SUBSCRIPTION');
+    throw new AppError(
+      'No active paid subscription. Use checkout to subscribe.',
+      400,
+      'NO_PAID_SUBSCRIPTION'
+    );
   }
 
   const itemId = stripeSub.items?.data?.[0]?.id;
@@ -317,8 +325,7 @@ async function detachPaymentMethod(userId, paymentMethodId) {
 
   const sub = await getSubscriptionRow(userId);
   const isPaidActive =
-    sub?.stripe_subscription_id &&
-    ['active', 'trialing', 'past_due'].includes(sub.status);
+    sub?.stripe_subscription_id && ['active', 'trialing', 'past_due'].includes(sub.status);
 
   const methods = await stripe.paymentMethods.list({ customer: customerId, type: 'card' });
   if (isPaidActive && methods.data.length <= 1) {

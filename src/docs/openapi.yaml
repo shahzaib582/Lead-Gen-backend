@@ -60,7 +60,7 @@ components:
       description: Request duration on the server (e.g. `12.4ms`).
       schema:
         type: string
-        example: "12.4ms"
+        example: '12.4ms'
     Server-Timing:
       description: Timing hint; includes `total;dur=<ms>`.
       schema:
@@ -482,6 +482,117 @@ components:
           type: string
           format: date-time
 
+    CampaignLeadCounts:
+      type: object
+      description: |
+        Aggregated `campaign_leads` counts for one campaign (exact DB counts).
+        `pending_count` uses `status=pending` only; `failed_count` uses `status=failed` only.
+        Reply metrics count leads with `reply_received=true` among sent emails.
+      required:
+        - total_leads
+        - pending_count
+        - failed_count
+        - sent_count
+        - reply_rate
+        - reply_rate_percent
+      properties:
+        total_leads:
+          type: integer
+          minimum: 0
+          description: All rows in campaign_leads for this campaign.
+        pending_count:
+          type: integer
+          minimum: 0
+          description: Leads with status pending.
+        failed_count:
+          type: integer
+          minimum: 0
+          description: Leads with status failed.
+        sent_count:
+          type: integer
+          minimum: 0
+          description: Leads with status sent.
+        reply_rate:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: reply_received count divided by sent_count (0 when nothing sent).
+        reply_rate_percent:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: Reply rate as a percentage (one decimal place).
+
+    CampaignListItem:
+      type: object
+      description: Slim campaign row returned by GET /api/campaigns.
+      required:
+        - id
+        - name
+        - goal
+        - run_mode
+        - target_leads
+        - status
+        - total_leads
+        - pending_count
+        - failed_count
+        - sent_count
+        - reply_rate
+        - reply_rate_percent
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        goal:
+          type: string
+        run_mode:
+          $ref: '#/components/schemas/CampaignRunMode'
+        target_leads:
+          type: integer
+        status:
+          $ref: '#/components/schemas/CampaignStatus'
+        total_leads:
+          type: integer
+          minimum: 0
+        pending_count:
+          type: integer
+          minimum: 0
+        failed_count:
+          type: integer
+          minimum: 0
+        sent_count:
+          type: integer
+          minimum: 0
+        reply_rate:
+          type: number
+          minimum: 0
+          maximum: 1
+        reply_rate_percent:
+          type: number
+          minimum: 0
+          maximum: 100
+
+    CampaignDetail:
+      allOf:
+        - $ref: '#/components/schemas/Campaign'
+        - $ref: '#/components/schemas/CampaignLeadCounts'
+      description: Full campaign row plus lead count aggregates (GET /api/campaigns/{id}).
+
+    CampaignListPaginatedResponse:
+      allOf:
+        - $ref: '#/components/schemas/SuccessEnvelope'
+        - type: object
+          required: [data, pagination]
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/CampaignListItem'
+            pagination:
+              $ref: '#/components/schemas/Pagination'
+
     CampaignFollowUp:
       type: object
       description: Follow-up step for a campaign (stored snake_case).
@@ -617,7 +728,7 @@ components:
       required: [campaign]
       properties:
         campaign:
-          $ref: '#/components/schemas/Campaign'
+          $ref: '#/components/schemas/CampaignDetail'
 
     CampaignGetResponse:
       type: object
@@ -2253,7 +2364,7 @@ paths:
       summary: List campaigns (paginated)
       description: |
         Returns a slim campaign summary per row: `id`, `name`, `goal`, `run_mode`, `target_leads`, `status`,
-        `sent_count`, `reply_rate` (0–1), and `reply_rate_percent` (0–100).
+        `total_leads`, `pending_count`, `failed_count`, `sent_count`, `reply_rate` (0–1), and `reply_rate_percent` (0–100).
         Reply metrics are based on `campaign_leads` with `status=sent` and `reply_received=true`.
         Optional `search` matches campaign `name` or `goal` (case-insensitive).
       parameters:
@@ -2284,7 +2395,27 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SuccessPaginated'
+                $ref: '#/components/schemas/CampaignListPaginatedResponse'
+              example:
+                success: true
+                data:
+                  - id: c8146d3c-2a3d-420a-9eaa-7af1165880b6
+                    name: Q2 outbound
+                    goal: Book demos
+                    run_mode: manual
+                    target_leads: 1000
+                    status: active
+                    total_leads: 994
+                    pending_count: 494
+                    failed_count: 0
+                    sent_count: 500
+                    reply_rate: 0.02
+                    reply_rate_percent: 2
+                pagination:
+                  page: 1
+                  limit: 20
+                  total: 3
+                  totalPages: 1
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -2470,6 +2601,9 @@ paths:
     get:
       tags: [Campaigns]
       summary: Get one campaign
+      description: |
+        Returns the full campaign row plus lead counts: `total_leads`, `pending_count`, `failed_count`,
+        `sent_count`, `reply_rate`, and `reply_rate_percent` (same shape as list summary fields).
       responses:
         '200':
           description: Campaign
@@ -2494,6 +2628,12 @@ paths:
                     target_leads: 50
                     lead_source: both
                     status: draft
+                    total_leads: 0
+                    pending_count: 0
+                    failed_count: 0
+                    sent_count: 0
+                    reply_rate: 0
+                    reply_rate_percent: 0
                     created_at: '2026-05-13T10:00:00.000Z'
                     updated_at: '2026-05-13T10:00:00.000Z'
         '401':

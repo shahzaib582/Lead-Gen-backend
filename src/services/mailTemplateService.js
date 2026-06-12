@@ -226,7 +226,12 @@ async function generateMailTemplates(userId, campaignId, campaignLeadId = null, 
         fetchWebData(lead.domain),
       ]);
 
-      let generatedTemplate = await generateEmailForLead({ lead, linkedin, web, campaign: senderCampaign });
+      let generatedTemplate = await generateEmailForLead({
+        lead,
+        linkedin,
+        web,
+        campaign: senderCampaign,
+      });
       generatedTemplate = applySenderPlaceholders(generatedTemplate, senderCampaign);
 
       // Save template

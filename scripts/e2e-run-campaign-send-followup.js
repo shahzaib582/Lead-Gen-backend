@@ -96,11 +96,7 @@ async function main() {
   let allSent = false;
   for (let i = 0; i < 36; i++) {
     await sleep(5000);
-    const list = await api(
-      'GET',
-      `/api/campaigns/${campaignId}/leads?limit=20&page=1`,
-      token
-    );
+    const list = await api('GET', `/api/campaigns/${campaignId}/leads?limit=20&page=1`, token);
     const leads = list.data || [];
     const statuses = leads.map((l) => `${l.id?.slice(0, 8)}…=${l.status}`);
     console.log(`   [${i + 1}]`, statuses.join(' | '));

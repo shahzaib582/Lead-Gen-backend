@@ -19,21 +19,37 @@ const signupValidation = [
     }
     return true;
   }),
-  body('name').optional().trim().isLength({ max: 200 }).withMessage('Name must be at most 200 characters.'),
+  body('name')
+    .optional()
+    .trim()
+    .isLength({ max: 200 })
+    .withMessage('Name must be at most 200 characters.'),
   body('profile_pic').custom((value) => {
     if (value !== undefined) {
-      throw new Error('Profile image cannot be set at signup. Use POST /api/user/avatar after login.');
+      throw new Error(
+        'Profile image cannot be set at signup. Use POST /api/user/avatar after login.'
+      );
     }
     return true;
   }),
   body('profilePic').custom((value) => {
     if (value !== undefined) {
-      throw new Error('Profile image cannot be set at signup. Use POST /api/user/avatar after login.');
+      throw new Error(
+        'Profile image cannot be set at signup. Use POST /api/user/avatar after login.'
+      );
     }
     return true;
   }),
-  body('address').optional().trim().isLength({ max: 500 }).withMessage('address must be at most 500 characters.'),
-  body('contact').optional().trim().isLength({ max: 120 }).withMessage('contact must be at most 120 characters.'),
+  body('address')
+    .optional()
+    .trim()
+    .isLength({ max: 500 })
+    .withMessage('address must be at most 500 characters.'),
+  body('contact')
+    .optional()
+    .trim()
+    .isLength({ max: 120 })
+    .withMessage('contact must be at most 120 characters.'),
 ];
 
 const verifyOtpValidation = [
