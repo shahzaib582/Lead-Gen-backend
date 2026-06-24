@@ -77,6 +77,14 @@ app.use(
   billingWebhookRoutes
 );
 
+// Calendly webhooks require raw body for signature verification (per connected user).
+const calendlyWebhookRoutes = require('./routes/calendlyWebhookRoutes');
+app.use(
+  '/api/calendly/webhooks/:userId',
+  express.raw({ type: 'application/json' }),
+  calendlyWebhookRoutes
+);
+
 app.use(express.json({ limit: '10kb' }));
 app.disable('x-powered-by');
 

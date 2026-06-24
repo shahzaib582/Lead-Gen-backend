@@ -2,6 +2,7 @@ const userService = require('../services/userService');
 const profileImageService = require('../services/profileImageService');
 const AppError = require('../utils/AppError');
 const googleAuthService = require('../services/googleAuthService');
+const calendlyAuthService = require('../services/calendlyAuthService');
 const { toPublicUser } = require('../utils/userPublic');
 const { successResponse } = require('../utils/response');
 
@@ -9,6 +10,7 @@ async function getCurrentUser(req, res, next) {
   try {
     const row = await userService.findUserById(req.user.id);
     const google = await googleAuthService.getGoogleAccountStatus(req.user.id);
+    const calendly = await calendlyAuthService.getCalendlyAccountStatus(req.user.id);
 
     return successResponse(res, 200, 'User fetched successfully.', {
       user: {
@@ -16,6 +18,7 @@ async function getCurrentUser(req, res, next) {
         googleAccessToken: req.user.googleAccessToken ?? null,
       },
       google,
+      calendly,
     });
   } catch (err) {
     next(err);
@@ -31,6 +34,8 @@ async function patchCurrentUser(req, res, next) {
       timezone,
       notificationsEnabled,
       notifications_enabled,
+      calendlyUrl,
+      calendly_url,
       password,
       oldPassword,
       old_password,
@@ -51,6 +56,8 @@ async function patchCurrentUser(req, res, next) {
     if (address !== undefined) fields.address = address;
     if (contact !== undefined) fields.contact = contact;
     if (timezone !== undefined) fields.timezone = timezone;
+    if (calendlyUrl !== undefined) fields.calendly_url = calendlyUrl;
+    if (calendly_url !== undefined) fields.calendly_url = calendly_url;
     if (notificationsEnabled !== undefined) fields.notifications_enabled = notificationsEnabled;
     if (notifications_enabled !== undefined) fields.notifications_enabled = notifications_enabled;
 

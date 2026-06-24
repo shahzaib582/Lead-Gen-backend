@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const supabase = require('../config/supabase');
 const AppError = require('../utils/AppError');
 const { isValidIanaTimezone } = require('../utils/timezone');
+const { isValidCalendlyUrl, normalizeCalendlyUrl } = require('../utils/calendlyUrl');
 const refreshTokenService = require('./refreshTokenService');
 
 const ACCOUNT_CLOSED_MSG =
@@ -15,6 +16,7 @@ const PROFILE_MAX = {
   profile_pic: 2048,
   address: 500,
   contact: 120,
+  calendly_url: 2048,
 };
 
 function trimProfileField(value, maxLen) {
@@ -208,7 +210,7 @@ async function updateAuthProvider(userId, provider) {
 /**
  * Update profile fields (not email, password, or role).
  * @param {string} userId
- * @param {{ name?: string|null, address?: string|null, contact?: string|null, timezone?: string|null, notifications_enabled?: boolean }} fields
+ * @param {{ name?: string|null, address?: string|null, contact?: string|null, timezone?: string|null, notifications_enabled?: boolean, calendly_url?: string|null }} fields
  */
 async function updateUserProfile(userId, fields) {
   const patch = {};
@@ -230,6 +232,22 @@ async function updateUserProfile(userId, fields) {
       throw new AppError('Invalid timezone. Use an IANA name such as America/New_York.', 422);
     } else {
       patch.timezone = String(tz).trim();
+    }
+  }
+  if (Object.prototype.hasOwnProperty.call(fields, 'calendly_url')) {
+    const raw = fields.calendly_url;
+    if (raw == null || raw === '') {
+      patch.calendly_url = null;
+    } else {
+      const trimmed = String(raw).trim();
+      if (!isValidCalendlyUrl(trimmed)) {
+        throw new AppError(
+          'Invalid Calendly URL. Use an HTTPS link such as https://calendly.com/your-name/30min.',
+          422,
+          'INVALID_CALENDLY_URL'
+        );
+      }
+      patch.calendly_url = normalizeCalendlyUrl(trimmed);
     }
   }
   if (Object.prototype.hasOwnProperty.call(fields, 'notifications_enabled')) {

@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS users (
   role            TEXT        NOT NULL DEFAULT 'user'
                     CHECK (role IN ('user', 'superadmin')),
   timezone        TEXT,
+  calendly_url    TEXT,
   notifications_enabled BOOLEAN NOT NULL DEFAULT true,
   deleted_at      TIMESTAMPTZ,
 
@@ -49,6 +50,9 @@ CREATE TABLE IF NOT EXISTS users (
 
 COMMENT ON COLUMN users.timezone IS
   'Optional IANA timezone for scheduling. When null, meetings use UTC.';
+
+COMMENT ON COLUMN users.calendly_url IS
+  'HTTPS Calendly booking URL. Injected into thank-you Gmail drafts as {{bookingLink}}.';
 
 COMMENT ON COLUMN users.notifications_enabled IS
   'When false, notification rows are still saved; SSE and FCM push are not sent.';
@@ -208,6 +212,37 @@ CREATE POLICY "Users can delete own google account"
   ON google_accounts FOR DELETE
   USING (user_id = auth.uid());
 
+-- ─── calendly_accounts (OAuth per platform user) ───────────────────────────
+
+CREATE TABLE IF NOT EXISTS calendly_accounts (
+  id                        UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id                   UUID        NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+
+  calendly_user_uri         TEXT        NOT NULL,
+  calendly_organization_uri TEXT,
+  email                     TEXT,
+  scheduling_url            TEXT,
+
+  access_token              TEXT        NOT NULL,
+  refresh_token             TEXT,
+  token_expires_at          TIMESTAMPTZ,
+
+  webhook_subscription_uri  TEXT,
+  webhook_signing_key       TEXT,
+
+  created_at                TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at                TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_calendly_accounts_user_id ON calendly_accounts (user_id);
+CREATE INDEX IF NOT EXISTS idx_calendly_accounts_calendly_user_uri ON calendly_accounts (calendly_user_uri);
+
+DROP TRIGGER IF EXISTS set_calendly_accounts_updated_at ON calendly_accounts;
+CREATE TRIGGER set_calendly_accounts_updated_at
+  BEFORE UPDATE ON calendly_accounts
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
 -- ─── campaign_leads (junction: campaigns ↔ leads_data string ids) ─────────
 
 CREATE TABLE IF NOT EXISTS campaign_leads (
@@ -321,6 +356,9 @@ CREATE TABLE IF NOT EXISTS meetings (
   google_calendar_id TEXT        DEFAULT 'primary',
   meet_link          TEXT,
 
+  calendly_invitee_uri          TEXT,
+  calendly_scheduled_event_uri  TEXT,
+
   status             TEXT        NOT NULL DEFAULT 'scheduled'
                        CHECK (status IN ('scheduled', 'cancelled', 'completed')),
 
@@ -333,6 +371,10 @@ CREATE INDEX IF NOT EXISTS idx_meetings_campaign_id ON meetings (campaign_id);
 CREATE INDEX IF NOT EXISTS idx_meetings_campaign_lead_id ON meetings (campaign_lead_id);
 CREATE INDEX IF NOT EXISTS idx_meetings_start_at ON meetings (start_at);
 CREATE INDEX IF NOT EXISTS idx_meetings_status ON meetings (status);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_meetings_calendly_invitee_uri
+  ON meetings (calendly_invitee_uri)
+  WHERE calendly_invitee_uri IS NOT NULL;
 
 DROP TRIGGER IF EXISTS set_meetings_updated_at ON meetings;
 CREATE TRIGGER set_meetings_updated_at
@@ -448,6 +490,18 @@ CREATE TABLE IF NOT EXISTS stripe_webhook_events (
   payload         JSONB       NOT NULL DEFAULT '{}'::jsonb,
   processed_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS calendly_webhook_events (
+  id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  dedupe_key   TEXT        NOT NULL UNIQUE,
+  event_type   TEXT        NOT NULL,
+  invitee_uri  TEXT,
+  payload      JSONB,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_calendly_webhook_events_created_at
+  ON calendly_webhook_events (created_at);
 
 DROP TRIGGER IF EXISTS set_plans_updated_at ON plans;
 CREATE TRIGGER set_plans_updated_at

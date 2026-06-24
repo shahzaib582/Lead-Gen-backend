@@ -15,6 +15,7 @@ const router = express.Router();
 // Mounted at app.use('/api', router) — paths below are relative to /api
 router.use('/auth', authRoutes);
 router.use('/auth/google', googleRoutes);
+router.use('/auth/calendly', require('./calendlyAuthRoutes'));
 router.use('/campaigns', campaignRoutes);
 router.use('/dashboard', dashboardRoutes);
 router.use('/analytics', analyticsRoutes);

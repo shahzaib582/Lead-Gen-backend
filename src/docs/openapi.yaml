@@ -233,6 +233,10 @@ components:
           type: string
           nullable: true
           description: Optional IANA timezone (e.g. America/New_York). Used when syncing meetings to Google Calendar; defaults to UTC when unset.
+        calendlyUrl:
+          type: string
+          nullable: true
+          description: HTTPS Calendly scheduling link (e.g. https://calendly.com/you/30min). Injected into thank-you reply drafts as {{bookingLink}}.
         notificationsEnabled:
           type: boolean
           description: When false, notifications are still saved but SSE and FCM push are not sent. Defaults to true.
@@ -1467,6 +1471,59 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+
+  /api/auth/calendly/connect:
+    get:
+      tags: [CalendlyAuth]
+      summary: Start Calendly OAuth (connect scheduling)
+      description: |
+        Requires Bearer access token. Redirects browser to Calendly authorization (PKCE).
+        Use `?format=json` to receive `{ authUrl }` instead of a 302.
+        On success, Calendly redirects to `/api/auth/calendly/callback`, then to the frontend integrations page.
+        Registers a per-user webhook at `{PUBLIC_BASE_URL}/api/calendly/webhooks/{userId}`.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: JSON auth URL when format=json
+        '302':
+          description: Redirect to Calendly
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/auth/calendly/callback:
+    get:
+      tags: [CalendlyAuth]
+      summary: Calendly OAuth callback (browser)
+      description: Public callback from Calendly. Redirects to frontend with `calendly=connected` or `calendly=error`.
+      responses:
+        '302':
+          description: Redirect to frontend integrations
+
+  /api/auth/calendly/status:
+    get:
+      tags: [CalendlyAuth]
+      summary: Calendly connection status
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: >-
+            Returns connected, email, schedulingUrl, webhookActive, and connectedAt.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/auth/calendly/disconnect:
+    delete:
+      tags: [CalendlyAuth]
+      summary: Disconnect Calendly and remove webhook subscription
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Disconnected
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 
   /api/user:
     get:

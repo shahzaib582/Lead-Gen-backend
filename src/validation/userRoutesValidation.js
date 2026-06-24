@@ -1,5 +1,6 @@
 const { body } = require('express-validator');
 const { isValidIanaTimezone } = require('../utils/timezone');
+const { isValidCalendlyUrl } = require('../utils/calendlyUrl');
 
 const patchUserValidation = [
   body().custom((_value, { req }) => {
@@ -17,6 +18,24 @@ const patchUserValidation = [
       if (value == null || value === '') return true;
       if (!isValidIanaTimezone(value)) {
         throw new Error('timezone must be a valid IANA name (e.g. America/New_York).');
+      }
+      return true;
+    }),
+  body('calendlyUrl')
+    .optional({ nullable: true })
+    .custom((value) => {
+      if (value == null || value === '') return true;
+      if (!isValidCalendlyUrl(value)) {
+        throw new Error('calendlyUrl must be a valid HTTPS Calendly link.');
+      }
+      return true;
+    }),
+  body('calendly_url')
+    .optional({ nullable: true })
+    .custom((value) => {
+      if (value == null || value === '') return true;
+      if (!isValidCalendlyUrl(value)) {
+        throw new Error('calendly_url must be a valid HTTPS Calendly link.');
       }
       return true;
     }),
