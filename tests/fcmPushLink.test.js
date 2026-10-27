@@ -1,9 +1,6 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const {
-  buildNotificationDeepLink,
-  fcmStringData,
-} = require('../src/utils/fcmPushLink');
+const { buildNotificationDeepLink, fcmStringData } = require('../src/utils/fcmPushLink');
 
 describe('fcmPushLink', () => {
   it('buildNotificationDeepLink uses campaign path when campaignId set', () => {
@@ -12,10 +9,7 @@ describe('fcmPushLink', () => {
       type: 'reply_received',
       campaignId: '11111111-1111-1111-1111-111111111111',
     });
-    assert.equal(
-      link,
-      'https://app.example.com/campaigns/11111111-1111-1111-1111-111111111111'
-    );
+    assert.equal(link, 'https://app.example.com/campaigns/11111111-1111-1111-1111-111111111111');
   });
 
   it('fcmStringData coerces values to strings', () => {

@@ -11,6 +11,8 @@ const { resolveCampaignSenderForUser } = require('../utils/resolveCampaignSender
 const { DAILY_SEND_LIMIT, getTodaySentCount } = require('./mailSendLimitService');
 const { assertCampaignActiveForSend } = require('./campaignSendRules');
 const { safeFetchGmailMessageMetadata } = require('./gmailThreadService');
+const { createOpenTrackingToken, buildTrackedHtmlEmail } = require('../utils/emailOpenTracking');
+const { scheduleReplySyncForUser } = require('./gmailReplyDetectionService');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -157,7 +159,10 @@ async function sendCampaignEmails(
         tokensRefreshed++;
       }
       if (errorCode && !refreshed) {
-        googleAuthError = { code: errorCode, message: 'Google token could not be refreshed; using caller token.' };
+        googleAuthError = {
+          code: errorCode,
+          message: 'Google token could not be refreshed; using caller token.',
+        };
       }
       activeToken = token;
     }
@@ -188,11 +193,13 @@ async function sendCampaignEmails(
     // ── c. Send via Gmail API ─────────────────────────────────────────────
     try {
       const hasMime = Object.keys(mimeOptions).length > 0;
+      const openTrackingToken = createOpenTrackingToken();
+      const htmlBody = buildTrackedHtmlEmail(body, openTrackingToken);
       const sendResult = await sendCustomEmail(
         leadInfo.email,
         subject,
         body,
-        null,
+        htmlBody,
         activeToken,
         hasMime ? mimeOptions : undefined
       );
@@ -212,6 +219,7 @@ async function sendCampaignEmails(
           gmail_thread_id: sendResult.threadId,
           gmail_subject: meta.subject || subject,
           gmail_rfc_message_id: meta.rfcMessageId,
+          open_tracking_token: openTrackingToken,
         })
         .eq('id', cl.id);
 
@@ -246,9 +254,7 @@ async function sendCampaignEmails(
       });
 
       const errMsg =
-        sendErr.code && sendErr.message
-          ? `[${sendErr.code}] ${sendErr.message}`
-          : sendErr.message;
+        sendErr.code && sendErr.message ? `[${sendErr.code}] ${sendErr.message}` : sendErr.message;
       await supabase
         .from('campaign_leads')
         .update({ status: 'failed', error_message: errMsg.slice(0, 500) })
@@ -282,6 +288,10 @@ async function sendCampaignEmails(
     results,
     ...(googleAuthError ? { googleError: googleAuthError } : {}),
   };
+
+  if (sent > 0) {
+    scheduleReplySyncForUser(userId, { campaignId });
+  }
 
   return summary;
 }

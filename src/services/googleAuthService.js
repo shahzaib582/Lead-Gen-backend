@@ -136,18 +136,30 @@ async function resolveUserFromGoogleProfile({ email, name, avatarUrl, googleToke
   }
 
   if (existingUser) {
-    if (existingUser.auth_provider !== 'email') {
-      throw new AppError('This email is already registered with a different provider.', 409);
+    if (existingUser.auth_provider === 'email') {
+      await upsertGoogleAccount(existingUser.id, {
+        email,
+        name,
+        avatarUrl,
+        googleTokens,
+        googleId,
+      });
+      await userService.updateAuthProvider(existingUser.id, 'google');
+      return ensureGoogleEmailVerified(existingUser);
     }
-    await upsertGoogleAccount(existingUser.id, {
-      email,
-      name,
-      avatarUrl,
-      googleTokens,
-      googleId,
-    });
-    await userService.updateAuthProvider(existingUser.id, 'google');
-    return ensureGoogleEmailVerified(existingUser);
+
+    if (existingUser.auth_provider === 'google') {
+      await upsertGoogleAccount(existingUser.id, {
+        email,
+        name,
+        avatarUrl,
+        googleTokens,
+        googleId,
+      });
+      return ensureGoogleEmailVerified(existingUser);
+    }
+
+    throw new AppError('This email is already registered with a different provider.', 409);
   }
 
   return createGoogleUser({ email, name, avatarUrl, googleTokens, googleId });
@@ -198,7 +210,11 @@ async function getValidGoogleAccessToken(userId) {
   }
 
   if (!credentials.access_token) {
-    throw new AppError('Google token refresh returned no access token.', 401, 'GOOGLE_REFRESH_FAILED');
+    throw new AppError(
+      'Google token refresh returned no access token.',
+      401,
+      'GOOGLE_REFRESH_FAILED'
+    );
   }
 
   await supabase

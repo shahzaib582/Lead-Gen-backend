@@ -3,7 +3,10 @@ const connection = require('../queues/connection');
 const supabase = require('../config/supabase');
 const logger = require('../utils/logger');
 const { generateMailTemplates } = require('../services/mailTemplateService');
-const { publishCampaignEvent, getCampaignProgressSnapshot } = require('../services/campaignEventsPublisher');
+const {
+  publishCampaignEvent,
+  getCampaignProgressSnapshot,
+} = require('../services/campaignEventsPublisher');
 const { maybeKickoffCampaignMailChain } = require('../services/campaignMailKickoffService');
 
 const MAX_ATTEMPTS = 3; // must match attempts in mailTemplateQueue.js
@@ -141,7 +144,7 @@ if (require.main === module) {
     assertWorkerMailTemplateEnv();
   } catch (err) {
     console.error(err.message);
-    // eslint-disable-next-line n/no-process-exit -- standalone worker bootstrap
+
     process.exit(1);
   }
   start();

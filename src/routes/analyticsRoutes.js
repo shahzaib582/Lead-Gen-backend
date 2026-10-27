@@ -18,12 +18,7 @@ router.use(campaignLimiter);
 router.get('/overview', periodValidation, validateRequest, analyticsController.overview);
 
 /** Multi-line chart: daily replies per campaign */
-router.get(
-  '/campaign-chart',
-  periodValidation,
-  validateRequest,
-  analyticsController.campaignChart
-);
+router.get('/campaign-chart', periodValidation, validateRequest, analyticsController.campaignChart);
 
 /** Campaign comparison table (paginated) */
 router.get(
@@ -34,12 +29,7 @@ router.get(
 );
 
 /** Grouped bar: sent vs replies by UTC week */
-router.get(
-  '/sent-vs-replies',
-  weeksQuery,
-  validateRequest,
-  analyticsController.sentVsReplies
-);
+router.get('/sent-vs-replies', weeksQuery, validateRequest, analyticsController.sentVsReplies);
 
 /** Donut / circle graph: 4 reply pipeline segments */
 router.get(

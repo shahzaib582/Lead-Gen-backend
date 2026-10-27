@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * Force-send all follow-ups for one campaign (ignores waiting_days / due date).
  * Usage: node scripts/force-campaign-follow-ups.js [campaignId]
@@ -95,7 +94,9 @@ async function main() {
         continue;
       }
 
-      console.log(`Sending follow-up "${followUp.name}" for lead ${lead.id} (waiting_days=${followUp.waiting_days} ignored)`);
+      console.log(
+        `Sending follow-up "${followUp.name}" for lead ${lead.id} (waiting_days=${followUp.waiting_days} ignored)`
+      );
 
       const result = await sendFollowUpEmail({
         userId: campaign.user_id,

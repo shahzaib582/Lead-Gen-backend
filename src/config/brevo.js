@@ -12,9 +12,7 @@ function getBrevoConfig() {
 
   const senderEmail = process.env.BREVO_SENDER_EMAIL.trim();
   const senderName =
-    process.env.BREVO_SENDER_NAME?.trim() ||
-    process.env.APP_NAME?.trim() ||
-    'Lead Gen';
+    process.env.BREVO_SENDER_NAME?.trim() || process.env.APP_NAME?.trim() || 'Lead Gen';
 
   return {
     apiKey: process.env.BREVO_API_KEY.trim(),

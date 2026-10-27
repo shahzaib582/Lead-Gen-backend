@@ -19,7 +19,9 @@ const createValidation = [
     .withMessage('name must be at most 200 characters.'),
   body('waiting_days')
     .isInt({ min: WAITING_DAYS_MIN, max: WAITING_DAYS_MAX })
-    .withMessage(`waiting_days must be an integer between ${WAITING_DAYS_MIN} and ${WAITING_DAYS_MAX}.`)
+    .withMessage(
+      `waiting_days must be an integer between ${WAITING_DAYS_MIN} and ${WAITING_DAYS_MAX}.`
+    )
     .toInt(),
   body('body_template')
     .notEmpty()
@@ -45,7 +47,9 @@ const updateValidation = [
   body('waiting_days')
     .optional()
     .isInt({ min: WAITING_DAYS_MIN, max: WAITING_DAYS_MAX })
-    .withMessage(`waiting_days must be an integer between ${WAITING_DAYS_MIN} and ${WAITING_DAYS_MAX}.`)
+    .withMessage(
+      `waiting_days must be an integer between ${WAITING_DAYS_MIN} and ${WAITING_DAYS_MAX}.`
+    )
     .toInt(),
   body('body_template')
     .optional({ nullable: true })

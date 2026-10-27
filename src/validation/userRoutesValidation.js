@@ -1,5 +1,6 @@
 const { body } = require('express-validator');
 const { isValidIanaTimezone } = require('../utils/timezone');
+const { isValidCalendlyUrl } = require('../utils/calendlyUrl');
 
 const patchUserValidation = [
   body().custom((_value, { req }) => {
@@ -20,8 +21,32 @@ const patchUserValidation = [
       }
       return true;
     }),
-  body('notificationsEnabled').optional().isBoolean().withMessage('notificationsEnabled must be a boolean.'),
-  body('notifications_enabled').optional().isBoolean().withMessage('notifications_enabled must be a boolean.'),
+  body('calendlyUrl')
+    .optional({ nullable: true })
+    .custom((value) => {
+      if (value == null || value === '') return true;
+      if (!isValidCalendlyUrl(value)) {
+        throw new Error('calendlyUrl must be a valid HTTPS Calendly link.');
+      }
+      return true;
+    }),
+  body('calendly_url')
+    .optional({ nullable: true })
+    .custom((value) => {
+      if (value == null || value === '') return true;
+      if (!isValidCalendlyUrl(value)) {
+        throw new Error('calendly_url must be a valid HTTPS Calendly link.');
+      }
+      return true;
+    }),
+  body('notificationsEnabled')
+    .optional()
+    .isBoolean()
+    .withMessage('notificationsEnabled must be a boolean.'),
+  body('notifications_enabled')
+    .optional()
+    .isBoolean()
+    .withMessage('notifications_enabled must be a boolean.'),
   body('oldPassword').optional().isString().withMessage('oldPassword must be a string.'),
   body('old_password').optional().isString().withMessage('old_password must be a string.'),
   body('password')

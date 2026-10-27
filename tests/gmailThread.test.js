@@ -42,7 +42,13 @@ describe('gmailThread', () => {
       false
     );
     assert.equal(
-      isInboundFromLead('Lead <lead@test.com>', 'lead@test.com', 'me@gmail.com', 'msg-out', 'msg-in'),
+      isInboundFromLead(
+        'Lead <lead@test.com>',
+        'lead@test.com',
+        'me@gmail.com',
+        'msg-out',
+        'msg-in'
+      ),
       true
     );
     assert.equal(
@@ -52,18 +58,10 @@ describe('gmailThread', () => {
   });
 
   it('threadHasUserReplyAfterLeadFromMessages is false when only lead replied', () => {
-    const messages = [
-      msg('out', 'Me <me@gmail.com>', 1),
-      msg('lead1', 'Lead <lead@test.com>', 2),
-    ];
+    const messages = [msg('out', 'Me <me@gmail.com>', 1), msg('lead1', 'Lead <lead@test.com>', 2)];
     assert.equal(
-      threadHasUserReplyAfterLeadFromMessages(
-        messages,
-        'lead@test.com',
-        'me@gmail.com',
-        'out',
-      ),
-      false,
+      threadHasUserReplyAfterLeadFromMessages(messages, 'lead@test.com', 'me@gmail.com', 'out'),
+      false
     );
   });
 
@@ -74,13 +72,8 @@ describe('gmailThread', () => {
       msg('user1', 'Me <me@gmail.com>', 3),
     ];
     assert.equal(
-      threadHasUserReplyAfterLeadFromMessages(
-        messages,
-        'lead@test.com',
-        'me@gmail.com',
-        'out',
-      ),
-      true,
+      threadHasUserReplyAfterLeadFromMessages(messages, 'lead@test.com', 'me@gmail.com', 'out'),
+      true
     );
   });
 });

@@ -2,7 +2,14 @@ const supabase = require('../config/supabase');
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
 const { throwSupabaseError } = require('../utils/supabaseErrors');
-const { formatCampaignListItem } = require('../utils/campaignListMetrics');
+const {
+  formatCampaignListItem,
+  formatCampaignLeadCounts,
+} = require('../utils/campaignListMetrics');
+const {
+  EMPTY_CAMPAIGN_LEAD_STATS,
+  fetchCampaignLeadStatsMap,
+} = require('../utils/campaignLeadStats');
 
 // ─── Create ───────────────────────────────────────────────────────────────────
 
@@ -29,44 +36,6 @@ async function createCampaign(userId, fields) {
 }
 
 // ─── Read ─────────────────────────────────────────────────────────────────────
-
-async function fetchCampaignLeadStatsMap(userId, campaignIds) {
-  const map = new Map();
-  for (const id of campaignIds) {
-    map.set(id, { sent_count: 0, reply_count: 0 });
-  }
-  if (campaignIds.length === 0) return map;
-
-  let selectCols = 'campaign_id, status, reply_received';
-  let { data, error } = await supabase
-    .from('campaign_leads')
-    .select(selectCols)
-    .eq('user_id', userId)
-    .in('campaign_id', campaignIds);
-
-  if (error && /reply_received|column/i.test(`${error.message} ${error.details}`)) {
-    selectCols = 'campaign_id, status';
-    ({ data, error } = await supabase
-      .from('campaign_leads')
-      .select(selectCols)
-      .eq('user_id', userId)
-      .in('campaign_id', campaignIds));
-  }
-
-  if (error) {
-    logger.warn('[Campaigns] Failed to load lead stats for list', { error: error.message });
-    return map;
-  }
-
-  for (const row of data || []) {
-    const stats = map.get(row.campaign_id);
-    if (!stats) continue;
-    if (row.status === 'sent') stats.sent_count += 1;
-    if (row.reply_received === true) stats.reply_count += 1;
-  }
-
-  return map;
-}
 
 /** Safe term for PostgREST ilike filters (commas break `.or()`). */
 function sanitizeCampaignSearchTerm(search) {
@@ -97,7 +66,13 @@ async function getCampaigns(userId, { status, search, page = 1, limit = 20 } = {
   if (error) throw new AppError('Failed to fetch campaigns.', 500);
 
   const campaignIds = (data || []).map((c) => c.id);
-  const statsMap = await fetchCampaignLeadStatsMap(userId, campaignIds);
+  let statsMap;
+  try {
+    statsMap = await fetchCampaignLeadStatsMap(userId, campaignIds);
+  } catch (err) {
+    logger.warn('[Campaigns] Failed to load lead stats for list', { error: err.message });
+    statsMap = new Map(campaignIds.map((id) => [id, { ...EMPTY_CAMPAIGN_LEAD_STATS }]));
+  }
   const campaigns = (data || []).map((c) => formatCampaignListItem(c, statsMap.get(c.id)));
 
   return { campaigns, total: count, page, limit };
@@ -112,7 +87,22 @@ async function getCampaignById(userId, campaignId) {
     .single();
 
   if (error || !data) throw new AppError('Campaign not found.', 404);
-  return data;
+
+  let stats = { ...EMPTY_CAMPAIGN_LEAD_STATS };
+  try {
+    const statsMap = await fetchCampaignLeadStatsMap(userId, [campaignId]);
+    stats = statsMap.get(campaignId) || stats;
+  } catch (err) {
+    logger.warn('[Campaigns] Failed to load lead stats for detail', {
+      campaignId,
+      error: err.message,
+    });
+  }
+
+  return {
+    ...data,
+    ...formatCampaignLeadCounts(stats),
+  };
 }
 
 // ─── Update ───────────────────────────────────────────────────────────────────

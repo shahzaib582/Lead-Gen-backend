@@ -2,6 +2,7 @@ const express = require('express');
 const {
   signupValidation,
   verifyOtpValidation,
+  validateOtpValidation,
   loginValidation,
   resendOtpValidation,
   forgotPasswordValidation,
@@ -21,6 +22,13 @@ router.post(
   verifyOtpValidation,
   validateRequest,
   authController.verifyOtp
+);
+router.post(
+  '/validate-otp',
+  authLimiter,
+  validateOtpValidation,
+  validateRequest,
+  authController.validateOtpCheck
 );
 router.post('/login', loginLimiter, loginValidation, validateRequest, authController.login);
 router.post(

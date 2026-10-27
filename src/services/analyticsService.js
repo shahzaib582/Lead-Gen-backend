@@ -14,6 +14,7 @@ const {
   resolvePreviousPeriod,
   computeRatePercent,
 } = require('../utils/analyticsPeriodCompare');
+const { fetchAllPaginated } = require('../utils/campaignLeadStats');
 
 const STATUS_UI = {
   active: 'Running',
@@ -25,14 +26,30 @@ const STATUS_UI = {
 async function loadSentInRange(userId, fromIso, toIso) {
   const { data, error } = await supabase
     .from('campaign_leads')
-    .select('id, campaign_id, sent_at, reply_received, reply_received_at, status')
+    .select(
+      'id, campaign_id, sent_at, reply_received, reply_received_at, email_opened, email_opened_at, status'
+    )
     .eq('user_id', userId)
     .eq('status', 'sent')
     .not('sent_at', 'is', null)
     .gte('sent_at', fromIso)
     .lte('sent_at', toIso);
 
-  if (error) throw new AppError('Failed to load sent analytics.', 500);
+  if (error) {
+    if (/email_opened|column/i.test(error.message)) {
+      const { data: fallback, error: fallbackErr } = await supabase
+        .from('campaign_leads')
+        .select('id, campaign_id, sent_at, reply_received, reply_received_at, status')
+        .eq('user_id', userId)
+        .eq('status', 'sent')
+        .not('sent_at', 'is', null)
+        .gte('sent_at', fromIso)
+        .lte('sent_at', toIso);
+      if (fallbackErr) throw new AppError('Failed to load sent analytics.', 500);
+      return fallback || [];
+    }
+    throw new AppError('Failed to load sent analytics.', 500);
+  }
   return data || [];
 }
 
@@ -78,16 +95,19 @@ async function computePeriodMetrics(userId, fromIso, toIso) {
 
   const sentCount = sentRows.length;
   const replyCount = replyRows.length;
+  const openCount = sentRows.filter((row) => row.email_opened === true).length;
   const replyRate = computeRatePercent(replyCount, sentCount);
+  const openRate = computeRatePercent(openCount, sentCount);
 
   return {
     emails_sent: sentCount,
     replies_received: replyCount,
     reply_rate: replyRate.rate,
     reply_rate_percent: replyRate.rate_percent,
+    opens_received: openCount,
+    open_rate: openRate.rate,
+    open_rate_percent: openRate.rate_percent,
     meetings_booked: meetings,
-    open_rate: null,
-    open_rate_percent: null,
   };
 }
 
@@ -115,9 +135,12 @@ async function getAnalyticsOverview(userId, periodOptions) {
       vs_previous_period_percent: percentChange(current.emails_sent, previous.emails_sent),
     },
     open_rate: {
-      percent: null,
-      vs_previous_period_points: null,
-      tracked: false,
+      percent: current.open_rate_percent,
+      vs_previous_period_points: pointsChange(
+        current.open_rate_percent,
+        previous.open_rate_percent
+      ),
+      tracked: true,
     },
     reply_rate: {
       percent: current.reply_rate_percent,
@@ -131,7 +154,6 @@ async function getAnalyticsOverview(userId, periodOptions) {
       vs_previous_period: absoluteChange(current.meetings_booked, previous.meetings_booked),
     },
     meta: {
-      open_rate_note: 'Open tracking is not stored yet; connect a pixel or ESP webhooks to enable.',
       previous_period: { from: prev.fromKey, to: prev.toKey },
     },
   };
@@ -197,8 +219,9 @@ async function getAnalyticsCampaignChart(userId, periodOptions) {
 // ─── 3. Campaign comparison table ─────────────────────────────────────────────
 
 function buildCampaignComparisonRow(c, stats, meetingsByCampaign) {
-  const s = stats.get(c.id) || { leads: 0, emails_sent: 0, replies: 0, reply_trend: [] };
+  const s = stats.get(c.id) || { leads: 0, emails_sent: 0, replies: 0, opens: 0, reply_trend: [] };
   const replyRate = computeRatePercent(s.replies, s.emails_sent);
+  const openRate = computeRatePercent(s.opens, s.emails_sent);
   const trendCounts = countByUtcDateKey(s.reply_trend);
   const sparkline = [...trendCounts.entries()]
     .sort((a, b) => a[0].localeCompare(b[0]))
@@ -210,7 +233,7 @@ function buildCampaignComparisonRow(c, stats, meetingsByCampaign) {
     campaign_name: c.name,
     leads: s.leads,
     emails_sent: s.emails_sent,
-    open_rate_percent: null,
+    open_rate_percent: openRate.rate_percent,
     reply_rate_percent: replyRate.rate_percent,
     reply_sparkline: sparkline,
     meetings: meetingsByCampaign.get(c.id) || 0,
@@ -227,10 +250,7 @@ async function getAnalyticsCampaignComparison(userId, { page = 1, limit = 10 } =
 
   const [{ count: total, error: countErr }, { data: campaigns, error: listErr }] =
     await Promise.all([
-      supabase
-        .from('campaigns')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', userId),
+      supabase.from('campaigns').select('id', { count: 'exact', head: true }).eq('user_id', userId),
       supabase
         .from('campaigns')
         .select('id, name, status')
@@ -259,12 +279,18 @@ async function getAnalyticsCampaignComparison(userId, { page = 1, limit = 10 } =
     };
   }
 
-  const { data: leads, error: leadErr } = await supabase
-    .from('campaign_leads')
-    .select('campaign_id, status, reply_received, sent_at, reply_received_at')
-    .eq('user_id', userId)
-    .in('campaign_id', campaignIds);
-  if (leadErr) throw new AppError('Failed to load leads for comparison.', 500);
+  let leads;
+  try {
+    leads = await fetchAllPaginated(() =>
+      supabase
+        .from('campaign_leads')
+        .select('campaign_id, status, reply_received, sent_at, reply_received_at, email_opened')
+        .eq('user_id', userId)
+        .in('campaign_id', campaignIds)
+    );
+  } catch {
+    throw new AppError('Failed to load leads for comparison.', 500);
+  }
 
   const { data: meetings, error: meetErr } = await supabase
     .from('meetings')
@@ -284,13 +310,20 @@ async function getAnalyticsCampaignComparison(userId, { page = 1, limit = 10 } =
   const stats = new Map();
   for (const row of leads || []) {
     if (!stats.has(row.campaign_id)) {
-      stats.set(row.campaign_id, { leads: 0, emails_sent: 0, replies: 0, reply_trend: [] });
+      stats.set(row.campaign_id, {
+        leads: 0,
+        emails_sent: 0,
+        replies: 0,
+        opens: 0,
+        reply_trend: [],
+      });
     }
     const s = stats.get(row.campaign_id);
     s.leads += 1;
     if (row.status === 'sent') {
       s.emails_sent += 1;
       if (row.reply_received) s.replies += 1;
+      if (row.email_opened === true) s.opens += 1;
       if (row.reply_received_at) {
         s.reply_trend.push(toDateKey(row.reply_received_at));
       }

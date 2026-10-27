@@ -42,7 +42,13 @@ function toQuotaUsage(limit, used) {
   };
 }
 
-function toPublicUserQuota({ plan, campaignsUsed, campaignLeadUsage, dailyEmailsUsed, dailyEmailLimit }) {
+function toPublicUserQuota({
+  plan,
+  campaignsUsed,
+  campaignLeadUsage,
+  dailyEmailsUsed,
+  dailyEmailLimit,
+}) {
   const planPublic = plan ? toPublicPlan(plan) : null;
   const leadsLimit = plan?.max_leads_per_campaign ?? 0;
 

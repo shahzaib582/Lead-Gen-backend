@@ -16,7 +16,12 @@ router.use(authenticate);
 router.use(leadsLimiter);
 
 router.get('/', listValidation, validateRequest, leadsDataController.list);
-router.post('/tester', testerCreateValidation, validateRequest, campaignTesterController.createLead);
+router.post(
+  '/tester',
+  testerCreateValidation,
+  validateRequest,
+  campaignTesterController.createLead
+);
 router.get('/:id', idValidation, validateRequest, leadsDataController.getOne);
 
 module.exports = router;

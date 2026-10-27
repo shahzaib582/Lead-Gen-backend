@@ -27,7 +27,9 @@ if (shouldRunWorkersInWeb()) {
 const server = app.listen(PORT, () => {
   const env = process.env.NODE_ENV || 'development';
   logger.info(`Server running on port ${PORT} [${env}]`);
-  logger.info(`Swagger UI: ${(process.env.PUBLIC_BASE_URL || `http://localhost:${PORT}`).replace(/\/$/, '')}/api/docs`);
+  logger.info(
+    `Swagger UI: ${(process.env.PUBLIC_BASE_URL || `http://localhost:${PORT}`).replace(/\/$/, '')}/api/docs`
+  );
 
   if (mailTemplateWorker && campaignMailWorker && followUpSchedulerWorker) {
     mailTemplateWorker.start();

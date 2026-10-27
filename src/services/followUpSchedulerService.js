@@ -36,7 +36,9 @@ async function findDueFollowUpItems(now = new Date(), options = {}) {
     .order('created_at', { ascending: true });
 
   if (fuErr) {
-    logger.error('[FollowUpScheduler] Failed to load follow-up definitions', { error: fuErr.message });
+    logger.error('[FollowUpScheduler] Failed to load follow-up definitions', {
+      error: fuErr.message,
+    });
     return [];
   }
 
@@ -112,7 +114,8 @@ async function findDueFollowUpItems(now = new Date(), options = {}) {
 
       for (const followUp of followUps) {
         if (sentSet.has(deliveryKey(lead.id, followUp.id))) continue;
-        if (!ignoreWaitingDays && !isFollowUpDue(lead.sent_at, followUp.waiting_days, now)) continue;
+        if (!ignoreWaitingDays && !isFollowUpDue(lead.sent_at, followUp.waiting_days, now))
+          continue;
 
         dueItems.push({
           userId: campaign.user_id,

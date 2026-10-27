@@ -17,12 +17,7 @@ router.use(campaignLimiter);
 
 router.get('/summary', summaryValidation, validateRequest, dashboardController.summary);
 router.get('/meeting-stats', summaryValidation, validateRequest, dashboardController.meetingStats);
-router.get(
-  '/performance',
-  performanceValidation,
-  validateRequest,
-  dashboardController.performance
-);
+router.get('/performance', performanceValidation, validateRequest, dashboardController.performance);
 router.get(
   '/active-campaigns',
   activeCampaignsValidation,

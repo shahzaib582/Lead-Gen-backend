@@ -1,10 +1,7 @@
 const { google } = require('googleapis');
 const { sendBrevoEmail } = require('../config/brevo');
 const { getOtpExpiryMinutes } = require('../config/otp');
-const {
-  buildVerificationEmail,
-  buildPasswordResetEmail,
-} = require('../emails/otpTemplates');
+const { buildVerificationEmail, buildPasswordResetEmail } = require('../emails/otpTemplates');
 const { normalizeMessageId } = require('../utils/gmailThread');
 
 async function sendOtpEmail(to, otp) {

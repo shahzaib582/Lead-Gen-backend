@@ -23,6 +23,7 @@ const router = express.Router({ mergeParams: true });
 router.use(authenticate);
 router.use(leadsLimiter);
 
+router.post('/sync-replies', campaignLeadsController.syncReplies);
 router.post('/bulk', bulkAddValidation, validateRequest, campaignLeadsController.bulkAddLeads);
 router.post(
   '/generate-templates',

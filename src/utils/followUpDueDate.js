@@ -5,7 +5,8 @@
  * @returns {Date}
  */
 function computeFollowUpDueAt(initialSentAt, waitingDays) {
-  const base = initialSentAt instanceof Date ? new Date(initialSentAt.getTime()) : new Date(initialSentAt);
+  const base =
+    initialSentAt instanceof Date ? new Date(initialSentAt.getTime()) : new Date(initialSentAt);
   const days = Number(waitingDays);
   if (Number.isNaN(base.getTime())) {
     throw new Error('Invalid initialSentAt for follow-up due date.');

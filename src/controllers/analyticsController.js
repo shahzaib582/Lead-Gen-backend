@@ -1,8 +1,10 @@
 const analyticsService = require('../services/analyticsService');
+const { scheduleReplySyncForUser } = require('../services/gmailReplyDetectionService');
 const { successResponse } = require('../utils/response');
 
 async function overview(req, res, next) {
   try {
+    scheduleReplySyncForUser(req.user.id);
     const data = await analyticsService.getAnalyticsOverview(req.user.id, {
       period: req.query.period,
       from: req.query.from,

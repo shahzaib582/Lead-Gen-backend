@@ -134,7 +134,10 @@ async function streamNotificationEvents(req, res, next) {
   });
 
   sub.on('error', (err) => {
-    logger.error('[NotificationSSE] subscriber error', { err: err.message, userId: session.userId });
+    logger.error('[NotificationSSE] subscriber error', {
+      err: err.message,
+      userId: session.userId,
+    });
   });
 
   try {

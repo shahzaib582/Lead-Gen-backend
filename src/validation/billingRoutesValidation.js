@@ -25,10 +25,16 @@ const defaultPaymentMethodValidation = [
 ];
 
 const paymentMethodIdParam = [
-  param('paymentMethodId')
+  param('paymentMethodId').isString().matches(/^pm_/).withMessage('Invalid payment method id.'),
+];
+
+const portalValidation = [
+  body('returnPath')
+    .optional()
     .isString()
-    .matches(/^pm_/)
-    .withMessage('Invalid payment method id.'),
+    .trim()
+    .matches(/^\/[^\s]*$/)
+    .withMessage('returnPath must start with / (e.g. /settings/billing).'),
 ];
 
 module.exports = {
@@ -36,4 +42,5 @@ module.exports = {
   changePlanValidation,
   defaultPaymentMethodValidation,
   paymentMethodIdParam,
+  portalValidation,
 };

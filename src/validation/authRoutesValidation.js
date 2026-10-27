@@ -19,21 +19,37 @@ const signupValidation = [
     }
     return true;
   }),
-  body('name').optional().trim().isLength({ max: 200 }).withMessage('Name must be at most 200 characters.'),
+  body('name')
+    .optional()
+    .trim()
+    .isLength({ max: 200 })
+    .withMessage('Name must be at most 200 characters.'),
   body('profile_pic').custom((value) => {
     if (value !== undefined) {
-      throw new Error('Profile image cannot be set at signup. Use POST /api/user/avatar after login.');
+      throw new Error(
+        'Profile image cannot be set at signup. Use POST /api/user/avatar after login.'
+      );
     }
     return true;
   }),
   body('profilePic').custom((value) => {
     if (value !== undefined) {
-      throw new Error('Profile image cannot be set at signup. Use POST /api/user/avatar after login.');
+      throw new Error(
+        'Profile image cannot be set at signup. Use POST /api/user/avatar after login.'
+      );
     }
     return true;
   }),
-  body('address').optional().trim().isLength({ max: 500 }).withMessage('address must be at most 500 characters.'),
-  body('contact').optional().trim().isLength({ max: 120 }).withMessage('contact must be at most 120 characters.'),
+  body('address')
+    .optional()
+    .trim()
+    .isLength({ max: 500 })
+    .withMessage('address must be at most 500 characters.'),
+  body('contact')
+    .optional()
+    .trim()
+    .isLength({ max: 120 })
+    .withMessage('contact must be at most 120 characters.'),
 ];
 
 const verifyOtpValidation = [
@@ -43,6 +59,19 @@ const verifyOtpValidation = [
     .withMessage('OTP must be exactly 6 digits.')
     .isNumeric()
     .withMessage('OTP must be numeric.'),
+];
+
+const validateOtpValidation = [
+  body('email').isEmail().withMessage('Please provide a valid email address.'),
+  body('otp')
+    .isLength({ min: 6, max: 6 })
+    .withMessage('OTP must be exactly 6 digits.')
+    .isNumeric()
+    .withMessage('OTP must be numeric.'),
+  body('purpose')
+    .optional()
+    .isIn(['email_verify', 'password_reset'])
+    .withMessage('purpose must be email_verify or password_reset.'),
 ];
 
 const loginValidation = [
@@ -81,6 +110,7 @@ const resetPasswordValidation = [
 module.exports = {
   signupValidation,
   verifyOtpValidation,
+  validateOtpValidation,
   loginValidation,
   resendOtpValidation,
   forgotPasswordValidation,

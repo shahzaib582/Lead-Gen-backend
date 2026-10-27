@@ -7,6 +7,8 @@ const {
 } = require('./gmailThreadService');
 const { resolveCampaignSenderForUser } = require('../utils/resolveCampaignSender');
 const { applyTemplatePlaceholders } = require('../utils/templatePlaceholders');
+const { buildCalendlyBookingLink } = require('../utils/calendlyUrl');
+const calendlyAuthService = require('./calendlyAuthService');
 const { buildReplySubject, normalizeMessageId } = require('../utils/gmailThread');
 const { parseLeadDataId } = require('../utils/leadDataId');
 const logger = require('../utils/logger');
@@ -17,6 +19,9 @@ const GMAIL_MODIFY_SCOPE = 'https://www.googleapis.com/auth/gmail.modify';
 const DEFAULT_THANK_YOU_BODY = `Hi {{firstName}},
 
 Thank you for getting back to me — I really appreciate your reply.
+
+If you'd like to schedule a call, you can pick a time here:
+{{bookingLink}}
 
 Best regards,
 {{senderName}}`;
@@ -32,12 +37,36 @@ function getThankYouBodyTemplate() {
   return DEFAULT_THANK_YOU_BODY;
 }
 
-function buildThankYouBody(leadInfo, senderDisplayName) {
-  const withSender = getThankYouBodyTemplate().replace(
-    /\{\{\s*senderName\s*\}\}/gi,
-    senderDisplayName || '',
-  );
-  return applyTemplatePlaceholders(withSender, leadInfo);
+function buildThankYouBody(leadInfo, senderDisplayName, bookingLink = '') {
+  let template = getThankYouBodyTemplate();
+  const link = bookingLink ? String(bookingLink).trim() : '';
+
+  if (link && !/\{\{\s*bookingLink\s*\}\}/i.test(template)) {
+    template += `\n\nIf you'd like to schedule a call, you can pick a time here:\n{{bookingLink}}`;
+  }
+
+  const withSender = template.replace(/\{\{\s*senderName\s*\}\}/gi, senderDisplayName || '');
+  const withLink = withSender.replace(/\{\{\s*bookingLink\s*\}\}/gi, link);
+  const filled = applyTemplatePlaceholders(withLink, leadInfo);
+
+  if (!link) {
+    return filled
+      .replace(/^\s*If you(?:'d| would) like to schedule.*\n?/gim, '')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  }
+
+  return filled;
+}
+
+async function resolveBookingLinkForLead(userId, campaignLead) {
+  const baseUrl = await calendlyAuthService.resolveSchedulingUrlForUser(userId);
+  if (!baseUrl) return '';
+
+  return buildCalendlyBookingLink(baseUrl, {
+    campaignId: campaignLead?.campaign_id || null,
+    campaignLeadId: campaignLead?.id || null,
+  });
 }
 
 /**
@@ -114,7 +143,8 @@ async function maybeCreateThankYouDraft({ userId, campaignLead, accessToken, use
     ? await resolveCampaignSenderForUser(campaign, userId)
     : { sender_display_name: null };
 
-  const body = buildThankYouBody(leadRow, senderCampaign.sender_display_name);
+  const bookingLink = await resolveBookingLinkForLead(userId, campaignLead);
+  const body = buildThankYouBody(leadRow, senderCampaign.sender_display_name, bookingLink);
   const subject = buildReplySubject(campaignLead.gmail_subject || 'Your message');
 
   const mimeOptions = {};
@@ -267,4 +297,5 @@ module.exports = {
   syncThankYouDraftsBeforeFollowUps,
   hasGmailComposeScope,
   buildThankYouBody,
+  resolveBookingLinkForLead,
 };

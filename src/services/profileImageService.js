@@ -35,7 +35,9 @@ async function removeStorageObjects(userId, paths) {
 
 async function removeAllAvatarObjectsForUser(userId) {
   const bucket = getStorageBucket();
-  const { data: listed, error: listErr } = await supabase.storage.from(bucket).list(userId, { limit: 50 });
+  const { data: listed, error: listErr } = await supabase.storage
+    .from(bucket)
+    .list(userId, { limit: 50 });
   if (listErr) return;
 
   const paths = (listed || [])
