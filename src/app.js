@@ -19,12 +19,23 @@ YAML.load(openApiYamlPath);
 
 const app = express();
 
-function corsOriginCallback(origin, callback) {
-  const raw = process.env.CORS_ORIGIN || process.env.FRONTEND_URL;
-  const allowList = (raw || 'http://localhost:8080')
+function parseOrigins(raw) {
+  return String(raw || '')
     .split(',')
-    .map((s) => s.trim())
+    .map((s) => s.trim().replace(/\/$/, ''))
     .filter(Boolean);
+}
+
+function corsOriginCallback(origin, callback) {
+  const allowList = [
+    ...new Set([
+      ...parseOrigins(process.env.CORS_ORIGIN),
+      ...parseOrigins(process.env.FRONTEND_URL),
+    ]),
+  ];
+  if (allowList.length === 0) {
+    allowList.push('http://localhost:8080');
+  }
 
   const devAllowAny =
     process.env.NODE_ENV !== 'production' &&
@@ -39,11 +50,8 @@ function corsOriginCallback(origin, callback) {
     return callback(null, origin);
   }
 
-  if (allowList.length === 0) {
-    return callback(null, 'http://localhost:8080');
-  }
-
-  if (allowList.includes(origin)) {
+  const normalizedOrigin = String(origin).replace(/\/$/, '');
+  if (allowList.includes(normalizedOrigin)) {
     return callback(null, origin);
   }
 
@@ -85,7 +93,7 @@ app.use(
   calendlyWebhookRoutes
 );
 
-app.use(express.json({ limit: '10kb' }));
+app.use(express.json({ limit: '256kb' }));
 app.disable('x-powered-by');
 
 // ─── OpenAPI + Swagger UI (before global rate limit: UI loads many assets + spec fetch) ─

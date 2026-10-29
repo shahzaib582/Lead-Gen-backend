@@ -1,7 +1,7 @@
 {
-  "name": "auth-system",
+  "name": "lead-gen-backend",
   "version": "1.0.0",
-  "description": "Production-grade custom auth with OTP verification",
+  "description": "Lead Gen API — campaigns, Gmail outreach, billing, and auth",
   "main": "src/index.js",
   "engines": {
     "node": ">=24.13.1 <25"

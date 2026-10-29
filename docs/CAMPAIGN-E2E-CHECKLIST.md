@@ -24,4 +24,4 @@ Use this in staging or local against a real Supabase project, Redis, and a test 
 
 ## Render notes
 
-Web and workers are **separate** services; SSE uses **Redis pub/sub** shared with BullMQ. Web must reach the same Redis as workers (`REDIS_HOST` / `REDIS_PORT` from the Render Redis add-on, or `REDIS_URL` if you configure it).
+On the free/hobby Blueprint, workers run **in the web process** (`RUN_WORKERS_IN_WEB=1`) with shared Redis for SSE and BullMQ. Dedicated worker dynos need a paid plan. Web must use the same Redis (`REDIS_HOST` / `REDIS_PORT` from the Render Redis add-on, or `REDIS_URL`).
