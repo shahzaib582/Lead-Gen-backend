@@ -1,9 +1,7 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('crypto');
-const {
-  verifyCalendlyWebhookSignature,
-} = require('../src/services/calendlyWebhookService');
+const { verifyCalendlyWebhookSignature } = require('../src/services/calendlyWebhookService');
 
 describe('calendlyWebhookService', () => {
   it('verifyCalendlyWebhookSignature accepts valid signature', () => {
