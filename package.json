@@ -13,7 +13,18 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "node --test"
+    "test": "node --test \"tests/**/*.js\"",
+    "test:edge": "deno test supabase/functions/_shared/client-categories.test.ts supabase/functions/_shared/scoring.test.ts supabase/functions/_shared/validation.test.ts supabase/functions/_shared/lead.test.ts supabase/functions/_shared/apollo.test.ts supabase/functions/_shared/hunter.test.ts supabase/functions/_shared/pipeline.test.ts supabase/functions/_shared/lead-classes.test.ts --allow-env --no-check",
+    "supabase:start": "supabase start",
+    "supabase:stop": "supabase stop",
+    "supabase:status": "supabase status",
+    "supabase:link": "supabase link",
+    "supabase:push": "supabase db push",
+    "supabase:pull": "supabase db pull",
+    "supabase:diff": "supabase db diff",
+    "supabase:reset": "supabase db reset",
+    "supabase:studio": "supabase studio",
+    "supabase:migration:new": "supabase migration new"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
