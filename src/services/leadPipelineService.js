@@ -1,6 +1,5 @@
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
-const supabase = require('../config/supabase');
 const { searchApollo, ApolloError } = require('./leadPipeline/apollo');
 const { findHunterEmail, verifyHunterEmail } = require('./leadPipeline/hunter');
 const { ENTITY_CONFIG } = require('./leadPipeline/clientCategories');
@@ -42,16 +41,6 @@ async function runLeadPipeline(userId, body) {
     throw new AppError(err.message || 'Invalid request.', 400);
   }
 
-  const { data: campaign, error: campaignErr } = await supabase
-    .from('campaigns')
-    .select('id')
-    .eq('id', validated.request.campaign_id)
-    .eq('user_id', userId)
-    .maybeSingle();
-
-  if (campaignErr) throw new AppError('Unable to validate campaign.', 500);
-  if (!campaign) throw new AppError('Campaign not found.', 404);
-
   const warnings = [];
   const perPage = Math.min(validated.request.per_page, MAX_PER_PAGE);
   if (validated.request.per_page > MAX_PER_PAGE) {
@@ -83,7 +72,7 @@ async function runLeadPipeline(userId, body) {
   const startedAt = Date.now();
   const result = await runPipeline({
     people: apollo.people,
-    campaignId: validated.request.campaign_id,
+    campaignId: null,
     leadType: validated.lead_type,
     leadClass: validated.lead_class,
     targetSegment: validated.target_segment,
@@ -95,7 +84,6 @@ async function runLeadPipeline(userId, body) {
 
   logger.info('[LeadPipeline] completed', {
     userId,
-    campaignId: validated.request.campaign_id,
     entity: validated.request.entity,
     category: validated.request.category,
     ...result.stats,
@@ -104,7 +92,6 @@ async function runLeadPipeline(userId, body) {
 
   return {
     success: true,
-    campaign_id: validated.request.campaign_id,
     entity: validated.request.entity,
     category: validated.request.category,
     target_segment: validated.target_segment,

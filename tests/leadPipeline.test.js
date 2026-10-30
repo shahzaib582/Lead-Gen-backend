@@ -62,7 +62,7 @@ describe('lead pipeline', () => {
           title: 'Owner',
         },
       ],
-      campaignId: '11111111-1111-4111-8111-111111111111',
+      campaignId: null,
       leadType: 'CO_EVENT_COLLABORATOR',
       leadClass: 'LEAD-03',
       targetSegment: 'EQAIESPORTS | VENUE',

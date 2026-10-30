@@ -3240,27 +3240,23 @@ paths:
       tags: [LeadsData]
       summary: Fill the leads pool from Apollo (verified emails only)
       description: |
-        Same body as the old Supabase `lead-pipeline` function.
+        Fill the global leads pool from Apollo using `entity` + `category` (keywords,
+        titles, industries from `clientCategories`).
 
-        Searches Apollo, verifies email (Apollo, else Hunter), and upserts into
-        `leads_data` only. Does **not** insert `campaign_leads`. `campaign_id` is
-        required to confirm the caller owns that campaign.
+        Verified emails are upserted into `leads_data` only. This does **not** create
+        a campaign or insert `campaign_leads`. Create a campaign later, then attach
+        selected pool leads with `POST /api/campaigns/{id}/leads/bulk`.
 
-        Use the app JWT from login (not a Supabase Auth token). Assign saved
-        leads to a campaign later with the campaign bulk-add API.
-
-        Without `HUNTER_API_KEY`, only emails Apollo already marks verified are saved.
+        Use the app JWT from login. Without `HUNTER_API_KEY`, only emails Apollo
+        already marks verified are saved.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [campaign_id, entity, category]
+              required: [entity, category]
               properties:
-                campaign_id:
-                  type: string
-                  format: uuid
                 entity:
                   type: string
                   example: EQAIESPORTS
@@ -3295,19 +3291,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
         '400':
-          description: Invalid body (entity, category, campaign_id, etc.).
+          description: Invalid body (entity, category, etc.).
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '404':
-          description: Campaign not found for this user.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
         '429':
           $ref: '#/components/responses/TooManyRequests'
         '502':

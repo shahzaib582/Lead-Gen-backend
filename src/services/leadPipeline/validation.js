@@ -24,7 +24,6 @@ module.exports = __toCommonJS(validation_exports);
 var import_lead_classes = require("./leadClasses");
 var import_lead = require("./lead");
 var import_client_categories = require("./clientCategories");
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SEARCH_FIELDS = [
   "industries",
   "job_titles",
@@ -42,8 +41,6 @@ const SEARCH_FIELDS = [
 const validateRequest = (body) => {
   if (!body || typeof body !== "object") throw new Error("Request body must be a JSON object");
   const value = body;
-  if (typeof value.campaign_id !== "string" || !UUID.test(value.campaign_id))
-    throw new Error("campaign_id must be a valid UUID");
   if (value.page !== void 0 && (!Number.isInteger(value.page) || value.page < 1))
     throw new Error("page must be a positive integer");
   if (value.per_page !== void 0 && (!Number.isInteger(value.per_page) || value.per_page < 1 || value.per_page > 100))
@@ -67,7 +64,6 @@ const validateRequest = (body) => {
     throw new Error("target_segment is invalid");
   return {
     request: {
-      campaign_id: value.campaign_id,
       page: value.page ?? 1,
       per_page: value.per_page ?? 25,
       search,
@@ -80,8 +76,6 @@ const validateRequest = (body) => {
 const validateCategoryRequest = (body) => {
   if (!body || typeof body !== "object") throw new Error("Request body must be a JSON object");
   const value = body;
-  if (typeof value.campaign_id !== "string" || !UUID.test(value.campaign_id))
-    throw new Error("campaign_id must be a valid UUID");
   let reqLeadClass = null;
   if (value.lead_class !== void 0 && value.lead_class !== null) {
     if (!(0, import_lead_classes.isLeadClass)(value.lead_class)) {
@@ -137,7 +131,6 @@ const validateCategoryRequest = (body) => {
   const per_page = value.per_page ?? 5;
   return {
     request: {
-      campaign_id: value.campaign_id,
       entity: value.entity,
       category: value.category,
       lead_class: reqLeadClass ?? categoryCfg.lead_class,
