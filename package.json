@@ -13,17 +13,7 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "node --test \"tests/**/*.js\"",
-    "supabase:start": "supabase start",
-    "supabase:stop": "supabase stop",
-    "supabase:status": "supabase status",
-    "supabase:link": "supabase link",
-    "supabase:push": "supabase db push",
-    "supabase:pull": "supabase db pull",
-    "supabase:diff": "supabase db diff",
-    "supabase:reset": "supabase db reset",
-    "supabase:studio": "supabase studio",
-    "supabase:migration:new": "supabase migration new"
+    "test": "node --test \"tests/**/*.js\""
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
