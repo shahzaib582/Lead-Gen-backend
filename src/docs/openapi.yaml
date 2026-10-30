@@ -35,7 +35,7 @@ tags:
   - name: Tester
     description: Tester utilities for fast QA (create test lead, trigger follow-ups ignoring waiting days).
   - name: LeadsData
-    description: Global leads pool search and fetch by id.
+    description: Global leads pool search, Apollo/Hunter pipeline fill, and fetch by id.
   - name: User
     description: Current user profile (GET / PATCH).
   - name: Meetings
@@ -3234,6 +3234,88 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
+
+  /api/leads/pipeline:
+    post:
+      tags: [LeadsData]
+      summary: Fill the leads pool from Apollo (verified emails only)
+      description: |
+        Same body as the old Supabase `lead-pipeline` function.
+
+        Searches Apollo, verifies email (Apollo, else Hunter), and upserts into
+        `leads_data` only. Does **not** insert `campaign_leads`. `campaign_id` is
+        required to confirm the caller owns that campaign.
+
+        Use the app JWT from login (not a Supabase Auth token). Assign saved
+        leads to a campaign later with the campaign bulk-add API.
+
+        Without `HUNTER_API_KEY`, only emails Apollo already marks verified are saved.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [campaign_id, entity, category]
+              properties:
+                campaign_id:
+                  type: string
+                  format: uuid
+                entity:
+                  type: string
+                  example: EQAIESPORTS
+                category:
+                  type: string
+                  example: VENUE
+                per_page:
+                  type: integer
+                  minimum: 1
+                  maximum: 100
+                  default: 10
+                  description: Capped at 25 by the server.
+                page:
+                  type: integer
+                  minimum: 1
+                  default: 1
+                locations:
+                  type: array
+                  items:
+                    type: string
+                  example: ['Texas, United States']
+                exclude_domains:
+                  type: array
+                  items:
+                    type: string
+                  example: ['rival.com']
+      responses:
+        '200':
+          description: Pipeline finished. `data.saved` is inserted + updated in `leads_data`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '400':
+          description: Invalid body (entity, category, campaign_id, etc.).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Campaign not found for this user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '502':
+          description: Apollo search failed or is not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/leads/tester:
     post:

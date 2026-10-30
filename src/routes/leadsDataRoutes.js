@@ -6,6 +6,7 @@ const {
 } = require('../validation/leadsDataRoutesValidation');
 const leadsDataController = require('../controllers/leadsDataController');
 const campaignTesterController = require('../controllers/campaignTesterController');
+const leadPipelineController = require('../controllers/leadPipelineController');
 const { authenticate } = require('../middleware/authenticate');
 const validateRequest = require('../middleware/validateRequest');
 const { leadsLimiter } = require('../config/rateLimits');

@@ -6,6 +6,7 @@
 --
 -- External tables used by the API (define via import / Supabase UI): leads_data,
 -- linkedinscrapping, webscrapping (shapes vary by project).
+-- Pipeline columns for leads_data: sql/migrations/20261030_leads_data_pipeline_fields.sql
 -- =====================================================================
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;

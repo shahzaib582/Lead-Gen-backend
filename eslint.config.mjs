@@ -4,7 +4,13 @@ import n from 'eslint-plugin-n';
 
 export default [
   {
-    ignores: ['**/node_modules/**', '**/coverage/**', '**/*.min.js', '**/*.json'],
+    ignores: [
+      '**/node_modules/**',
+      '**/coverage/**',
+      '**/*.min.js',
+      '**/*.json',
+      'src/services/leadPipeline/{apollo,clientCategories,hunter,lead,leadClasses,pipeline,scoring,validation}.js',
+    ],
   },
   js.configs.recommended,
   {

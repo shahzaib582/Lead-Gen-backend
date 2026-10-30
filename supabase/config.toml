@@ -407,8 +407,3 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 # JSON string passed through to pg-delta SQL formatting.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":80,\"commaStyle\":\"trailing\"}"
 
-[functions.lead-pipeline]
-# The function authenticates the caller itself (Bearer token -> auth.getUser())
-# and checks campaign ownership, so gateway JWT verification is redundant and
-# can reject valid tokens on projects using asymmetric JWT signing keys.
-verify_jwt = false

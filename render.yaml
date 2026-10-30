@@ -63,6 +63,12 @@ services:
       - key: OPENAI_API_KEY
         sync: false
 
+      - key: APOLLO_API_KEY
+        sync: false
+
+      - key: HUNTER_API_KEY
+        sync: false
+
   - type: redis
     name: leadgen-redis
     plan: free
