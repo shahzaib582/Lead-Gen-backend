@@ -17,6 +17,7 @@ router.use(authenticate);
 router.use(leadsLimiter);
 
 router.get('/', listValidation, validateRequest, leadsDataController.list);
+router.post('/pipeline', leadPipelineController.run);
 router.post(
   '/tester',
   testerCreateValidation,
