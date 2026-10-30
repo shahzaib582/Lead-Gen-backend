@@ -18,11 +18,13 @@ const PORT = Number(process.env.PORT) || 3000;
 let mailTemplateWorker;
 let campaignMailWorker;
 let followUpSchedulerWorker;
+let leadPipelineWorker;
 
 if (shouldRunWorkersInWeb()) {
   mailTemplateWorker = require('./workers/mailTemplateWorker');
   campaignMailWorker = require('./workers/campaignMailWorker');
   followUpSchedulerWorker = require('./workers/followUpSchedulerWorker');
+  leadPipelineWorker = require('./workers/leadPipelineWorker');
 }
 
 const server = app.listen(PORT, () => {
@@ -32,11 +34,14 @@ const server = app.listen(PORT, () => {
     `Swagger UI: ${(process.env.PUBLIC_BASE_URL || `http://localhost:${PORT}`).replace(/\/$/, '')}/api/docs`
   );
 
-  if (mailTemplateWorker && campaignMailWorker && followUpSchedulerWorker) {
+  if (mailTemplateWorker && campaignMailWorker && followUpSchedulerWorker && leadPipelineWorker) {
     mailTemplateWorker.start();
     campaignMailWorker.start();
     followUpSchedulerWorker.start().catch((err) => {
       logger.error('Failed to start follow-up scheduler', { error: err.message });
+    });
+    leadPipelineWorker.start().catch((err) => {
+      logger.error('Failed to start lead pipeline cron', { error: err.message });
     });
     logger.info('BullMQ workers started in web process (RUN_WORKERS_IN_WEB or non-production)');
   } else {
@@ -57,6 +62,9 @@ async function shutdown() {
     }
     if (followUpSchedulerWorker?.worker) {
       await followUpSchedulerWorker.worker.close();
+    }
+    if (leadPipelineWorker?.worker) {
+      await leadPipelineWorker.worker.close();
     }
     process.exit(0);
   });

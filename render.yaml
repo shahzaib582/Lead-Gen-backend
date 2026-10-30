@@ -21,6 +21,9 @@ services:
       - key: RUN_WORKERS_IN_WEB
         value: '1'
 
+      - key: LEAD_PIPELINE_CRON
+        value: '0 */6 * * *'
+
       - key: REDIS_HOST
         fromService:
           type: redis
