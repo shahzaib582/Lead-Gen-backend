@@ -36,7 +36,11 @@ async function assignStarterSubscription(userId) {
     throw new AppError('Failed to assign starter subscription.', 500);
   }
 
-  await supabase.from('users').update({ current_plan_id: STARTER_PLAN_ID }).eq('id', userId);
+  const { error: userError } = await supabase
+    .from('users')
+    .update({ current_plan_id: STARTER_PLAN_ID })
+    .eq('id', userId);
+  if (userError) throw new AppError('Failed to save starter plan.', 503);
 
   return data;
 }

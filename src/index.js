@@ -36,7 +36,9 @@ const server = app.listen(PORT, () => {
 
   if (mailTemplateWorker && campaignMailWorker && followUpSchedulerWorker && leadPipelineWorker) {
     mailTemplateWorker.start();
-    campaignMailWorker.start();
+    campaignMailWorker.start().catch((err) => {
+      logger.error('Failed to start campaign recovery', { error: err.message });
+    });
     followUpSchedulerWorker.start().catch((err) => {
       logger.error('Failed to start follow-up scheduler', { error: err.message });
     });

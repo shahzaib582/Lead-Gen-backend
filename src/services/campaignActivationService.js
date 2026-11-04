@@ -1,3 +1,4 @@
+const { fetchAllRows } = require('../utils/fetchAllRows');
 const supabase = require('../config/supabase');
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
@@ -41,13 +42,14 @@ async function enqueuePendingTemplateJobsForCampaign(userId, campaignId, { previ
     };
   }
 
-  const { data: rows, error: lErr } = await supabase
-    .from('campaign_leads')
-    .select('id, status, mail_template')
-    .eq('campaign_id', campaignId)
-    .eq('user_id', userId);
-
-  if (lErr) throw new AppError('Failed to load campaign leads.', 500);
+  const rows = await fetchAllRows(() =>
+    supabase
+      .from('campaign_leads')
+      .select('id, status, mail_template')
+      .eq('campaign_id', campaignId)
+      .eq('user_id', userId)
+      .order('id')
+  );
 
   let enqueued = 0;
   let skippedDuplicate = 0;
@@ -81,6 +83,14 @@ async function enqueuePendingTemplateJobsForCampaign(userId, campaignId, { previ
         error: err.message,
       });
     }
+  }
+
+  const ready = rows.find(
+    (lead) => lead.status === 'template_generated' && lead.mail_template?.trim()
+  );
+  if (ready) {
+    const { maybeKickoffCampaignMailChain } = require('./campaignMailKickoffService');
+    await maybeKickoffCampaignMailChain({ userId, campaignId, campaignLeadId: ready.id });
   }
 
   await publishCampaignEvent(campaignId, {

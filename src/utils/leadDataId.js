@@ -6,7 +6,7 @@ function parseLeadDataId(raw) {
   if (raw === null || raw === undefined) return null;
   const s = String(raw).trim();
   if (!s) return null;
-  if (/^\d+$/.test(s)) return Number(s);
+  if (/^\d+$/.test(s)) return Number.isSafeInteger(Number(s)) ? Number(s) : s;
   return s;
 }
 

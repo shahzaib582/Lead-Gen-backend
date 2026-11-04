@@ -33,7 +33,8 @@ function httpRequestLogger(req, res, next) {
     const ms = (Number(process.hrtime.bigint() - start) / 1e6).toFixed(0);
     const status = res.statusCode;
     const label = statusLabel(status);
-    const query = path.includes('?') ? path.slice(path.indexOf('?')) : '';
+    // Query strings can contain OAuth codes, tokens and SSE credentials.
+    const query = '';
     const line = `HTTP ${label} ${req.method} ${pathname}${query} → ${status} (${ms}ms)`;
 
     if (status >= 500) {

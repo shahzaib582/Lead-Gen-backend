@@ -1,3 +1,4 @@
+const { deliverOnce } = require('./outboundDeliveryService');
 const OpenAI = require('openai');
 const supabase = require('../config/supabase');
 const { sendCustomEmail } = require('./emailService');
@@ -85,7 +86,7 @@ async function getLeadEmail(leadDataId) {
 /**
  * @returns {Promise<{ claimed: boolean, id?: string, reason?: string }>}
  */
-async function claimFollowUpDelivery(campaignLeadId, followUpId) {
+async function ensureFollowUpDelivery(campaignLeadId, followUpId) {
   const { data: existing, error: fetchErr } = await supabase
     .from('campaign_lead_follow_ups')
     .select('id, status')
@@ -340,7 +341,7 @@ async function sendFollowUpEmail({ userId, campaignId, campaignLeadId, followUpI
     return { status: 'skipped', reason: 'reply_received' };
   }
 
-  const claim = await claimFollowUpDelivery(campaignLeadId, followUpId);
+  const claim = await ensureFollowUpDelivery(campaignLeadId, followUpId);
   if (!claim.claimed) {
     return { status: 'skipped', reason: claim.reason };
   }
@@ -478,21 +479,29 @@ async function sendFollowUpEmail({ userId, campaignId, campaignLeadId, followUpI
 
   try {
     const hasMime = Object.keys(mimeOptions).length > 0;
-    const sendResult = await sendCustomEmail(
-      leadInfo.email,
-      subject,
-      finalBody,
-      null,
-      accessToken,
-      hasMime ? mimeOptions : undefined,
-      threading
-    );
-
-    const sentAt = new Date().toISOString();
-    await supabase
+    const delivery = await deliverOnce({
+      key: `followup-${campaignLeadId}-${followUpId}`,
+      userId,
+      send: () =>
+        sendCustomEmail(
+          leadInfo.email,
+          subject,
+          finalBody,
+          null,
+          accessToken,
+          hasMime ? mimeOptions : undefined,
+          threading
+        ),
+    });
+    if (delivery.status !== 'sent') return delivery;
+    const sendResult = delivery.result;
+    const sentAt = delivery.sentAt;
+    const { error: persistError } = await supabase
       .from('campaign_lead_follow_ups')
       .update({ status: 'sent', sent_at: sentAt, error_message: null })
       .eq('id', deliveryId);
+    if (persistError)
+      throw new AppError('Failed to save follow-up delivery state.', 503, 'DELIVERY_STATE_PENDING');
 
     return {
       status: 'sent',
@@ -516,16 +525,17 @@ async function sendFollowUpEmail({ userId, campaignId, campaignLeadId, followUpI
 }
 
 async function markFollowUpFailed(deliveryId, message) {
-  await supabase
+  const { error } = await supabase
     .from('campaign_lead_follow_ups')
     .update({
       status: 'failed',
       error_message: String(message || 'Send failed.').slice(0, 500),
     })
     .eq('id', deliveryId);
+  if (error) throw new AppError('Failed to save follow-up failure state.', 503);
 }
 
 module.exports = {
   sendFollowUpEmail,
-  claimFollowUpDelivery,
+  ensureFollowUpDelivery,
 };

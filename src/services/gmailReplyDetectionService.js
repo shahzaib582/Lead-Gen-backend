@@ -1,3 +1,4 @@
+const { fetchAllRows } = require('../utils/fetchAllRows');
 const supabase = require('../config/supabase');
 const googleAuthService = require('./googleAuthService');
 const { safeThreadHasLeadReply } = require('./gmailThreadService');
@@ -32,24 +33,22 @@ async function syncReplyFlagsForUser(userId, { campaignId } = {}) {
   const userEmail = googleAcct?.email ? String(googleAcct.email).trim() : null;
   if (!userEmail) return summary;
 
-  let leadQuery = supabase
-    .from('campaign_leads')
-    .select(REPLY_SCAN_SELECT)
-    .eq('user_id', userId)
-    .eq('status', 'sent')
-    .eq('reply_received', false)
-    .not('gmail_thread_id', 'is', null);
+  const buildLeadQuery = () => {
+    let leadQuery = supabase
+      .from('campaign_leads')
+      .select(REPLY_SCAN_SELECT)
+      .eq('user_id', userId)
+      .eq('status', 'sent')
+      .eq('reply_received', false)
+      .not('gmail_thread_id', 'is', null);
 
-  if (campaignId) {
-    leadQuery = leadQuery.eq('campaign_id', campaignId);
-  }
+    if (campaignId) {
+      leadQuery = leadQuery.eq('campaign_id', campaignId);
+    }
 
-  const { data: leads, error } = await leadQuery;
-
-  if (error) {
-    logger.error('[ReplyDetection] Failed to load leads', { userId, error: error.message });
-    return summary;
-  }
+    return leadQuery.order('id');
+  };
+  const leads = await fetchAllRows(buildLeadQuery);
 
   for (const lead of leads || []) {
     summary.scanned += 1;
@@ -126,19 +125,15 @@ async function syncReplyFlagsForUser(userId, { campaignId } = {}) {
  * Sync replies for every user with sent leads awaiting reply detection.
  */
 async function syncReplyFlagsBeforeFollowUps() {
-  const { data: rows, error } = await supabase
-    .from('campaign_leads')
-    .select('user_id')
-    .eq('status', 'sent')
-    .eq('reply_received', false)
-    .not('gmail_thread_id', 'is', null);
-
-  if (error) {
-    logger.error('[ReplyDetection] Failed to load leads pending reply scan', {
-      error: error.message,
-    });
-    return { users: 0, scanned: 0, marked: 0, errors: 0 };
-  }
+  const rows = await fetchAllRows(() =>
+    supabase
+      .from('campaign_leads')
+      .select('id, user_id')
+      .eq('status', 'sent')
+      .eq('reply_received', false)
+      .not('gmail_thread_id', 'is', null)
+      .order('id')
+  );
 
   const userIds = [...new Set((rows || []).map((r) => r.user_id))];
   const totals = { users: userIds.length, scanned: 0, marked: 0, errors: 0 };

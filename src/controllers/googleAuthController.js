@@ -4,14 +4,20 @@ const userService = require('../services/userService');
 const { issueTokenPair } = require('../services/authTokenService');
 const AppError = require('../utils/AppError');
 const { successResponse } = require('../utils/response');
+const { createOAuthState, consumeOAuthState } = require('../services/googleOAuthStateService');
 const { toPublicUser } = require('../utils/userPublic');
 
-function redirectToGoogle(req, res) {
-  const url = getAuthUrl();
-  if (req.query.format === 'json') {
-    return successResponse(res, 200, undefined, { authUrl: url });
+async function redirectToGoogle(req, res, next) {
+  try {
+    const state = await createOAuthState(res);
+    const url = getAuthUrl(state);
+    if (req.query.format === 'json') {
+      return successResponse(res, 200, undefined, { authUrl: url });
+    }
+    res.redirect(url);
+  } catch (err) {
+    next(err);
   }
-  res.redirect(url);
 }
 
 async function handleGoogleCallback(req, res, next) {
@@ -25,6 +31,7 @@ async function handleGoogleCallback(req, res, next) {
       throw new AppError('Authorization code missing from Google callback.', 400);
     }
 
+    await consumeOAuthState(req, res);
     const { googleTokens, profile } = await exchangeCodeForProfile(code);
     const { email, name, picture: avatarUrl, verified_email } = profile;
 
@@ -80,12 +87,8 @@ async function loginWithGoogleToken(req, res, next) {
       throw new AppError('Google account email is not verified.', 400);
     }
 
-    const googleTokens = {
-      access_token: id_token,
-      refresh_token: null,
-      expiry_date: payload.exp * 1000,
-      scope: 'openid email profile',
-    };
+    // Identity login must never replace the Gmail OAuth grant.
+    const googleTokens = null;
 
     const user = await googleAuthService.resolveUserFromGoogleProfile({
       email,

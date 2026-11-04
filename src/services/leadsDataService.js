@@ -74,7 +74,7 @@ async function getLeads({
 
   // Full-text search across name, email and company
   if (search && search.trim()) {
-    const term = search.trim();
+    const term = search.trim().replace(/[(),]/g, ' ').replace(/[%_]/g, ' ');
     query = query.or(`fullName.ilike.%${term}%,email.ilike.%${term}%,company.ilike.%${term}%`);
   }
 

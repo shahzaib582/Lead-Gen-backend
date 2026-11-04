@@ -111,10 +111,13 @@ async function sendCustomEmail(
     requestBody.threadId = threading.threadId;
   }
 
-  const result = await gmail.users.messages.send({
-    userId: 'me',
-    requestBody,
-  });
+  const result = await gmail.users.messages.send(
+    {
+      userId: 'me',
+      requestBody,
+    },
+    { retry: false }
+  );
 
   return {
     messageId: result.data.id,

@@ -1,3 +1,4 @@
+const { fetchAllRows } = require('../utils/fetchAllRows');
 const supabase = require('../config/supabase');
 const { isFollowUpDue } = require('../utils/followUpDueDate');
 const { sendFollowUpEmail } = require('./campaignFollowUpMailerService');
@@ -27,20 +28,16 @@ async function findDueFollowUpItems(now = new Date(), options = {}) {
     followUpId = null,
   } = options;
 
-  const { data: followUpDefs, error: fuErr } = await supabase
-    .from('campaign_follow_ups')
-    .select('id, campaign_id, waiting_days, body_template, name, created_at')
-    .not('body_template', 'is', null)
-    .neq('body_template', '')
-    .order('waiting_days', { ascending: true })
-    .order('created_at', { ascending: true });
-
-  if (fuErr) {
-    logger.error('[FollowUpScheduler] Failed to load follow-up definitions', {
-      error: fuErr.message,
-    });
-    return [];
-  }
+  const followUpDefs = await fetchAllRows(() =>
+    supabase
+      .from('campaign_follow_ups')
+      .select('id, campaign_id, waiting_days, body_template, name, created_at')
+      .not('body_template', 'is', null)
+      .neq('body_template', '')
+      .order('waiting_days')
+      .order('created_at')
+      .order('id')
+  );
 
   const filteredDefs = (followUpDefs || []).filter((fu) => {
     if (campaignId && fu.campaign_id !== campaignId) return false;
@@ -58,16 +55,14 @@ async function findDueFollowUpItems(now = new Date(), options = {}) {
   const campaignIds = [...defsByCampaign.keys()];
   if (campaignIds.length === 0) return [];
 
-  const { data: campaigns, error: campErr } = await supabase
-    .from('campaigns')
-    .select('id, user_id')
-    .eq('status', 'active')
-    .in('id', campaignIds);
-
-  if (campErr) {
-    logger.error('[FollowUpScheduler] Failed to load campaigns', { error: campErr.message });
-    return [];
-  }
+  const campaigns = await fetchAllRows(() =>
+    supabase
+      .from('campaigns')
+      .select('id, user_id')
+      .eq('status', 'active')
+      .in('id', campaignIds)
+      .order('id')
+  );
 
   const dueItems = [];
 
@@ -77,30 +72,34 @@ async function findDueFollowUpItems(now = new Date(), options = {}) {
     const followUps = defsByCampaign.get(campaign.id) || [];
     if (followUps.length === 0) continue;
 
-    const { data: leads, error: leadsErr } = await supabase
-      .from('campaign_leads')
-      .select('id, sent_at, reply_received')
-      .eq('campaign_id', campaign.id)
-      .eq('user_id', campaign.user_id)
-      .eq('status', 'sent')
-      .eq('reply_received', false)
-      .not('sent_at', 'is', null);
-
-    if (leadsErr) {
-      logger.warn('[FollowUpScheduler] Failed to load sent leads', {
-        campaignId: campaign.id,
-        error: leadsErr.message,
-      });
-      continue;
-    }
+    const leads = await fetchAllRows(() =>
+      supabase
+        .from('campaign_leads')
+        .select('id, sent_at, reply_received')
+        .eq('campaign_id', campaign.id)
+        .eq('user_id', campaign.user_id)
+        .eq('status', 'sent')
+        .eq('reply_received', false)
+        .not('sent_at', 'is', null)
+        .order('id')
+    );
 
     if (!leads?.length) continue;
 
     const leadIds = leads.map((l) => l.id);
-    const { data: deliveries } = await supabase
-      .from('campaign_lead_follow_ups')
-      .select('campaign_lead_id, follow_up_id, status')
-      .in('campaign_lead_id', leadIds);
+    const deliveries = [];
+    for (let offset = 0; offset < leadIds.length; offset += 100) {
+      const ids = leadIds.slice(offset, offset + 100);
+      deliveries.push(
+        ...(await fetchAllRows(() =>
+          supabase
+            .from('campaign_lead_follow_ups')
+            .select('id, campaign_lead_id, follow_up_id, status')
+            .in('campaign_lead_id', ids)
+            .order('id')
+        ))
+      );
+    }
 
     const sentSet = new Set(
       (deliveries || [])
@@ -187,6 +186,10 @@ async function processDueFollowUps() {
       await randomDelay();
     }
   }
+
+  const { maybeCompleteCampaign } = require('./campaignCompletionService');
+  const campaigns = new Map(dueItems.map((item) => [item.campaignId, item.userId]));
+  for (const [campaignId, userId] of campaigns) await maybeCompleteCampaign(userId, campaignId);
 
   logger.info('[FollowUpScheduler] Run complete', {
     sent: summary.sent,

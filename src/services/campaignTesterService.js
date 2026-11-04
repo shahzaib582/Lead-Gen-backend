@@ -7,32 +7,7 @@ async function insertTesterLead(payload) {
   const { data, error } = await supabase.from('leads_data').insert(payload).select('*').single();
   if (!error) return data;
 
-  // Fallback for out-of-sync bigint sequence in some environments.
-  if (error.code !== '23505') {
-    throw new AppError(error.message || 'Failed to create test lead.', 500);
-  }
-
-  const { data: maxRows, error: maxErr } = await supabase
-    .from('leads_data')
-    .select('id')
-    .order('id', { ascending: false })
-    .limit(1);
-
-  if (maxErr) {
-    throw new AppError(maxErr.message || 'Failed to create test lead.', 500);
-  }
-
-  const maxId = Number(maxRows?.[0]?.id || 0);
-  const { data: retryData, error: retryErr } = await supabase
-    .from('leads_data')
-    .insert({ ...payload, id: maxId + 1 })
-    .select('*')
-    .single();
-
-  if (retryErr) {
-    throw new AppError(retryErr.message || 'Failed to create test lead.', 500);
-  }
-  return retryData;
+  throw new AppError(error.message || 'Failed to create test lead.', 500);
 }
 
 async function createTesterLead({ email, fullName, firstName, company, title }) {

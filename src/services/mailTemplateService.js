@@ -205,7 +205,7 @@ async function generateMailTemplates(userId, campaignId, campaignLeadId = null, 
     .select('id, lead_data_id')
     .eq('campaign_id', campaignId)
     .eq('user_id', userId)
-    .eq('status', 'pending');
+    .in('status', ['pending', 'failed']);
 
   if (campaignLeadId) {
     clQuery = clQuery.eq('id', campaignLeadId);

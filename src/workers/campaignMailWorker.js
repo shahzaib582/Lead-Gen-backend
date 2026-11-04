@@ -21,7 +21,26 @@ const MAX_ATTEMPTS = 5; // must match attempts in campaignMailQueue.js
 const worker = new Worker(
   'campaign-mail-queue',
   async (job) => {
+    if (job.name === 'recover-campaigns') {
+      const { recoverCampaigns } = require('../services/campaignRecoveryService');
+      return recoverCampaigns();
+    }
     const { userId, campaignId, campaignLeadId } = job.data;
+    if (job.name === 'manual-outreach') {
+      const { runManualCampaignOutreach } = require('../services/campaignManualRunService');
+      const result = await runManualCampaignOutreach(userId, campaignId);
+      if (result.dailyLimitReached) {
+        const tomorrow = new Date();
+        tomorrow.setUTCHours(24, 0, 1, 0);
+        // BullMQ moves this same durable job rather than creating a duplicate run.
+        await job.moveToDelayed(tomorrow.getTime(), job.token);
+        const { DelayedError } = require('bullmq');
+        throw new DelayedError();
+      }
+      const { notifyOutreachFinished } = require('../services/notificationService');
+      await notifyOutreachFinished(userId, campaignId, result);
+      return result;
+    }
 
     const attemptNumber = job.attemptsMade + 1;
     const attemptsLeft = MAX_ATTEMPTS - attemptNumber;
@@ -103,10 +122,27 @@ const worker = new Worker(
       }
 
       // 3. Send email
-      await sendCampaignEmails(userId, campaignId, accessToken, campaignLeadId);
+      const outcome = await sendCampaignEmails(userId, campaignId, accessToken, campaignLeadId);
+      if (outcome.dailyLimitReached && !outcome.sent) {
+        const tomorrow = new Date();
+        tomorrow.setUTCHours(24, 0, 1, 0);
+        await enqueueCampaignMailJob(
+          { userId, campaignId, campaignLeadId },
+          {
+            delay: tomorrow.getTime() - Date.now(),
+          }
+        );
+        return { success: true, deferred: true, reason: 'daily_limit_reached' };
+      }
+      if (outcome.failed) {
+        const failure = outcome.results.find((result) => result.status === 'failed');
+        const error = new Error(failure?.error || 'Email delivery failed.');
+        error.code = failure?.fatalCode;
+        throw error;
+      }
 
       await publishCampaignEvent(campaignId, {
-        type: 'mail_sent',
+        type: outcome.sent ? 'mail_sent' : 'mail_skipped',
         campaignLeadId,
         userId,
         ...(await getCampaignProgressSnapshot(userId, campaignId)),
@@ -139,7 +175,8 @@ const worker = new Worker(
             status: 'failed',
             error_message: (err.code ? `[${err.code}] ` : '') + err.message.slice(0, 450),
           })
-          .eq('id', campaignLeadId);
+          .eq('id', campaignLeadId)
+          .neq('status', 'sent');
 
         // Chain continues even after a permanent failure — don't block the rest.
         await chainNextLead({ userId, campaignId });
@@ -217,7 +254,8 @@ async function chainNextLead({ userId, campaignId }) {
     );
   } else {
     // No ready-to-send leads left. If auto campaign has no pending work, mark completed.
-    await maybeCompleteAutoCampaignIfDone({ userId, campaignId, campaign });
+    const { maybeCompleteCampaign } = require('../services/campaignCompletionService');
+    await maybeCompleteCampaign(userId, campaignId);
   }
 
   await publishCampaignEvent(campaignId, {
@@ -226,50 +264,20 @@ async function chainNextLead({ userId, campaignId }) {
   });
 }
 
-async function maybeCompleteAutoCampaignIfDone({ userId, campaignId, campaign }) {
-  if (!campaign || campaign.run_mode !== 'auto' || campaign.status !== 'active') return;
-
-  const { count, error } = await supabase
-    .from('campaign_leads')
-    .select('id', { count: 'exact', head: true })
-    .eq('campaign_id', campaignId)
-    .eq('user_id', userId)
-    .in('status', ['pending', 'template_generated']);
-
-  if (error) {
-    logger.warn('[CampaignMailWorker] completion-check failed', {
-      campaignId,
-      userId,
-      error: error.message,
-    });
-    return;
-  }
-
-  if ((count || 0) > 0) return;
-
-  const { error: updateError } = await supabase
-    .from('campaigns')
-    .update({ status: 'completed' })
-    .eq('id', campaignId)
-    .eq('user_id', userId)
-    .eq('status', 'active');
-
-  if (updateError) {
-    logger.warn('[CampaignMailWorker] failed to mark completed', {
-      campaignId,
-      userId,
-      error: updateError.message,
-    });
-  }
-}
-
 // ─── Events ───────────────────────────────────────────────────────────────────
 
 worker.on('error', (err) => {
   logger.error('[CampaignMailWorker] Critical Worker Error', { error: err.message });
 });
 
-function start() {}
+async function start() {
+  const queue = require('../queues/campaignMailQueue');
+  await queue.upsertJobScheduler(
+    'campaign-recovery',
+    { every: 60000 },
+    { name: 'recover-campaigns', data: {} }
+  );
+}
 
 module.exports = { worker, start };
 
@@ -283,5 +291,8 @@ if (require.main === module) {
 
     process.exit(1);
   }
-  start();
+  start().catch((err) => {
+    logger.error('Failed to schedule recovery', { error: err.message });
+    process.exit(1);
+  });
 }

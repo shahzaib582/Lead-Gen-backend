@@ -59,7 +59,13 @@ async function findGoogleAccountByUserId(userId) {
 }
 
 async function upsertGoogleAccount(userId, { email, name, avatarUrl, googleTokens, googleId }) {
+  if (!googleTokens?.access_token) return;
   const row = buildGoogleAccountRow(userId, { email, name, avatarUrl, googleTokens, googleId });
+  // Google may omit a refresh token when renewing an existing grant.
+  if (!googleTokens.refresh_token) {
+    const existing = await findGoogleAccountByUserId(userId);
+    if (existing?.google_id === googleId) row.google_refresh_token = existing.google_refresh_token;
+  }
 
   const { error } = await supabase.from('google_accounts').upsert(row, { onConflict: 'user_id' });
 

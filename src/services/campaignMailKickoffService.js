@@ -1,5 +1,7 @@
 const supabase = require('../config/supabase');
 const campaignMailQueue = require('../queues/campaignMailQueue');
+const connection = require('../queues/connection');
+const { randomUUID } = require('crypto');
 const { enqueueCampaignMailJob } = require('../jobs/campaignMailJob');
 const { isCampaignActiveForSend } = require('./campaignSendRules');
 const logger = require('../utils/logger');
@@ -53,15 +55,26 @@ async function maybeKickoffCampaignMailChain({ userId, campaignId, campaignLeadI
     return { started: false, reason: 'not_ready_to_send', status: lead.status };
   }
 
-  const counts = await campaignMailQueue.getJobCounts('waiting', 'delayed', 'active');
-  const activeChain = counts.waiting + counts.delayed + counts.active;
-
-  if (activeChain > 0) {
-    return { started: false, reason: 'mail_chain_already_running', activeChain };
+  const lockKey = `mail-kickoff:${campaignId}`;
+  const owner = randomUUID();
+  if (!(await connection.set(lockKey, owner, 'PX', 30000, 'NX'))) {
+    return { started: false, reason: 'mail_chain_already_running' };
   }
-
-  await enqueueCampaignMailJob({ userId, campaignId, campaignLeadId }, { delay: 0 });
-  logger.info('[MailKickoff] Mail chain started', { campaignId, campaignLeadId });
+  try {
+    const jobs = await campaignMailQueue.getJobs(['waiting', 'delayed', 'active', 'prioritized']);
+    if (jobs.some((job) => job.data.campaignId === campaignId)) {
+      return { started: false, reason: 'mail_chain_already_running' };
+    }
+    await enqueueCampaignMailJob({ userId, campaignId, campaignLeadId }, { delay: 0 });
+    logger.info('[MailKickoff] Mail chain started', { campaignId, campaignLeadId });
+  } finally {
+    await connection.eval(
+      "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
+      1,
+      lockKey,
+      owner
+    );
+  }
 
   return { started: true };
 }

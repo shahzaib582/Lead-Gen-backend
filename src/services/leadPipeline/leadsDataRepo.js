@@ -8,9 +8,11 @@ const {
 } = require('./leadsDataColumns');
 
 function isVerifiedStatus(status) {
-  return String(status || '')
-    .trim()
-    .toLowerCase() === 'verified';
+  return (
+    String(status || '')
+      .trim()
+      .toLowerCase() === 'verified'
+  );
 }
 
 function asText(value) {
@@ -86,27 +88,7 @@ async function insertLead(payload) {
   }
   if (!error) return data;
 
-  if (error.code !== '23505') {
-    throw new AppError(error.message || 'Failed to save lead.', 500);
-  }
-
-  const { data: maxRows, error: maxErr } = await supabase
-    .from('leads_data')
-    .select('id')
-    .order('id', { ascending: false })
-    .limit(1);
-
-  if (maxErr) throw new AppError(maxErr.message || 'Failed to save lead.', 500);
-
-  const maxId = Number(maxRows?.[0]?.id || 0);
-  let retryPayload = { ...payload, id: maxId + 1 };
-  let retry = await supabase.from('leads_data').insert(retryPayload).select('*').single();
-  if (retry.error && isUnknownColumnError(retry.error)) {
-    retryPayload = { ...withoutMigrationColumns(payload), id: maxId + 1 };
-    retry = await supabase.from('leads_data').insert(retryPayload).select('*').single();
-  }
-  if (retry.error) throw new AppError(retry.error.message || 'Failed to save lead.', 500);
-  return retry.data;
+  throw new AppError(error.message || 'Failed to save lead.', 500);
 }
 
 function createLeadsDataRepo() {
@@ -175,13 +157,19 @@ function createLeadsDataRepo() {
         }
       }
 
-      if ((existing.companyPhone === null || existing.companyPhone === '') && incoming.companyPhone) {
+      if (
+        (existing.companyPhone === null || existing.companyPhone === '') &&
+        incoming.companyPhone
+      ) {
         updates.companyPhone = incoming.companyPhone;
       }
       if ((existing.companyCity === null || existing.companyCity === '') && incoming.companyCity) {
         updates.companyCity = incoming.companyCity;
       }
-      if ((existing.compantyState === null || existing.compantyState === '') && incoming.compantyState) {
+      if (
+        (existing.compantyState === null || existing.compantyState === '') &&
+        incoming.compantyState
+      ) {
         updates.compantyState = incoming.compantyState;
       }
 

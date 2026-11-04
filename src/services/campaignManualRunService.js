@@ -1,3 +1,4 @@
+const { fetchAllRows } = require('../utils/fetchAllRows');
 const supabase = require('../config/supabase');
 const AppError = require('../utils/AppError');
 const googleAuthService = require('./googleAuthService');
@@ -40,16 +41,15 @@ async function validateManualCampaignRunStart(userId, campaignId) {
 
   assertCampaignActiveForSend(campaign);
 
-  const { data: leads, error: leadsError } = await supabase
-    .from('campaign_leads')
-    .select('id')
-    .eq('campaign_id', campaignId)
-    .eq('user_id', userId)
-    .in('status', ['pending', 'template_generated']);
-
-  if (leadsError) {
-    throw new AppError('Failed to fetch campaign leads.', 500);
-  }
+  const leads = await fetchAllRows(() =>
+    supabase
+      .from('campaign_leads')
+      .select('id')
+      .eq('campaign_id', campaignId)
+      .eq('user_id', userId)
+      .in('status', ['pending', 'template_generated', 'failed'])
+      .order('id')
+  );
 
   if (!leads || leads.length === 0) {
     throw new AppError('No pending leads to process.', 404);
@@ -74,17 +74,16 @@ async function validateManualCampaignRunStart(userId, campaignId) {
  * Auto campaigns use workers on bulk add; this endpoint returns 400 for them.
  */
 async function runManualCampaignOutreach(userId, campaignId) {
-  const { data: leads, error: leadsError } = await supabase
-    .from('campaign_leads')
-    .select('id, status')
-    .eq('campaign_id', campaignId)
-    .eq('user_id', userId)
-    .in('status', ['pending', 'template_generated'])
-    .order('created_at', { ascending: true });
-
-  if (leadsError) {
-    throw new AppError('Failed to fetch campaign leads.', 500);
-  }
+  const leads = await fetchAllRows(() =>
+    supabase
+      .from('campaign_leads')
+      .select('id, status')
+      .eq('campaign_id', campaignId)
+      .eq('user_id', userId)
+      .in('status', ['pending', 'template_generated', 'failed'])
+      .order('created_at', { ascending: true })
+      .order('id')
+  );
 
   if (!leads || leads.length === 0) {
     return {
@@ -124,7 +123,7 @@ async function runManualCampaignOutreach(userId, campaignId) {
     const cl = leads[i];
     const leadResult = { campaignLeadId: cl.id, initialStatus: cl.status };
 
-    if (cl.status === 'pending') {
+    if (cl.status === 'pending' || cl.status === 'failed') {
       try {
         const gen = await generateMailTemplates(userId, campaignId, cl.id, {
           skipMailKickoff: true,

@@ -1,3 +1,4 @@
+const { deliverOnce } = require('./outboundDeliveryService');
 const supabase = require('../config/supabase');
 const { sendCustomEmail } = require('./emailService');
 const googleAuthService = require('./googleAuthService');
@@ -126,7 +127,7 @@ async function sendCampaignEmails(
   if (campaignLeadId) {
     // When targeting a specific lead, only allow template_generated.
     // This prevents re-sending to a lead that is already 'sent' or 'skipped'.
-    clQuery = clQuery.eq('id', campaignLeadId).eq('status', 'template_generated');
+    clQuery = clQuery.eq('id', campaignLeadId);
   }
 
   const { data: leads, error: leadsError } = await clQuery;
@@ -148,6 +149,7 @@ async function sendCampaignEmails(
 
   let activeToken = accessToken;
   let googleAuthError = null;
+  let quotaReached = false;
 
   for (let i = 0; i < leads.length; i++) {
     const cl = leads[i];
@@ -195,21 +197,48 @@ async function sendCampaignEmails(
       const hasMime = Object.keys(mimeOptions).length > 0;
       const openTrackingToken = createOpenTrackingToken();
       const htmlBody = buildTrackedHtmlEmail(body, openTrackingToken);
-      const sendResult = await sendCustomEmail(
-        leadInfo.email,
-        subject,
-        body,
-        htmlBody,
-        activeToken,
-        hasMime ? mimeOptions : undefined
-      );
+      const delivery = await deliverOnce({
+        key: `initial-${cl.id}`,
+        userId,
+        send: async () => ({
+          ...(await sendCustomEmail(
+            leadInfo.email,
+            subject,
+            body,
+            htmlBody,
+            activeToken,
+            hasMime ? mimeOptions : undefined
+          )),
+          openTrackingToken,
+        }),
+      });
+      if (delivery.status !== 'sent') {
+        skipped++;
+        results.push({ campaignLeadId: cl.id, status: 'skipped', reason: delivery.reason });
+        if (delivery.reason === 'daily_limit_reached') {
+          quotaReached = true;
+          break;
+        }
+        if (delivery.reason === 'delivery_unconfirmed') {
+          const { error } = await supabase
+            .from('campaign_leads')
+            .update({
+              status: 'failed',
+              error_message: '[DELIVERY_UNCONFIRMED] Reconcile Gmail before retrying.',
+            })
+            .eq('id', cl.id);
+          if (error) throw new AppError('Failed to flag uncertain delivery.', 503);
+        }
+        continue;
+      }
+      const sendResult = delivery.result;
 
       const meta = await safeFetchGmailMessageMetadata(activeToken, sendResult.messageId);
 
       // ── d. Update status → sent (+ Gmail thread for follow-ups) ─────────
-      const sentAt = new Date().toISOString();
+      const sentAt = delivery.sentAt;
 
-      await supabase
+      const { error: persistError } = await supabase
         .from('campaign_leads')
         .update({
           status: 'sent',
@@ -219,11 +248,13 @@ async function sendCampaignEmails(
           gmail_thread_id: sendResult.threadId,
           gmail_subject: meta.subject || subject,
           gmail_rfc_message_id: meta.rfcMessageId,
-          open_tracking_token: openTrackingToken,
+          open_tracking_token: sendResult.openTrackingToken,
         })
         .eq('id', cl.id);
+      if (persistError)
+        throw new AppError('Failed to save sent email state.', 503, 'DELIVERY_STATE_PENDING');
 
-      await supabase
+      const { error: mirrorError } = await supabase
         .from('leads_data')
         .update({
           outreachStatus: 'contacted',
@@ -231,6 +262,7 @@ async function sendCampaignEmails(
           emailSentDate: sentAt,
         })
         .eq('id', parseLeadDataId(cl.lead_data_id));
+      if (mirrorError) logger.warn('Lead outreach mirror failed', { campaignLeadId: cl.id });
 
       sent++;
 
@@ -281,7 +313,7 @@ async function sendCampaignEmails(
     skipped,
     tokensRefreshed,
     total: leads.length,
-    dailyLimitReached: alreadySentToday + sent >= DAILY_SEND_LIMIT,
+    dailyLimitReached: quotaReached || alreadySentToday + sent >= DAILY_SEND_LIMIT,
     alreadySentToday,
     totalSentToday: alreadySentToday + sent,
     dailyLimit: DAILY_SEND_LIMIT,
