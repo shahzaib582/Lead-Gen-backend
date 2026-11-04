@@ -45,3 +45,25 @@ it('Google OAuth state is browser bound, expires, and is consumed once', async (
     /Invalid or expired/
   );
 });
+
+it('production OAuth state cookies support cross-site SPA callbacks over HTTPS', async () => {
+  const original = process.env.NODE_ENV;
+  process.env.NODE_ENV = 'production';
+  try {
+    const service = loadService('src/services/googleOAuthStateService.js', {
+      '../queues/connection': { async set() {} },
+    });
+    let options;
+    await service.createOAuthState({
+      cookie(name, value, opts) {
+        options = opts;
+      },
+    });
+    assert.equal(options.secure, true);
+    assert.equal(options.httpOnly, true);
+    assert.equal(options.sameSite, 'none');
+  } finally {
+    if (original === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = original;
+  }
+});

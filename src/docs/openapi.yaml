@@ -3173,12 +3173,63 @@ paths:
           $ref: '#/components/responses/UnprocessableEntity'
 
   /api/campaigns/{id}/leads/run:
+    get:
+      tags: [CampaignLeads]
+      summary: Get durable manual outreach job status
+      description: Returns the campaign owner's current manual job, or null if no retained job exists. Includes queue state and bounded final delivery counts.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Job state (waiting, active, delayed, completed or failed), or null
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      job:
+                        type: object
+                        nullable: true
+                        properties:
+                          id:
+                            type: string
+                          state:
+                            type: string
+                          attemptsMade:
+                            type: integer
+                          error:
+                            type: string
+                            nullable: true
+                          result:
+                            type: object
+                            nullable: true
+                            properties:
+                              sent:
+                                type: integer
+                              failed:
+                                type: integer
+                              skipped:
+                                type: integer
+        '401':
+          description: Authentication required
+        '404':
+          description: Campaign not found or not owned by this user
     post:
       tags: [CampaignLeads]
       summary: Start manual campaign outreach (async)
       description: |
         For **`run_mode: manual`** campaigns that are **`active`** only.
-        Validates the request, then starts template generation and Gmail sends **in the background**
+        Validates the request, then queues durable template generation and Gmail sends **in the background**
         and returns **202** immediately.
         - **≤15 leads (default):** fast batch — ~2s between sends.
         - **>15 leads:** throttled — 3–5 minute delay between sends (same as workers).

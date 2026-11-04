@@ -23,6 +23,13 @@ const router = express.Router({ mergeParams: true });
 router.use(authenticate);
 router.use(leadsLimiter);
 
+router.get(
+  '/run',
+  runOutreachValidation,
+  validateRequest,
+  require('../controllers/campaignRunStatusController').getRunStatus
+);
+
 router.post('/sync-replies', campaignLeadsController.syncReplies);
 router.post('/bulk', bulkAddValidation, validateRequest, campaignLeadsController.bulkAddLeads);
 router.post(

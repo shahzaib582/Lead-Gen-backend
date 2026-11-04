@@ -9,7 +9,9 @@ function cookieOptions() {
   return {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
+    // The SPA callback may call this API from a different site. State remains
+    // unpredictable, browser-bound, short-lived and atomically consumed.
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
     path: '/api/auth/google',
   };
 }

@@ -18,7 +18,7 @@ The database functions are executable only by `service_role`. The application re
 - Manual runs return a durable `jobId`; repeated active requests share the same BullMQ job. The existing campaign mail worker handles these jobs. Quota-exhausted runs resume after UTC midnight.
 - Auto campaigns remain active while follow-ups are outstanding. Failed initial sends require attention. A periodic recovery job repairs pending template dispatch and restarts ready campaigns after crashes or activation.
 - Queue kickoff checks are campaign-specific and serialized. The mail worker still uses concurrency 1 per worker process; recovery/manual work shares that queue. Dedicated workers are recommended for continuous processing; the existing single-process Render configuration remains a development/hobby option.
-- Google identity-token login no longer creates or overwrites Gmail grants. Connect Gmail through the OAuth redirect. OAuth start/callback must run in the same browser with the HttpOnly state cookie. A frontend fetching `format=json` across origins must use `credentials: 'include'`, then navigate the browser to `authUrl`. Browser navigation to the redirect endpoint also works. The cookie is Secure in production.
+- Google identity-token login no longer creates or overwrites Gmail grants. Connect Gmail through the OAuth redirect. OAuth start/callback must run in the same browser with the HttpOnly state cookie. A frontend fetching `format=json` across origins must use `credentials: 'include'`, then navigate the browser to `authUrl`. Browser navigation to the redirect endpoint also works. The cookie is Secure and SameSite=None in production (Lax locally). Browser third-party cookie restrictions can still require frontend/API domains under the same site.
 - Stripe events are skipped only after successful processing. Failures are retried; an abandoned processing lease can be reclaimed after five minutes. Pre-migration event rows retain their historical processed status; audit previously failed billing changes separately.
 - HTTP logs omit query strings to protect OAuth codes and SSE session IDs.
 
@@ -37,3 +37,5 @@ Previously completed campaigns with outstanding follow-ups need an explicit revi
 ## Remaining product work
 
 Automatic assignment still uses the shared lead pool rather than a business-specific ICP. Targeting needs structured geography/industry/role inputs before changing selection semantics; `target_zone` currently accepts free-form text. User-specific Apollo/Hunter credit budgets, private lead collections, managed sender infrastructure and autonomous optimization remain separate product work. Existing tests do not replace a staging run against real Gmail, Calendly and Stripe test mode.
+
+The frontend companion update uses authenticated `GET /api/campaigns/:id/leads/run` to restore manual job state after reloads. Deploy this backend endpoint before that frontend release. No further database migration is required.
