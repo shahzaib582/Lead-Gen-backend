@@ -34,6 +34,7 @@ router.get(
 router.use(authenticate);
 router.use(campaignLimiter);
 
+router.use('/:id/linkedin', require('./linkedHelperRoutes'));
 router.use('/:id/leads', campaignLeadsRoutes);
 router.use('/:id/follow-ups', campaignFollowUpsRoutes);
 

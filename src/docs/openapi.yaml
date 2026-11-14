@@ -3969,3 +3969,97 @@ paths:
           description: Event processed or duplicate ignored
         '400':
           description: Invalid signature
+
+  /api/campaigns/{id}/linkedin/configuration:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [Campaigns]
+      security: [{ bearerAuth: [] }]
+      summary: Get Linked Helper configuration status (secrets omitted)
+      responses:
+        '200':
+          description: Configuration status in data.configured and data.updated_at
+    put:
+      tags: [Campaigns]
+      security: [{ bearerAuth: [] }]
+      summary: Configure encrypted Linked Helper Cloud Storage campaign webhook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [webhook_url]
+              properties:
+                webhook_url: { type: string, format: uri, maxLength: 2048 }
+      responses:
+        '200':
+          description: Configuration saved
+        '400':
+          description: Invalid URL; HTTPS on linkedhelper.com required
+        '503':
+          description: Encryption key not configured
+
+  /api/campaigns/{id}/linkedin/enroll:
+    post:
+      tags: [Campaigns]
+      security: [{ bearerAuth: [] }]
+      summary: Enroll leads in a Linked Helper workflow (not confirmation of message delivery)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [leads]
+              properties:
+                leads:
+                  type: array
+                  minItems: 1
+                  maxItems: 10
+                  items:
+                    type: object
+                    required: [campaign_lead_id]
+                    properties:
+                      campaign_lead_id: { type: string, format: uuid }
+                      message: { type: string, minLength: 1, maxLength: 8000 }
+      responses:
+        '200':
+          description: Per-lead results in data.results; accepted, rejected, uncertain or already_submitted. Inspect each result. No automatic retries.
+        '400':
+          description: Invalid LinkedIn profile URL
+        '422':
+          description: Invalid request fields
+        '404':
+          description: Campaign or campaign leads not owned by authenticated user
+        '409':
+          description: Configure campaign webhook first
+
+  /api/campaigns/{id}/linkedin/enrollments:
+    get:
+      tags: [Campaigns]
+      security: [{ bearerAuth: [] }]
+      summary: List Linked Helper enrollment history independently of email status
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, maximum: 100000, default: 1 }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        '200':
+          description: data contains enrollments, total, page, limit. Stored statuses are submitting, accepted, rejected or uncertain.
