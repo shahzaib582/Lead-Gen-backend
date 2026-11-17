@@ -49,10 +49,13 @@ function sleep(ms) {
 async function runScheduledLeadPipeline() {
   if (!process.env.APOLLO_API_KEY || !String(process.env.APOLLO_API_KEY).trim()) {
     logger.warn('[LeadPipelineCron] skipped: APOLLO_API_KEY is not configured');
-    return { skipped: true, reason: 'APOLLO_NOT_CONFIGURED' };
+    const error = new Error('Scheduled lead fetching requires APOLLO_API_KEY.');
+    error.code = 'APOLLO_NOT_CONFIGURED';
+    throw error;
   }
 
   const targets = listPipelineTargets();
+  if (!targets.length) throw new Error('No valid lead pipeline targets are configured.');
   const perPage = resolvePerPage();
   const page = resolvePage();
   const results = [];
@@ -75,6 +78,12 @@ async function runScheduledLeadPipeline() {
         saved: data.saved,
         inserted: data.inserted,
         updated: data.updated,
+        already_verified: data.already_verified || 0,
+        rejected: data.stats
+          ? Object.entries(data.stats)
+              .filter(([key]) => key.startsWith('rejected_'))
+              .reduce((sum, [, count]) => sum + (Number(count) || 0), 0)
+          : 0,
       });
     } catch (err) {
       logger.error('[LeadPipelineCron] category failed', {
@@ -90,7 +99,20 @@ async function runScheduledLeadPipeline() {
   }
 
   const saved = results.reduce((sum, row) => sum + (Number(row.saved) || 0), 0);
-  logger.info('[LeadPipelineCron] finished', { saved, failed: results.filter((r) => r.error).length });
+  logger.info('[LeadPipelineCron] finished', {
+    found: results.reduce((sum, row) => sum + (Number(row.found) || 0), 0),
+    alreadyVerified: results.reduce((sum, row) => sum + (Number(row.already_verified) || 0), 0),
+    rejected: results.reduce((sum, row) => sum + (Number(row.rejected) || 0), 0),
+    saved,
+    failed: results.filter((r) => r.error).length,
+  });
+  if (results.every((row) => row.error)) {
+    const error = new Error(
+      'Every scheduled lead category failed. Inspect LeadPipelineCron category errors.'
+    );
+    error.code = 'LEAD_PIPELINE_ALL_TARGETS_FAILED';
+    throw error;
+  }
   return { skipped: false, page, perPage, saved, results };
 }
 
