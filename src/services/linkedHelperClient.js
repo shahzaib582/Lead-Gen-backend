@@ -76,7 +76,10 @@ async function enroll(webhook, profile, message, fetchImpl = fetch) {
     await response.body?.cancel();
     if (response.ok) return { status: 'accepted', http_status: response.status };
     return {
-      status: response.status >= 400 && response.status < 500 ? 'rejected' : 'uncertain',
+      status:
+        response.status >= 400 && response.status < 500 && response.status !== 408
+          ? 'rejected'
+          : 'uncertain',
       http_status: response.status,
     };
   } catch {

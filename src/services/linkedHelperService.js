@@ -69,16 +69,35 @@ async function enrollLeads(userId, campaignId, leads) {
       rows.map((l) => l.lead_data_id)
     );
   check(profileError);
-  // Validate the complete batch before making external requests.
+  // Ownership is batch-validated above; invalid profile URLs are isolated per lead.
   const prepared = leads.map((lead) => {
     const row = rows.find((r) => r.id === lead.campaign_lead_id);
     const profile = profiles.find((p) => String(p.id) === String(row.lead_data_id));
-    return { ...lead, profile_url: client.profileUrl(profile?.linkedin) };
+    try {
+      return { ...lead, profile_url: client.profileUrl(profile?.linkedin) };
+    } catch (err) {
+      if (err.statusCode !== 400) throw err;
+      return { ...lead, invalid: true };
+    }
   });
   const results = [];
+  const seenProfiles = new Set();
   for (const lead of prepared) {
+    if (lead.invalid) {
+      results.push({
+        campaign_lead_id: lead.campaign_lead_id,
+        status: 'invalid',
+        message: 'Add a valid HTTPS LinkedIn profile URL before retrying.',
+      });
+      continue;
+    }
+    if (seenProfiles.has(lead.profile_url)) {
+      results.push({ campaign_lead_id: lead.campaign_lead_id, status: 'already_submitted' });
+      continue;
+    }
+    seenProfiles.add(lead.profile_url);
     // Durable unique claim prevents concurrent requests and repeated button clicks from enrolling twice.
-    const { data: claim, error: claimError } = await db
+    let { data: claim, error: claimError } = await db
       .from('linked_helper_enrollments')
       .insert({
         campaign_id: campaignId,
@@ -89,6 +108,28 @@ async function enrollLeads(userId, campaignId, leads) {
       })
       .select('id')
       .single();
+    if (claimError?.code === '23505' && lead.retry_rejected === true) {
+      // Atomic compare-and-set: concurrent retries cannot both take a rejected claim.
+      const retry = await db
+        .from('linked_helper_enrollments')
+        .update({
+          status: 'submitting',
+          http_status: null,
+          campaign_lead_id: lead.campaign_lead_id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('campaign_id', campaignId)
+        .eq('user_id', userId)
+        .eq('profile_url', lead.profile_url)
+        .eq('status', 'rejected')
+        .select('id')
+        .maybeSingle();
+      check(retry.error);
+      if (retry.data) {
+        claim = retry.data;
+        claimError = null;
+      }
+    }
     if (claimError?.code === '23505') {
       results.push({ campaign_lead_id: lead.campaign_lead_id, status: 'already_submitted' });
       continue;
@@ -117,4 +158,12 @@ async function listEnrollments(userId, campaignId, page, limit) {
   check(error);
   return { enrollments: data, total: count, page, limit };
 }
-module.exports = { configuration, configure, enrollLeads, listEnrollments };
+async function connectionSummary(userId) {
+  const { count, error } = await db
+    .from('linked_helper_campaigns')
+    .select('campaign_id', { count: 'exact', head: true })
+    .eq('user_id', userId);
+  check(error);
+  return { configured_campaigns: count || 0, workflow_status: 'unverified' };
+}
+module.exports = { connectionSummary, configuration, configure, enrollLeads, listEnrollments };

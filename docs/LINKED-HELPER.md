@@ -16,7 +16,7 @@ All routes use the usual Bearer token, enforce campaign ownership, and are below
 
 - `GET /configuration`: `{ configured, updated_at }` inside the normal success envelope.
 - `PUT /configuration`: body `{ "webhook_url": "https://<vendor-host>/<secret-webhook>" }`.
-- `POST /enroll`: body `{ "leads": [{ "campaign_lead_id": "<uuid>", "message": "Hello Jane, ..." }] }`. Up to 10 leads per request; message is optional (maximum 8,000 characters). Each existing campaign lead must reference a `leads_data` row with a valid HTTPS `linkedin.com/in/` URL. Sales Navigator URLs are currently rejected. The entire batch is validated before sending.
+- `POST /enroll`: body `{ "leads": [{ "campaign_lead_id": "<uuid>", "message": "Hello Jane, ..." }] }`. Up to 10 leads per request; message is optional (maximum 8,000 characters). Each existing campaign lead must reference a `leads_data` row with a valid HTTPS `linkedin.com/in/` URL. Sales Navigator URLs are currently rejected. Campaign ownership is checked for the entire batch before sending. Invalid LinkedIn profile URLs return a per-lead invalid result without blocking valid profiles.
 - `GET /enrollments?page=1&limit=20`: paginated enrollment history with lead IDs and statuses (maximum page size 100).
 
 Custom messages are passed as the `cs_message` custom field; insert that custom variable using Linked Helper's template editor in its message action. If you omit `message`, configure the Linked Helper workflow's own template. `cs_source` is `lead-gen`. Email HTML templates are never reused as LinkedIn messages.
@@ -31,11 +31,13 @@ The enroll endpoint sends the documented `{ payload: { people: [{ externalId, cu
 - `submitting`: durable claim exists; a process interruption or failed status write may leave this state indefinitely. Treat it as uncertain.
 - `already_submitted`: the campaign/profile pair was previously claimed. Inspect enrollment history for its stored state.
 
-A unique database constraint on campaign/profile prevents concurrent or repeated enrollment. No automatic retries are made, including after rejection. Before any manual reset of a claim, confirm in Linked Helper that enrollment did not occur. Changing a webhook does not reset claims. Different campaigns can intentionally enroll the same profile. Cross-campaign contact suppression is not provided.
+A unique database constraint on campaign/profile prevents concurrent or repeated enrollment. No automatic retries are made. To retry a definite rejection after correcting configuration, explicitly submit the lead again with retry_rejected set to true. The claim changes from rejected to submitting atomically, so concurrent retries cannot both enroll. Accepted, uncertain, and submitting claims cannot be reclaimed. HTTP 408 is treated as uncertain. Before any manual reset of an uncertain claim, confirm in Linked Helper that enrollment did not occur. Changing a webhook does not reset claims. Different campaigns can intentionally enroll the same profile. Cross-campaign contact suppression is not provided.
 
-There is no automatic reply/delivery callback integration in this release: outgoing webhook mappings vary by Linked Helper workflow, and must be verified against a real payload before introducing sent/replied states. Enrollment history never changes Gmail status or marks the local campaign completed. There is no frontend screen yet; these endpoints can be used by the frontend or an authenticated API client.
+There is no automatic reply/delivery callback integration in this release: outgoing webhook mappings vary by Linked Helper workflow, and must be verified against a real payload before introducing sent/replied states. Enrollment history never changes Gmail status or marks the local campaign completed. The sibling sales-lead-automation-frontend repository provides a LinkedIn outreach panel in campaign details for webhook configuration, per-lead enrollment, and enrollment history. See its docs/LINKED-HELPER.md for usage and rollout requirements.
 
 ## References
 
 - [Official incoming webhook schema and setup](https://support.linkedhelper.com/hc/en-us/articles/37041823852946-Incoming-webhooks)
 - [Cloud Storage, standby mode, and custom message support](https://www.linkedhelper.com/features/incoming-webhooks)
+
+Settings uses `GET /api/campaigns/linkedin-status` to show the authenticated user’s saved webhook count. This reports saved configuration only; it does not contact Linked Helper or verify live workflow connectivity.

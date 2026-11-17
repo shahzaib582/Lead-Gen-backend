@@ -81,6 +81,7 @@ it('Linked Helper never retries network errors or server failures', async () => 
   for (const [status, expected] of [
     [400, 'rejected'],
     [429, 'rejected'],
+    [408, 'uncertain'],
     [500, 'uncertain'],
   ]) {
     const outcome = await client.enroll(
@@ -92,17 +93,26 @@ it('Linked Helper never retries network errors or server failures', async () => 
     assert.equal(outcome.status, expected);
   }
 });
-function serviceStub({ duplicate = false, ownerMissing = false, updateFails = false } = {}) {
+function serviceStub({
+  duplicate = false,
+  ownerMissing = false,
+  updateFails = false,
+  mixed = false,
+  reclaimable = false,
+} = {}) {
+  let retryAvailable = reclaimable;
   let sends = 0;
   let claims = 0;
   const database = {
     from(table) {
       let operation = 'read';
+      const filters = {};
       const q = {
         select() {
           return q;
         },
-        eq() {
+        eq(name, value) {
+          filters[name] = value;
           return q;
         },
         in() {
@@ -112,8 +122,8 @@ function serviceStub({ duplicate = false, ownerMissing = false, updateFails = fa
           operation = 'insert';
           return q;
         },
-        update() {
-          operation = 'update';
+        update(fields) {
+          operation = fields.status === 'submitting' ? 'retry' : 'update';
           return q;
         },
         single() {
@@ -127,12 +137,25 @@ function serviceStub({ duplicate = false, ownerMissing = false, updateFails = fa
           if (table === 'campaigns') value = { data: ownerMissing ? null : { id: 'c' } };
           if (table === 'linked_helper_campaigns')
             value = { data: { webhook_encrypted: 'encrypted' } };
-          if (table === 'campaign_leads') value = { data: [{ id: 'lead', lead_data_id: '42' }] };
+          if (table === 'campaign_leads')
+            value = {
+              data: [
+                { id: 'lead', lead_data_id: '42' },
+                ...(mixed ? [{ id: 'bad', lead_data_id: '43' }] : []),
+              ],
+            };
           if (table === 'leads_data')
             value = { data: [{ id: '42', linkedin: 'https://linkedin.com/in/test/' }] };
           if (table === 'linked_helper_enrollments' && operation === 'insert') {
             claims++;
             value = duplicate ? { error: { code: '23505' } } : { data: { id: 'claim' } };
+          }
+          if (table === 'linked_helper_enrollments' && operation === 'retry') {
+            assert.equal(filters.status, 'rejected');
+            assert.equal(filters.user_id, 'u');
+            assert.equal(filters.campaign_id, 'c');
+            value = { data: retryAvailable ? { id: 'retry-claim' } : null };
+            retryAvailable = false;
           }
           if (table === 'linked_helper_enrollments' && operation === 'update')
             value = updateFails ? { error: { code: 'storage' } } : {};
@@ -210,4 +233,71 @@ it('Linked Helper rejects a batch with unknown leads before any durable claims',
   );
   assert.equal(stub.claims(), 0);
   assert.equal(stub.sends(), 0);
+});
+it('Linked Helper invalid profile does not block valid leads in the same batch', async () => {
+  const stub = serviceStub({ mixed: true });
+  const response = await stub.service.enrollLeads('u', 'c', [
+    { campaign_lead_id: 'bad' },
+    { campaign_lead_id: 'lead' },
+  ]);
+  assert.equal(response.results[0].status, 'invalid');
+  assert.equal(response.results[1].status, 'accepted');
+  assert.equal(stub.claims(), 1);
+  assert.equal(stub.sends(), 1);
+});
+it('Linked Helper explicit rejected retry atomically takes the rejected claim only once', async () => {
+  const stub = serviceStub({ duplicate: true, reclaimable: true });
+  const input = [{ campaign_lead_id: 'lead', retry_rejected: true }];
+  const first = await stub.service.enrollLeads('u', 'c', input);
+  const second = await stub.service.enrollLeads('u', 'c', input);
+  assert.equal(first.results[0].status, 'accepted');
+  assert.equal(second.results[0].status, 'already_submitted');
+  assert.equal(stub.sends(), 1);
+});
+it('Linked Helper explicit retry cannot take accepted or uncertain claims', async () => {
+  const stub = serviceStub({ duplicate: true });
+  const response = await stub.service.enrollLeads('u', 'c', [
+    { campaign_lead_id: 'lead', retry_rejected: true },
+  ]);
+  assert.equal(response.results[0].status, 'already_submitted');
+  assert.equal(stub.sends(), 0);
+});
+it('Linked Helper rejection is never retried without an explicit flag', async () => {
+  const stub = serviceStub({ duplicate: true, reclaimable: true });
+  const response = await stub.service.enrollLeads('u', 'c', [{ campaign_lead_id: 'lead' }]);
+  assert.equal(response.results[0].status, 'already_submitted');
+  assert.equal(stub.sends(), 0);
+});
+it('Linked Helper Settings summary counts only the authenticated user configuration and stays unverified', async () => {
+  const service = loadService('src/services/linkedHelperService.js', {
+    '../config/supabase': {
+      from(table) {
+        assert.equal(table, 'linked_helper_campaigns');
+        return {
+          select(columns, options) {
+            assert.equal(columns, 'campaign_id');
+            assert.deepEqual(options, { count: 'exact', head: true });
+            return {
+              eq(field, value) {
+                assert.equal(field, 'user_id');
+                assert.equal(value, 'owner');
+                return Promise.resolve({ count: 2 });
+              },
+            };
+          },
+        };
+      },
+    },
+  });
+  assert.deepEqual(await service.connectionSummary('owner'), {
+    configured_campaigns: 2,
+    workflow_status: 'unverified',
+  });
+});
+it('Linked Helper never submits the same profile twice within one explicit retry batch', async () => {
+  const stub = serviceStub();
+  const input = { campaign_lead_id: 'lead', retry_rejected: true };
+  const response = await stub.service.enrollLeads('u', 'c', [input, input]);
+  assert.equal(stub.sends(), 1);
+  assert.equal(response.results[1].status, 'already_submitted');
 });

@@ -4031,10 +4031,16 @@ paths:
                     required: [campaign_lead_id]
                     properties:
                       campaign_lead_id: { type: string, format: uuid }
+                      retry_rejected:
+                        {
+                          type: boolean,
+                          default: false,
+                          description: Explicitly retry only a previously rejected enrollment,
+                        }
                       message: { type: string, minLength: 1, maxLength: 8000 }
       responses:
         '200':
-          description: Per-lead results in data.results; accepted, rejected, uncertain or already_submitted. Inspect each result. No automatic retries.
+          description: Per-lead results in data.results; accepted, rejected, invalid, uncertain or already_submitted. Invalid profiles are isolated per lead. Inspect each result. No automatic retries.
         '400':
           description: Invalid LinkedIn profile URL
         '422':
@@ -4063,3 +4069,12 @@ paths:
       responses:
         '200':
           description: data contains enrollments, total, page, limit. Stored statuses are submitting, accepted, rejected or uncertain.
+
+  /api/campaigns/linkedin-status:
+    get:
+      tags: [Campaigns]
+      security: [{ bearerAuth: [] }]
+      summary: Count the authenticated user's saved campaign webhooks (not live connectivity)
+      responses:
+        '200':
+          description: data.configured_campaigns is an integer; data.workflow_status is unverified. Secrets are never returned.

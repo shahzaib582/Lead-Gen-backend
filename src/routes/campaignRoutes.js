@@ -34,6 +34,15 @@ router.get(
 router.use(authenticate);
 router.use(campaignLimiter);
 
+router.get('/linkedin-status', async (req, res, next) => {
+  try {
+    const data = await require('../services/linkedHelperService').connectionSummary(req.user.id);
+    return require('../utils/response').successResponse(res, 200, undefined, data);
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.use('/:id/linkedin', require('./linkedHelperRoutes'));
 router.use('/:id/leads', campaignLeadsRoutes);
 router.use('/:id/follow-ups', campaignFollowUpsRoutes);

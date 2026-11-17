@@ -28,6 +28,7 @@ router.post(
   '/enroll',
   body('leads').isArray({ min: 1, max: 10 }),
   body('leads.*.campaign_lead_id').isUUID(),
+  body('leads.*.retry_rejected').optional().isBoolean({ strict: true }),
   body('leads.*.message').optional().isString().isLength({ min: 1, max: 8000 }),
   validate,
   handle((req) => service.enrollLeads(req.user.id, req.params.id, req.body.leads))
